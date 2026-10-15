@@ -18,8 +18,9 @@ const h = vi.hoisted(() => {
     attachments: [] as PromptInput[],
     editor: { isDestroyed: false },
     fieldArgs: null as null | { onSubmit: (options?: { modifierEnter?: boolean }) => void },
-    voiceArgs: null as null | { onTranscript: (text: string) => void; ownerKey?: string },
+    voiceArgs: null as null | { onTranscript: (text: string) => void; ownerKey?: string; enabled?: boolean },
     frozenSend: null as null | ((text: string) => Promise<void>),
+    voiceEnabled: true,
     voice: { state: 'idle', stream: null, canRetry: false, isSupported: true, available: true, canStart: true,
       stop: vi.fn(), retry: vi.fn(), start: vi.fn(), cancel: vi.fn() },
     options: {
@@ -47,7 +48,7 @@ const h = vi.hoisted(() => {
 vi.mock('../store.js', () => ({
   useData: (select: (state: unknown) => unknown) => select({ projects: [h.project], lastProjectId: 'p1',
     loadProjects: h.loadProjects, defaultHarness: 'codex', composerSendMode: 'queue-if-active',
-    setComposerSendMode: vi.fn(), nativeAgentDiscoveryEnabled: false }),
+    setComposerSendMode: vi.fn(), nativeAgentDiscoveryEnabled: false, voiceInputEnabled: h.voiceEnabled }),
   useUi: Object.assign((select: (state: unknown) => unknown) => select({ selectedProjectId: 'p1' }),
     { getState: () => ({ appendHostInstallLogs: h.appendLogs, setHostInstallDrawerOpen: h.setDrawerOpen }) })
 }));
@@ -111,7 +112,7 @@ vi.mock('./thread/pickers/ComposerSendModePicker.js', () => ({ ComposerSendModeP
 beforeEach(() => {
   vi.clearAllMocks();
   h.text = 'Draft'; h.images = []; h.attachments = []; h.editor.isDestroyed = false;
-  h.voice.state = 'idle'; h.voice.canRetry = false; h.frozenSend = null;
+  h.voice.state = 'idle'; h.voice.canRetry = false; h.frozenSend = null; h.voiceEnabled = true;
   h.options.rosterReady = true; h.options.serviceTierOptions = undefined; h.options.registeredProviderIds = ['codex'];
   h.navigateOnCreate = false; h.hostBlocked = false; h.cliBlocked = false;
   h.threads = [{ id: 't1', hostId: 'host1', projectId: 'p1' }];
@@ -309,6 +310,30 @@ describe('Modern composer voice submission', () => {
     render(composer({ status }));
     fireEvent.click(screen.getByRole('button', { name: 'Transcribe and send recording' }));
     expect(h.voice.stop).not.toHaveBeenCalled();
+  });
+});
+
+describe('Modern composer voice gating', () => {
+  it('shows the mic and enables voice when the experience option is on', () => {
+    h.voiceEnabled = true;
+    render(composer());
+    expect(screen.getByRole('button', { name: 'Start voice input' })).toBeTruthy();
+    expect(h.voiceArgs).toEqual(expect.objectContaining({ enabled: true }));
+  });
+
+  it('hides the mic and disables voice when the experience option is off', () => {
+    h.voiceEnabled = false;
+    render(composer());
+    expect(screen.queryByRole('button', { name: 'Start voice input' })).toBeNull();
+    expect(h.voiceArgs).toEqual(expect.objectContaining({ enabled: false }));
+  });
+
+  it('keeps an in-flight recording visible when the option is off', () => {
+    h.voiceEnabled = false;
+    h.voice.state = 'recording';
+    render(composer());
+    expect(screen.queryByRole('button', { name: 'Start voice input' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Stop and transcribe recording' })).toBeTruthy();
   });
 });
 

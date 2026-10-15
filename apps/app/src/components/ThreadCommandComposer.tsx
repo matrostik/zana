@@ -214,6 +214,7 @@ export function ThreadCommandComposer({
   const hydratedRequestedRef = useRef<string | null>(null);
   const composerSendMode = useData((s) => s.composerSendMode);
   const setComposerSendMode = useData((s) => s.setComposerSendMode);
+  const voiceInputEnabled = useData((s) => s.voiceInputEnabled);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [navigateOnCreatePreference] = useBooleanPreference(
     NAVIGATE_TO_THREAD_ON_CREATE_KEY,
@@ -480,7 +481,7 @@ export function ThreadCommandComposer({
 
   const voiceOwner = JSON.stringify([threadId ?? null, projectId, hostId ?? null]);
   const receiveTranscript = useCallback((text: string) => appendVoiceDraft(voiceOwner, text), [voiceOwner]);
-  const voice = useVoiceInput({ onTranscript: receiveTranscript, ownerKey: voiceOwner });
+  const voice = useVoiceInput({ onTranscript: receiveTranscript, ownerKey: voiceOwner, enabled: voiceInputEnabled });
   useEffect(() => {
     const deliver = () => {
       if (!field.editor || field.editor.isDestroyed) return;
@@ -1026,6 +1027,7 @@ export function ThreadCommandComposer({
                       : undefined
                   }
                 />
+                {voiceInputEnabled && (
                 <span
                   className="composer-control-tooltip"
                   data-tooltip={
@@ -1052,6 +1054,7 @@ export function ThreadCommandComposer({
                     <span className="thread-command-action-label" aria-hidden="true">Voice input</span>
                   </ComposerIconButton>
                 </span>
+                )}
               </>
             }
             stop={
