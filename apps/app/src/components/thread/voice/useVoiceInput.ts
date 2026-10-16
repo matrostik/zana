@@ -30,6 +30,7 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
   const [available, setAvailable] = useState(false);
   const [blockReason, setBlockReason] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const engineRef = useRef<'cloud' | 'local'>('cloud');
 
   const showError = useCallback((message: string) => {
     setState('error');
@@ -42,15 +43,29 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
       setBlockReason(null);
       return;
     }
-    void product.voice.status().then((status) => {
-      // Cloud only needs a connected host; local needs its binary + model.
-      const ok = status.enabled && (status.engine !== 'local' || status.ready === true);
-      setAvailable(ok);
-      setBlockReason(ok ? null : voiceStatusBlockReason(status));
-    }).catch(() => {
-      setAvailable(false);
-      setBlockReason('Host daemon is not connected');
-    });
+    const refresh = () => {
+      void product.voice.status().then((status) => {
+        engineRef.current = status.engine;
+        // Cloud only needs a connected host; local needs its binary + model.
+        const ok = status.enabled && (status.engine !== 'local' || status.ready === true);
+        setAvailable(ok);
+        setBlockReason(ok ? null : voiceStatusBlockReason(status));
+      }).catch(() => {
+        setAvailable(false);
+        setBlockReason('Host daemon is not connected');
+      });
+    };
+    refresh();
+
+    const unsubConfig = product.config?.onChanged ? product.config.onChanged(() => refresh()) : undefined;
+    const unsubVoice = product.voice?.onStatusChanged ? product.voice.onStatusChanged(() => refresh()) : undefined;
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      unsubConfig?.();
+      unsubVoice?.();
+      window.removeEventListener('focus', onFocus);
+    };
   }, [enabled]);
 
   const uniqueId = useId();
@@ -69,7 +84,7 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
       next.session = createVoiceCapture(
         {
           ensureMicAccess: () => product.voice.ensureMicAccess(),
-          transcribe: (audio, mimeType) => product.voice.transcribe(audio, mimeType),
+          transcribe: (audio, mimeType) => product.voice.transcribe(audio, mimeType, engineRef.current),
           getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints)
         },
         {

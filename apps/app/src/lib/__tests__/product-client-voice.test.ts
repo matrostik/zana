@@ -97,3 +97,30 @@ it('manages local models through the system routes', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'voice_model_busy', message: 'busy' }, { status: 503 })));
   await expect(product.voice.downloadModel('tiny')).rejects.toThrow('busy');
 });
+
+it('skips voice-status call when engine is provided by the caller', async () => {
+  const fetchMock = vi.fn(async (url: string) => {
+    if (String(url).includes('/system/voice-status')) {
+      throw new Error('should not call voice-status');
+    }
+    return Response.json({ text: 'transcribed text' });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  await expect(product.voice.transcribe(btoa('audio'), 'audio/webm', 'cloud')).resolves.toMatchObject({
+    ok: true,
+    text: 'transcribed text'
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(String(fetchMock.mock.calls[0][0])).toContain('voice-transcription');
+});
+
+it('notifies voice status changed subscribers', () => {
+  const listener = vi.fn();
+  const unsub = product.voice.onStatusChanged(listener);
+  product.voice.notifyStatusChanged();
+  expect(listener).toHaveBeenCalledTimes(1);
+  unsub();
+  product.voice.notifyStatusChanged();
+  expect(listener).toHaveBeenCalledTimes(1);
+});
+

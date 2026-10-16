@@ -8,7 +8,10 @@ import { VOICE_MODEL_CATALOG, type VoiceModelEntry } from './model-catalog.js';
 const STAGED_PREFIX = '.staged-';
 const DEFAULT_STALL_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_CONCURRENT_DOWNLOADS = 2;
-const ERROR_MESSAGE_MAX = 300;
+/** Floor for the overall download budget so tiny models are never cut off. */
+const MIN_OVERALL_TIMEOUT_MS = 5 * 60_000;
+/** Sustained speed a healthy download must average; slower holds abort. */
+const MIN_AVG_BYTES_PER_SEC = 50 * 1024;
 
 export interface VoiceModelStoreDeps {
   dataDir: string;
@@ -16,6 +19,8 @@ export interface VoiceModelStoreDeps {
   catalog?: readonly VoiceModelEntry[];
   /** Abort a download when no bytes arrive for this long. */
   stallTimeoutMs?: number;
+  /** Abort a download running longer than this; defaults per model size. */
+  overallTimeoutMs?: number;
   maxConcurrentDownloads?: number;
 }
 
@@ -28,10 +33,6 @@ interface DownloadJob {
 
 class DownloadFailure extends Error {}
 
-function boundedMessage(message: string): string {
-  return message.length > ERROR_MESSAGE_MAX ? `${message.slice(0, ERROR_MESSAGE_MAX - 1)}…` : message;
-}
-
 /**
  * Downloads pinned whisper.cpp models into `<dataDir>/voice-models/<sha256>/`.
  * Each download streams into a uniquely named 0600 staged file, is verified
@@ -43,6 +44,7 @@ export class VoiceModelStore {
   private readonly fetchImpl: typeof fetch;
   private readonly catalog: readonly VoiceModelEntry[];
   private readonly stallTimeoutMs: number;
+  private readonly overallTimeoutMs: number | undefined;
   private readonly maxConcurrentDownloads: number;
   private readonly jobs = new Map<VoiceLocalModelId, DownloadJob>();
   private readonly failures = new Map<VoiceLocalModelId, string>();
@@ -54,7 +56,13 @@ export class VoiceModelStore {
     this.fetchImpl = deps.fetchImpl ?? fetch;
     this.catalog = deps.catalog ?? VOICE_MODEL_CATALOG;
     this.stallTimeoutMs = deps.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS;
+    this.overallTimeoutMs = deps.overallTimeoutMs;
     this.maxConcurrentDownloads = deps.maxConcurrentDownloads ?? DEFAULT_MAX_CONCURRENT_DOWNLOADS;
+  }
+
+  /** Overall budget for a download: a slow drip must average 50 KB/s. */
+  overallBudgetMs(sizeBytes: number): number {
+    return this.overallTimeoutMs ?? Math.max(MIN_OVERALL_TIMEOUT_MS, Math.ceil(sizeBytes / MIN_AVG_BYTES_PER_SEC) * 1000);
   }
 
   /** Path of a verified installed model, or null. */
@@ -89,17 +97,32 @@ export class VoiceModelStore {
     await this.ready();
     this.assertOpen();
     const model = this.entry(id);
-    if (this.jobs.has(id) || await this.installedPath(id)) return;
+    if (this.jobs.has(id)) return;
     if (this.jobs.size >= this.maxConcurrentDownloads) {
       throw new HostCommandError('voice_model_busy', 'Another model download is in progress. Try again when it finishes.');
     }
-    this.failures.delete(id);
+    // Claim the slot before awaiting so a concurrent call for the same id
+    // sees this job instead of starting a second one.
     const job: DownloadJob = { controller: new AbortController(), receivedBytes: 0, cancelled: false, done: Promise.resolve() };
     this.jobs.set(id, job);
+    let installed: string | null;
+    try {
+      installed = await this.installedPath(id);
+    } catch (error) {
+      this.jobs.delete(id);
+      throw error;
+    }
+    if (installed || job.cancelled || this.disposed) {
+      this.jobs.delete(id);
+      return;
+    }
+    this.failures.delete(id);
     job.done = this.runDownload(model, job)
       .catch((error: unknown) => {
         if (job.cancelled) return;
-        this.failures.set(id, boundedMessage(error instanceof DownloadFailure ? error.message : `Download failed: ${error instanceof Error ? error.message : String(error)}`));
+        // Fixed user message: OS errors (EACCES/ENOSPC) carry absolute paths
+        // that must not reach the renderer; detail stays in the daemon.
+        this.failures.set(id, error instanceof DownloadFailure ? error.message : 'Download failed. Check disk space and permissions, then try again.');
       })
       .finally(() => {
         if (this.jobs.get(id) === job) this.jobs.delete(id);
@@ -187,17 +210,23 @@ export class VoiceModelStore {
     const staged = join(dir, `${STAGED_PREFIX}${randomUUID()}`);
     const { signal } = job.controller;
     let stalled = false;
+    let overallExpired = false;
+    const handle = await open(staged, 'wx', 0o600);
+    let handleOpen = true;
     const stallTimer = setTimeout(() => {
       stalled = true;
       job.controller.abort();
     }, this.stallTimeoutMs);
-    const handle = await open(staged, 'wx', 0o600);
-    let handleOpen = true;
+    const overallTimer = setTimeout(() => {
+      overallExpired = true;
+      job.controller.abort();
+    }, this.overallBudgetMs(model.sizeBytes));
     try {
       let response: Response;
       try {
         response = await this.fetchImpl(model.url, { signal, redirect: 'follow' });
       } catch (error) {
+        if (overallExpired) throw new DownloadFailure('Download timed out. Check the connection and try again.');
         if (stalled) throw new DownloadFailure('Download stalled. Check the connection and try again.');
         throw error;
       }
@@ -214,6 +243,7 @@ export class VoiceModelStore {
       try {
         for (;;) {
           const chunk = await reader.read().catch((error: unknown) => {
+            if (overallExpired) throw new DownloadFailure('Download timed out. Check the connection and try again.');
             if (stalled) throw new DownloadFailure('Download stalled. Check the connection and try again.');
             throw error;
           });
@@ -230,7 +260,10 @@ export class VoiceModelStore {
         // Releases the connection when we stop early (size cap, abort).
         await reader.cancel().catch(() => undefined);
       }
-      if (signal.aborted) throw new DownloadFailure('Download cancelled.');
+      if (signal.aborted) {
+        if (overallExpired) throw new DownloadFailure('Download timed out. Check the connection and try again.');
+        throw new DownloadFailure('Download cancelled.');
+      }
       if (job.receivedBytes !== model.sizeBytes) {
         throw new DownloadFailure('The download ended before the full file arrived.');
       }
@@ -242,6 +275,7 @@ export class VoiceModelStore {
       await rename(staged, this.modelPath(model));
     } finally {
       clearTimeout(stallTimer);
+      clearTimeout(overallTimer);
       if (handleOpen) await handle.close().catch(() => undefined);
       await rm(staged, { force: true });
     }

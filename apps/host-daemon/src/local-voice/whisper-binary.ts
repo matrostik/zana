@@ -1,6 +1,7 @@
 import { constants as fsConstants } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { access, realpath, stat } from 'node:fs/promises';
-import { delimiter, isAbsolute, join } from 'node:path';
+import { delimiter, isAbsolute, join, relative } from 'node:path';
 import type { VoiceLocalBinaryStatus } from '@zana-ai/zcc-contracts/host-rpc';
 import { runCaptured, type CapturedRunner } from './captured-run.js';
 
@@ -15,6 +16,9 @@ export interface WhisperBinaryDeps {
   run?: CapturedRunner;
   /** Extra locations checked after PATH; defaults per platform. */
   knownLocations?: readonly string[];
+  /** Overridden in tests; defaults to the process home/temp dirs. */
+  homeDir?: string;
+  tmpDir?: string;
 }
 
 function binaryName(platform: NodeJS.Platform): string {
@@ -50,6 +54,19 @@ export function looksLikeWhisperHelp(output: string): boolean {
   return /usage:/iu.test(output) && REQUIRED_HELP_FLAGS.every((flag) => output.includes(flag));
 }
 
+/** A configured binary under a temp or Downloads dir is refused: those are the
+ *  easiest places for a compromised renderer/plugin to drop a lookalike
+ *  executable. Move it to a permanent location (or put it on PATH). */
+export function isRiskyConfiguredPath(resolvedPath: string, roots: { homeDir: string; tmpDir: string }): boolean {
+  const lower = (s: string) => (process.platform === 'win32' ? s.toLowerCase() : s);
+  const under = (root: string) => {
+    const rel = relative(lower(root), lower(resolvedPath));
+    return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+  };
+  const downloads = join(roots.homeDir, 'Downloads');
+  return under(roots.tmpDir) || under(downloads);
+}
+
 /**
  * Locates and probes `whisper-cli`. A configured path is authoritative (no
  * silent PATH fallback); otherwise PATH then known install locations. Probe
@@ -61,12 +78,16 @@ export class WhisperBinaryResolver {
   private readonly run: CapturedRunner;
   private readonly knownLocations: readonly string[];
   private readonly probeCache = new Map<string, Promise<boolean>>();
+  private readonly homeDir: string;
+  private readonly tmpDir: string;
 
   constructor(deps: WhisperBinaryDeps = {}) {
     this.platform = deps.platform ?? process.platform;
     this.env = deps.env ?? process.env;
     this.run = deps.run ?? runCaptured;
     this.knownLocations = deps.knownLocations ?? defaultKnownLocations(this.platform);
+    this.homeDir = deps.homeDir ?? homedir();
+    this.tmpDir = deps.tmpDir ?? tmpdir();
   }
 
   async resolve(configuredPath: string | undefined): Promise<VoiceLocalBinaryStatus> {
@@ -78,6 +99,9 @@ export class WhisperBinaryResolver {
       const file = await executableFile(configured, this.platform);
       if (!file) {
         return { state: 'invalid', path: configured, source: 'config', message: 'The configured whisper-cli path is not an executable file.' };
+      }
+      if (isRiskyConfiguredPath(file.path, { homeDir: this.homeDir, tmpDir: this.tmpDir })) {
+        return { state: 'invalid', path: file.path, source: 'config', message: 'The configured whisper-cli lives in a temp or Downloads folder. Move it to a permanent location.' };
       }
       if (!(await this.probe(file))) {
         return { state: 'invalid', path: file.path, source: 'config', message: 'The configured file did not respond like whisper-cli.' };

@@ -20,15 +20,18 @@ is selected and not ready, the mic is disabled with the reason
 the cloud.
 
 `voiceLanguage` (ISO-639, e.g. `en`) is sent as a hint to OpenAI API-key and
-local transcription; empty means auto-detect. The Codex ChatGPT backend
-always auto-detects.
+local transcription; empty means auto-detect. Invalid language hints (not
+matching two- or three-letter ISO-639 codes) silently fall back to auto-detect.
+The Codex ChatGPT backend always auto-detects.
 
 ## Setting up local transcription
 
 1. Install `whisper-cli` **on the host computer** (the machine whose daemon
    the app is connected to), e.g. `brew install whisper-cpp` on macOS.
    The daemon finds it on `PATH` (plus Homebrew locations on macOS), or set
-   an absolute path in **whisper-cli path** (`voiceWhisperBinary`).
+   an absolute path in **whisper-cli path** (`voiceWhisperBinary`). The
+   `whisper-cli` path setting applies only to the machine it is set on, because
+   remote hosts read their own configuration.
 2. Pick a **Local model** and press **Download** in the model manager. The
    host streams the file from Hugging Face (`ggerganov/whisper.cpp`, pinned
    revision), verifies length + sha256, then installs it under
@@ -60,6 +63,7 @@ Transcription failures surface the same vocabulary over
 | HTTP | cause |
 |---|---|
 | 400 | bad audio (`invalid_request`) |
+| 409 | multiple connected hosts without a resolved target (`ambiguous_host`) |
 | 501 | outdated daemon (`unknown_command`) or missing Codex login (cloud) |
 | 503 | binary/model missing, transcriber busy, rate-limit, keychain locked |
 | 504 | transcription or RPC timeout |

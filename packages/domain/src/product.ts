@@ -4051,12 +4051,24 @@ export interface VoiceTranscribeResult {
 }
 
 /** GET /api/v1/system/voice-status: whether dictation can run right now. */
+export type VoiceStatusReason =
+  | 'no_host'
+  | 'voice_disabled'
+  | 'ambiguous_host'
+  | 'daemon_outdated'
+  | 'status_failed'
+  | 'binary_missing'
+  | 'binary_invalid'
+  | 'model_not_installed'
+  | 'model_downloading'
+  | 'model_failed';
+
 export interface VoiceStatusResponse {
   enabled: boolean;
   engine: 'cloud' | 'local';
   ready: boolean;
   /** Machine-readable reason when not ready; null when ready. */
-  reason: string | null;
+  reason: VoiceStatusReason | null;
 }
 
 export interface VoiceLocalBinaryStatusResponse {

@@ -1,8 +1,22 @@
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runCaptured } from './captured-run.js';
+
+const fsHooks = vi.hoisted(() => ({ failStderrOpen: false }));
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    openSync: ((path: Parameters<typeof actual.openSync>[0], ...rest: unknown[]) => {
+      if (fsHooks.failStderrOpen && String(path).endsWith('.err')) {
+        throw Object.assign(new Error('EMFILE: too many open files'), { code: 'EMFILE' });
+      }
+      return (actual.openSync as (...args: unknown[]) => number)(path, ...rest);
+    }) as typeof actual.openSync
+  };
+});
 
 const dirs: string[] = [];
 afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
@@ -73,6 +87,18 @@ describe('runCaptured', () => {
     const before = new Set(leftoverCaptureFiles());
     await expect(runCaptured(join(tmpdir(), 'zcc-definitely-missing-binary'), [], { timeoutMs: 1000, maxOutputBytes: 1024 }))
       .rejects.toThrow();
+    expect(leftoverCaptureFiles().filter((name) => !before.has(name))).toEqual([]);
+  });
+
+  it('removes the stdout capture file when the stderr file cannot be opened', async () => {
+    const before = new Set(leftoverCaptureFiles());
+    fsHooks.failStderrOpen = true;
+    try {
+      await expect(runCaptured(process.execPath, ['-e', ''], { timeoutMs: 1000, maxOutputBytes: 1024, separateStderr: true }))
+        .rejects.toThrow(/EMFILE/);
+    } finally {
+      fsHooks.failStderrOpen = false;
+    }
     expect(leftoverCaptureFiles().filter((name) => !before.has(name))).toEqual([]);
   });
 });

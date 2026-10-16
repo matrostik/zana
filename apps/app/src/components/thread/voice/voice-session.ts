@@ -6,6 +6,7 @@ import {
   normalizeTranscript,
   resolvePreferredAudioMimeType,
   resolveRecordingErrorMessage,
+  SPEECH_MAX_SECONDS,
   type VoiceInputState
 } from './voice-helpers.js';
 
@@ -43,6 +44,7 @@ export function createVoiceCapture(
   let startedAtMs: number | null = null;
   let shouldTranscribe = true;
   let transcriptionAbort: AbortController | null = null;
+  let maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
   let state: VoiceInputState = 'idle';
   let generation = 0;
   let retryRecording: { file: File; mimeType: string } | null = null;
@@ -122,12 +124,22 @@ export function createVoiceCapture(
         ? new MediaRecorder(nextStream, { mimeType: preferredMimeType })
         : new MediaRecorder(nextStream);
       mediaRecorder = recorder;
-      recorder.onstart = () => setState('recording');
+      recorder.onstart = () => {
+        setState('recording');
+        if (maxDurationTimer) clearTimeout(maxDurationTimer);
+        maxDurationTimer = setTimeout(() => {
+          stop();
+        }, SPEECH_MAX_SECONDS * 1000);
+      };
       recorder.ondataavailable = (event: BlobEvent) => {
         if (event.data.size > 0) chunks.push(event.data);
       };
       recorder.onerror = () => fail('Voice recording failed');
       recorder.onstop = async () => {
+        if (maxDurationTimer) {
+          clearTimeout(maxDurationTimer);
+          maxDurationTimer = null;
+        }
         stopMediaStream();
         if (!shouldTranscribe) {
           shouldTranscribe = true;
@@ -155,6 +167,10 @@ export function createVoiceCapture(
       };
       recorder.start(CHUNK_TIMESLICE_MS);
     } catch (error) {
+      if (maxDurationTimer) {
+        clearTimeout(maxDurationTimer);
+        maxDurationTimer = null;
+      }
       stopMediaStream();
       mediaRecorder = null;
       chunks = [];
@@ -164,6 +180,10 @@ export function createVoiceCapture(
   };
 
   const stop = () => {
+    if (maxDurationTimer) {
+      clearTimeout(maxDurationTimer);
+      maxDurationTimer = null;
+    }
     if (state !== 'recording') return;
     if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
     shouldTranscribe = true;
@@ -176,6 +196,10 @@ export function createVoiceCapture(
 
   const cancel = () => {
     generation++;
+    if (maxDurationTimer) {
+      clearTimeout(maxDurationTimer);
+      maxDurationTimer = null;
+    }
     retryRecording = null;
     if (state === 'recording') {
       if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -197,6 +221,10 @@ export function createVoiceCapture(
 
   const dispose = (options?: { preserveTranscription?: boolean }) => {
     generation++;
+    if (maxDurationTimer) {
+      clearTimeout(maxDurationTimer);
+      maxDurationTimer = null;
+    }
     if (options?.preserveTranscription && (state === 'transcribing' || state === 'error')) return;
     shouldTranscribe = false;
     retryRecording = null;

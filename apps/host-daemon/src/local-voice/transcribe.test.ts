@@ -211,6 +211,38 @@ describe('runLocalTranscription', () => {
     expect(result.text).toBe('');
   });
 
+  it('passes the shutdown signal to the child and reports an abort as cancelled', async () => {
+    const dir = tempDir();
+    const controller = new AbortController();
+    const aborted = vi.fn<CapturedRunner>(async () => ({
+      exitCode: null, signal: 'SIGKILL', output: '', truncated: false,
+      stderr: '', stderrTruncated: false, timedOut: false, aborted: true
+    }));
+    await expect(runLocalTranscription(command(wavBuffer(1)), {
+      binaryPath: '/bin/whisper-cli', modelPath: '/m.bin', run: aborted, tmpDir: dir, signal: controller.signal
+    })).rejects.toMatchObject({ code: 'voice_transcribe_cancelled' });
+    expect(aborted.mock.calls[0]![2].signal).toBe(controller.signal);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('redacts local paths from transcription failures', async () => {
+    const dir = tempDir();
+    const modelPath = join(dir, 'models', 'ggml-base.bin');
+    const failing = vi.fn<CapturedRunner>(async () => ({
+      exitCode: 1, signal: null, output: '', truncated: false,
+      stderr: `error: failed to load model from '${modelPath}': file too short`, stderrTruncated: false, timedOut: false, aborted: false
+    }));
+    const error = await runLocalTranscription(command(wavBuffer(1)), {
+      binaryPath: '/bin/whisper-cli', modelPath, run: failing, tmpDir: dir
+    }).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'voice_transcribe_failed' });
+    const message = (error as Error).message;
+    expect(message).toContain('failed to load model');
+    expect(message).not.toContain(modelPath);
+    expect(message).not.toContain(dir);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
   it('maps failures, timeouts and bad audio to host error codes', async () => {
     const dir = tempDir();
     const failing = vi.fn<CapturedRunner>(async () => ({

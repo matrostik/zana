@@ -1,6 +1,6 @@
 import { product } from '../lib/product-client.js';
-import { voiceStatusBlockReason } from './thread/voice/voice-helpers.js';
-import { useState, useRef, useEffect } from 'react';
+import { SPEECH_MAX_SECONDS, voiceStatusBlockReason } from './thread/voice/voice-helpers.js';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, Loader2 } from 'lucide-react';
 import { useUi } from '../store.js';
 import type { AutoGrowTextareaHandle } from './ui/CommandComposer.js';
@@ -51,6 +51,8 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const engineRef = useRef<'cloud' | 'local'>('cloud');
+  const maxTimerRef = useRef<number | null>(null);
 
   // Live-waveform plumbing. We drive the bar heights directly on the DOM nodes
   // from the rAF loop so recording doesn't re-render the tree ~60×/second.
@@ -59,8 +61,9 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   const rafRef = useRef<number | null>(null);
   const barRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
-  useEffect(() => {
+  const refreshStatus = useCallback(() => {
     product.voice.status().then((status) => {
+      engineRef.current = status.engine;
       const ok = status.enabled && (status.engine !== 'local' || status.ready === true);
       setHasKey(ok);
       setBlockReason(ok ? null : voiceStatusBlockReason(status));
@@ -69,6 +72,19 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
       setBlockReason('Host daemon is not connected');
     });
   }, []);
+
+  useEffect(() => {
+    refreshStatus();
+    const unsubConfig = product.config?.onChanged ? product.config.onChanged(() => refreshStatus()) : undefined;
+    const unsubVoice = product.voice?.onStatusChanged ? product.voice.onStatusChanged(() => refreshStatus()) : undefined;
+    const onFocus = () => refreshStatus();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      unsubConfig?.();
+      unsubVoice?.();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [refreshStatus]);
 
   useEffect(() => {
     return () => {
@@ -123,6 +139,10 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   };
 
   const stopRecording = () => {
+    if (maxTimerRef.current !== null) {
+      window.clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
     stopMeter();
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       recorderRef.current.stop();
@@ -182,6 +202,10 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
       };
 
       recorder.onstop = async () => {
+        if (maxTimerRef.current !== null) {
+          window.clearTimeout(maxTimerRef.current);
+          maxTimerRef.current = null;
+        }
         setRecording(false);
         stopMeter();
         setTranscribing(true);
@@ -191,7 +215,7 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
           const arrayBuffer = await blob.arrayBuffer();
           const base64 = bytesToBase64(new Uint8Array(arrayBuffer));
 
-          const result = await product.voice.transcribe(base64, actualType);
+          const result = await product.voice.transcribe(base64, actualType, engineRef.current);
 
           if (!result.ok || !result.text.trim()) {
             pushToast(result.error || 'No speech detected', 'error');
@@ -230,6 +254,12 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
       recorder.start();
       setRecording(true);
       startMeter(stream);
+      if (maxTimerRef.current !== null) window.clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = window.setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state === 'recording') {
+          recorderRef.current.stop();
+        }
+      }, SPEECH_MAX_SECONDS * 1000);
     } catch (err) {
       pushToast(`Could not start recording: ${(err as Error).message}`, 'error');
       stopRecording();

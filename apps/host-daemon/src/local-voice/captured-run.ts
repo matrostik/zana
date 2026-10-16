@@ -37,7 +37,7 @@ export type CapturedRunner = (
   options: CapturedRunOptions
 ) => Promise<CapturedRunResult>;
 
-function readCapped(path: string, maxBytes: number): { text: string; truncated: boolean } {
+export function readCapped(path: string, maxBytes: number): { text: string; truncated: boolean } {
   const size = statSync(path).size;
   const length = Math.min(size, maxBytes);
   const buffer = Buffer.alloc(length);
@@ -64,7 +64,17 @@ export const runCaptured: CapturedRunner = (command, args, options) => new Promi
   const outputPath = join(tmpdir(), `zcc-voice-${randomUUID()}.log`);
   const errorPath = options.separateStderr ? join(tmpdir(), `zcc-voice-${randomUUID()}.err`) : null;
   let outputFd: number | null = openSync(outputPath, 'wx', 0o600);
-  let errorFd: number | null = errorPath ? openSync(errorPath, 'wx', 0o600) : null;
+  let errorFd: number | null = null;
+  if (errorPath) {
+    try {
+      errorFd = openSync(errorPath, 'wx', 0o600);
+    } catch (error) {
+      closeSync(outputFd);
+      rmSync(outputPath, { force: true });
+      reject(error);
+      return;
+    }
+  }
   let settled = false;
   let timedOut = false;
   let aborted = false;

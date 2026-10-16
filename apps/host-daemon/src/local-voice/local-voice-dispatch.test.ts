@@ -9,7 +9,7 @@ import type { AppConfig } from '@zana-ai/zcc-domain/product';
 import { createCommandRuntime, dispatchHostCommand } from '../command-dispatch.js';
 import { handleHostRpcRequest } from '../command-router.js';
 import { HostCommandError } from '../host-command-error.js';
-import { runCaptured, type CapturedRunner } from './captured-run.js';
+import { runCaptured, type CapturedRunner, type CapturedRunOptions } from './captured-run.js';
 import { LocalVoiceService } from './local-voice-service.js';
 import type { VoiceModelEntry } from './model-catalog.js';
 
@@ -252,6 +252,39 @@ describe('voice.local.transcribe dispatch', () => {
     await expect(first).resolves.toMatchObject({ modelId: 'tiny', text: 'hello' });
     for (const pending of queued) await expect(pending).resolves.toMatchObject({ text: 'hello' });
     await service.dispose();
+  });
+
+  it('dispose kills a running whisper-cli child and rejects queued requests', async () => {
+    const dir = tempDir('zcc-hanging-whisper-');
+    const script = join(dir, 'hanging-whisper.mjs');
+    writeFileSync(script, [
+      "if (process.argv.includes('--help')) {",
+      `  process.stderr.write(${JSON.stringify(HELP)});`,
+      '  process.exit(0);',
+      '}',
+      'setInterval(() => {}, 1000);'
+    ].join('\n'));
+    const spawned: CapturedRunOptions[] = [];
+    const run: CapturedRunner = (command, args, options) => {
+      if (!args.includes('--help')) spawned.push(options);
+      return runCaptured(command, [script, ...args], options);
+    };
+    const { service } = installedService({ config: { voiceWhisperBinary: process.execPath }, run });
+    const running = service.transcribe(transcribeCommand());
+    await vi.waitFor(() => expect(spawned).toHaveLength(1));
+    const queued = service.transcribe(transcribeCommand());
+
+    const outcomes = Promise.allSettled([running, queued]);
+
+    const startedAt = Date.now();
+    await service.dispose();
+    // The child was killed by the shutdown signal, not by the 15s+ timeout.
+    expect(Date.now() - startedAt).toBeLessThan(10_000);
+    expect(spawned[0]!.signal?.aborted).toBe(true);
+    for (const outcome of await outcomes) {
+      expect(outcome).toMatchObject({ status: 'rejected', reason: { code: 'voice_transcribe_cancelled' } });
+    }
+    await expect(service.transcribe(transcribeCommand())).rejects.toMatchObject({ code: 'voice_transcribe_cancelled' });
   });
 
   it('rejects transcribe payloads without audio at the schema', () => {

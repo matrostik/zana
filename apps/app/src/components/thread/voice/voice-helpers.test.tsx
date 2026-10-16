@@ -133,6 +133,20 @@ describe('voice helpers', () => {
     })).rejects.toThrow('Could not decode');
     await expect(convertToSpeechWav(new Blob(['x']), {
       AudioContextClass: class {
+        decodeAudioData = async () => ({ duration: 0, sampleRate: 48000 });
+        close = async () => undefined;
+      } as unknown as typeof AudioContext,
+      OfflineAudioContextClass: deps.OfflineAudioContextClass
+    })).rejects.toThrow('contains no audio');
+    await expect(convertToSpeechWav(new Blob(['x']), {
+      AudioContextClass: class {
+        decodeAudioData = async () => ({ duration: -2, sampleRate: 48000 });
+        close = async () => undefined;
+      } as unknown as typeof AudioContext,
+      OfflineAudioContextClass: deps.OfflineAudioContextClass
+    })).rejects.toThrow('contains no audio');
+    await expect(convertToSpeechWav(new Blob(['x']), {
+      AudioContextClass: class {
         decodeAudioData = async () => ({ duration: 60 * 60, sampleRate: 48000 });
         close = async () => undefined;
       } as unknown as typeof AudioContext,

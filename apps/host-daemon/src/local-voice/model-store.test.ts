@@ -7,6 +7,20 @@ import type { VoiceModelEntry } from './model-catalog.js';
 import { VOICE_MODEL_CATALOG } from './model-catalog.js';
 import { VoiceModelStore } from './model-store.js';
 
+const fsHooks = vi.hoisted(() => ({ failStagedOpen: false }));
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return {
+    ...actual,
+    open: ((path: Parameters<typeof actual.open>[0], ...rest: unknown[]) => {
+      if (fsHooks.failStagedOpen && String(path).includes('.staged-')) {
+        return Promise.reject(Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' }));
+      }
+      return (actual.open as (...args: unknown[]) => ReturnType<typeof actual.open>)(path, ...rest);
+    }) as typeof actual.open
+  };
+});
+
 const CONTENT = Buffer.from('ggml-fake-model-bytes-for-tests');
 const SHA = createHash('sha256').update(CONTENT).digest('hex');
 const MODEL: VoiceModelEntry = {
@@ -110,11 +124,14 @@ describe('VoiceModelStore', () => {
     expect(readdirSync(modelDir)).toEqual([]);
   });
 
-  it('reports a network error as a bounded failure', async () => {
-    const { store } = makeStore(vi.fn<typeof fetch>(async () => { throw new Error('getaddrinfo ENOTFOUND'); }));
+  it('reports a network error as a fixed failure without leaking details', async () => {
+    const { store } = makeStore(vi.fn<typeof fetch>(async () => { throw new Error('getaddrinfo ENOTFOUND models.example.test'); }));
     await store.download(MODEL.id);
     await store.settled(MODEL.id);
-    expect(await stateOf(store)).toMatchObject({ state: 'failed', error: expect.stringContaining('ENOTFOUND') });
+    const failure = await stateOf(store);
+    expect(failure).toMatchObject({ state: 'failed' });
+    expect(failure.error).toContain('disk space');
+    expect(failure.error).not.toContain('ENOTFOUND');
   });
 
   it('aborts a stalled download', async () => {
@@ -144,6 +161,53 @@ describe('VoiceModelStore', () => {
     await expect(store.download(OTHER.id)).rejects.toMatchObject({ code: 'voice_model_busy' });
     await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
     expect((await stateOf(store, OTHER.id)).state).toBe('not_installed');
+  });
+
+  it('starts one download when two requests for the same model race', async () => {
+    const fetchImpl = fakeFetch({ chunks: [CONTENT.subarray(0, 4)], hang: true });
+    const { store } = makeStore(fetchImpl);
+    await Promise.all([store.download(MODEL.id), store.download(MODEL.id)]);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    // The surviving job is the only one, so cancel settles the download fully.
+    await store.cancel(MODEL.id);
+    expect(await stateOf(store)).toMatchObject({ state: 'not_installed', error: null });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not leave a stall timer behind when the staged file cannot be opened', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    fsHooks.failStagedOpen = true;
+    try {
+      const fetchImpl = fakeFetch();
+      const { store, dataDir } = makeStore(fetchImpl);
+      await store.download(MODEL.id);
+      await store.settled(MODEL.id);
+      // OS errors carry absolute paths: the user message is fixed, no leak.
+      const failure = await stateOf(store);
+      expect(failure).toMatchObject({ state: 'failed' });
+      expect(failure.error).toContain('disk space');
+      expect(failure.error).not.toContain(dataDir);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      fsHooks.failStagedOpen = false;
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts a slow-drip download that never stalls via the overall budget', async () => {
+    const fetchImpl = fakeFetch({ chunks: [CONTENT.subarray(0, 5)], hang: true, contentLength: null });
+    const { store } = makeStore(fetchImpl, { overallTimeoutMs: 50, stallTimeoutMs: 5_000 });
+    await store.download(MODEL.id);
+    await store.settled(MODEL.id);
+    expect(await stateOf(store)).toMatchObject({ state: 'failed', error: expect.stringContaining('timed out') });
+  });
+
+  it('sizes the default overall budget from the model with a floor', async () => {
+    const { store } = makeStore(fakeFetch());
+    expect(store.overallBudgetMs(1)).toBe(5 * 60_000);
+    expect(store.overallBudgetMs(74 * 1024 * 1024)).toBeGreaterThan(5 * 60_000);
+    await store.dispose();
   });
 
   it('a retry after failure clears the previous error', async () => {

@@ -1235,7 +1235,14 @@ export function normalizeConfig(input: Partial<AppConfig>): Partial<AppConfig> {
     normalized.voiceModel = input.voiceModel.trim();
   }
   if (typeof input.voiceWhisperBinary === 'string') {
-    normalized.voiceWhisperBinary = input.voiceWhisperBinary.trim() || undefined;
+    const binary = input.voiceWhisperBinary.trim();
+    // Empty clears to auto-detect. Overlong or NUL-containing values are
+    // dropped (the daemon re-validates absolute/risky paths on its side).
+    if (binary !== '' && binary.length <= 1024 && !binary.includes('\0')) {
+      normalized.voiceWhisperBinary = binary;
+    } else if (binary === '') {
+      normalized.voiceWhisperBinary = undefined;
+    }
   }
   if (typeof input.voiceEngine === 'string') {
     const engine = input.voiceEngine.trim().toLowerCase();

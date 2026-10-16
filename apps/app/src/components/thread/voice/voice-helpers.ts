@@ -107,8 +107,13 @@ export async function fileToBase64(file: File): Promise<string> {
 export { CHUNK_TIMESLICE_MS };
 
 export const SPEECH_SAMPLE_RATE = 16_000;
-/** ~14 minutes at 16 kHz mono 16-bit; stays under the 25 MB daemon audio cap. */
-export const SPEECH_MAX_SECONDS = 60 * 14;
+/**
+ * Maximum recording duration in seconds. Kept to 50 seconds so that the
+ * whisper-cli execution time budget (15s floor + 2× audio duration = 115s)
+ * stays safely under the 120s child process timeout (preventing 504 timeouts
+ * on larger models).
+ */
+export const SPEECH_MAX_SECONDS = 50;
 
 export interface SpeechWavDeps {
   AudioContextClass?: typeof AudioContext;
@@ -176,7 +181,10 @@ export async function convertToSpeechWav(blob: Blob, deps: SpeechWavDeps = {}): 
   } finally {
     await decoder.close().catch(() => {});
   }
-  if (!Number.isFinite(audio.duration) || audio.duration <= 0 || audio.duration > SPEECH_MAX_SECONDS) {
+  if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+    throw new Error('The recording contains no audio.');
+  }
+  if (audio.duration > SPEECH_MAX_SECONDS) {
     throw new Error('The recording is too long for local transcription.');
   }
   const offline = new OfflineAudioContextClass(1, Math.max(1, Math.ceil(audio.duration * SPEECH_SAMPLE_RATE)), SPEECH_SAMPLE_RATE);

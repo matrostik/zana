@@ -171,6 +171,7 @@ import {
   storeAttachment
 } from '../services/projects/attachments.js';
 import {
+  createVoiceRateLimiter,
   localVoiceStatus,
   manageVoiceLocalModel,
   transcribeVoiceOnHost,
@@ -182,6 +183,27 @@ import { toPluginAppSnapshot } from '../plugins/plugin-service.js';
 import { enabledPluginSkillCatalog, pluginSkillCommandRows } from './plugin-skill-commands.js';
 
 const VALID_FOLLOW_UP_STATUS: FollowUpStatus[] = ['open', 'resolved', 'dismissed'];
+
+// Per-client budgets for the host-bound voice POST routes (status GETs stay
+// unlimited). Generous on purpose: the daemon already serializes work, this
+// only stops a runaway client from queuing behind it.
+const voiceTranscribeLimiter = createVoiceRateLimiter(60_000, 30);
+const voiceModelLimiter = createVoiceRateLimiter(60_000, 30);
+
+function voiceClientKey(request: IncomingMessage): string {
+  return request.socket.remoteAddress ?? 'unknown';
+}
+
+function voiceRateLimited(response: ServerResponse): boolean {
+  sendJson(response, 429, { error: 'rate_limited', message: 'Too many voice requests. Try again shortly.' });
+  return true;
+}
+
+/** Clears the voice POST rate limiters (tests). */
+export function resetVoiceRateLimitersForTest(): void {
+  voiceTranscribeLimiter.reset();
+  voiceModelLimiter.reset();
+}
 
 function parseReasoningLevel(value: unknown): ReasoningLevel | undefined {
   const parsed = reasoningLevelSchema.safeParse(value);
@@ -3745,6 +3767,10 @@ export async function handleProductHttp(
       '/api/v1/system/voice-local/model-delete': 'voice.local.model_delete'
     } as const;
     if (path in voiceModelAction && method === 'POST') {
+      if (!voiceModelLimiter.check(voiceClientKey(request))) {
+        voiceRateLimited(response);
+        return true;
+      }
       let body: unknown;
       try {
         body = await readJsonBody(request);
@@ -3770,6 +3796,10 @@ export async function handleProductHttp(
     }
 
     if (path === '/api/v1/system/voice-transcription' && method === 'POST') {
+      if (!voiceTranscribeLimiter.check(voiceClientKey(request))) {
+        voiceRateLimited(response);
+        return true;
+      }
       const contentType = headerValue(request.headers, 'content-type') ?? '';
       if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
         sendJson(response, 415, { error: 'content-type must be multipart/form-data' });

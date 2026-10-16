@@ -21,6 +21,10 @@ export interface LocalVoiceServiceDeps {
 /** One transcription runs at a time; three more may wait. */
 const MAX_TRANSCRIBE_WAITERS = 3;
 
+function shutdownCancelled(): HostCommandError {
+  return new HostCommandError('voice_transcribe_cancelled', 'Local transcription was cancelled because the host daemon is shutting down.');
+}
+
 /** Host-side state for local (whisper.cpp) dictation: binary discovery + model store. */
 export class LocalVoiceService {
   readonly models: VoiceModelStore;
@@ -28,7 +32,9 @@ export class LocalVoiceService {
   private readonly loadConfig: () => AppConfig;
   private readonly transcribeDeps: Partial<Pick<LocalTranscribeDeps, 'run' | 'cpuCount' | 'tmpDir'>>;
   private transcribeRunning = false;
-  private readonly transcribeWaiters: Array<() => void> = [];
+  private readonly transcribeWaiters: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+  private readonly shutdown = new AbortController();
+  private activeTranscription: Promise<unknown> | null = null;
 
   constructor(deps: LocalVoiceServiceDeps) {
     this.models = new VoiceModelStore({ ...deps.store, dataDir: deps.dataDir });
@@ -63,25 +69,49 @@ export class LocalVoiceService {
 
   async transcribe(command: VoiceLocalTranscribeCommand): Promise<VoiceLocalTranscribeResult> {
     await this.acquireTranscribeSlot();
+    const run = this.runTranscription(command);
+    this.activeTranscription = run;
     try {
-      const binary = await this.binary.resolve(this.loadConfig().voiceWhisperBinary);
-      if (binary.state === 'missing' || !binary.path) {
-        throw new HostCommandError('voice_binary_missing', 'whisper-cli was not found. Install whisper.cpp or set its path.');
-      }
-      if (binary.state !== 'ready') {
-        throw new HostCommandError('voice_binary_invalid', binary.message ?? 'The whisper-cli binary is not usable.');
-      }
-      const modelPath = await this.models.installedPath(command.modelId);
-      if (!modelPath) {
-        throw new HostCommandError('voice_model_missing', `The ${command.modelId} model is not downloaded on this host.`);
-      }
-      return await runLocalTranscription(command, { ...this.transcribeDeps, binaryPath: binary.path, modelPath });
+      return await run;
     } finally {
+      this.activeTranscription = null;
       this.releaseTranscribeSlot();
     }
   }
 
+  private async runTranscription(command: VoiceLocalTranscribeCommand): Promise<VoiceLocalTranscribeResult> {
+    this.assertOpen();
+    const binary = await this.binary.resolve(this.loadConfig().voiceWhisperBinary);
+    if (binary.state === 'missing' || !binary.path) {
+      throw new HostCommandError('voice_binary_missing', 'whisper-cli was not found. Install whisper.cpp or set its path.');
+    }
+    if (binary.state !== 'ready') {
+      throw new HostCommandError('voice_binary_invalid', binary.message ?? 'The whisper-cli binary is not usable.');
+    }
+    const modelPath = await this.models.installedPath(command.modelId);
+    if (!modelPath) {
+      throw new HostCommandError('voice_model_missing', `The ${command.modelId} model is not downloaded on this host.`);
+    }
+    // Shutdown may have started while the binary and model were being resolved.
+    this.assertOpen();
+    return runLocalTranscription(command, {
+      ...this.transcribeDeps,
+      binaryPath: binary.path,
+      modelPath,
+      signal: this.shutdown.signal
+    });
+  }
+
+  private assertOpen(): void {
+    if (this.shutdown.signal.aborted) throw shutdownCancelled();
+  }
+
   private acquireTranscribeSlot(): Promise<void> {
+    try {
+      this.assertOpen();
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (!this.transcribeRunning) {
       this.transcribeRunning = true;
       return Promise.resolve();
@@ -92,16 +122,22 @@ export class LocalVoiceService {
         'Local transcription is busy. Try again when it finishes.'
       ));
     }
-    return new Promise<void>((resolve) => this.transcribeWaiters.push(resolve));
+    return new Promise<void>((resolve, reject) => this.transcribeWaiters.push({ resolve, reject }));
   }
 
   private releaseTranscribeSlot(): void {
     const next = this.transcribeWaiters.shift();
     if (!next) this.transcribeRunning = false;
-    else next();
+    else next.resolve();
   }
 
-  dispose(): Promise<void> {
-    return this.models.dispose();
+  /** Kills a running whisper-cli, rejects queued requests, and stops downloads. */
+  async dispose(): Promise<void> {
+    this.shutdown.abort();
+    for (const waiter of this.transcribeWaiters.splice(0)) waiter.reject(shutdownCancelled());
+    await Promise.all([
+      this.activeTranscription?.catch(() => undefined),
+      this.models.dispose()
+    ]);
   }
 }

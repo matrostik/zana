@@ -34,6 +34,8 @@ export function registerVoiceIpc(): void {
     }
   });
   ipcMain.handle(IPC.voice.hasApiKey, async () => {
+    // Legacy desktop name: strictly whether an OpenAI key is stored. The
+    // server-backed ProductVoice.hasApiKey means "ready to dictate" instead.
     return (await getOpenAiKey()) != null;
   });
 

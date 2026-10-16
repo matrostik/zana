@@ -57,7 +57,12 @@ async function postVoiceLocalModel(action: 'model-download' | 'model-cancel' | '
  * only the legacy preload surface.
  */
 export interface ProductVoice {
-  transcribe(audio: string, mimeType: string): Promise<{ ok: boolean; text: string; error?: string; ms: number }>;
+  transcribe(audio: string, mimeType: string, engine?: 'cloud' | 'local'): Promise<{ ok: boolean; text: string; error?: string; ms: number }>;
+  /**
+   * Legacy name kept for API compatibility: reports whether dictation can run
+   * right now (host connected; local additionally requires binary + model) —
+   * NOT merely whether an API key exists. Prefer `status()` for the reason.
+   */
   hasApiKey(): Promise<boolean>;
   status(): Promise<VoiceStatusResponse>;
   downloadModel(modelId: string): Promise<VoiceLocalStatusResponse>;
@@ -65,6 +70,8 @@ export interface ProductVoice {
   deleteModel(modelId: string): Promise<VoiceLocalStatusResponse>;
   localStatus(): Promise<VoiceLocalStatusResponse>;
   ensureMicAccess(): Promise<boolean>;
+  onStatusChanged(listener: () => void): () => void;
+  notifyStatusChanged(): void;
 }
 
 export interface PreferredJoinCode {
@@ -134,6 +141,7 @@ async function requireOkNdjson<T>(
 }
 
 const pluginAppListeners = new Set<(entries: PluginAppEntry[]) => void>();
+const voiceStatusListeners = new Set<() => void>();
 
 function emitPluginApps(apps: PluginAppEntry[]): void {
   for (const listener of pluginAppListeners) listener(apps);
@@ -1299,6 +1307,21 @@ function httpProduct(): Omit<Pick<
       }
     } as CcApi['pluginApps'],
     voice: {
+      onStatusChanged: (listener: () => void) => {
+        voiceStatusListeners.add(listener);
+        return () => {
+          voiceStatusListeners.delete(listener);
+        };
+      },
+      notifyStatusChanged: () => {
+        for (const listener of voiceStatusListeners) {
+          try {
+            listener();
+          } catch {
+            /* ignore */
+          }
+        }
+      },
       status: async () => {
         try {
           return await apiJson<VoiceStatusResponse>('/system/voice-status');
@@ -1315,14 +1338,16 @@ function httpProduct(): Omit<Pick<
         }
       },
       ensureMicAccess: async () => true,
-      transcribe: async (audio, mimeType) => {
+      transcribe: async (audio, mimeType, callerEngine) => {
         const started = Date.now();
         try {
-          let engine: string | undefined;
-          try {
-            engine = (await apiJson<VoiceStatusResponse>('/system/voice-status')).engine;
-          } catch {
-            engine = undefined;
+          let engine = callerEngine;
+          if (!engine) {
+            try {
+              engine = (await apiJson<VoiceStatusResponse>('/system/voice-status')).engine;
+            } catch {
+              engine = undefined;
+            }
           }
           const binary = atob(audio);
           const bytes = new Uint8Array(binary.length);
@@ -1361,9 +1386,27 @@ function httpProduct(): Omit<Pick<
           };
         }
       },
-      downloadModel: async (modelId) => postVoiceLocalModel('model-download', modelId),
-      cancelDownload: async (modelId) => postVoiceLocalModel('model-cancel', modelId),
-      deleteModel: async (modelId) => postVoiceLocalModel('model-delete', modelId),
+      downloadModel: async (modelId) => {
+        const res = await postVoiceLocalModel('model-download', modelId);
+        for (const listener of voiceStatusListeners) {
+          try { listener(); } catch { /* ignore */ }
+        }
+        return res;
+      },
+      cancelDownload: async (modelId) => {
+        const res = await postVoiceLocalModel('model-cancel', modelId);
+        for (const listener of voiceStatusListeners) {
+          try { listener(); } catch { /* ignore */ }
+        }
+        return res;
+      },
+      deleteModel: async (modelId) => {
+        const res = await postVoiceLocalModel('model-delete', modelId);
+        for (const listener of voiceStatusListeners) {
+          try { listener(); } catch { /* ignore */ }
+        }
+        return res;
+      },
       localStatus: async (): Promise<VoiceLocalStatusResponse> => apiJson('/system/voice-local/status')
     },
     extensions: {

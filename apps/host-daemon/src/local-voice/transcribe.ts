@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { VoiceLocalTranscribeCommand, VoiceLocalTranscribeResult } from '@zana-ai/zcc-contracts/host-rpc';
 import { HostCommandError } from '../host-command-error.js';
-import { runCaptured, type CapturedRunner } from './captured-run.js';
+import { readCapped, runCaptured, type CapturedRunner } from './captured-run.js';
 
-/** Raw WAV cap: 25 MB ≈ 13 min at 16 kHz mono 16-bit. */
+/** Raw WAV cap: 25 MB (well above the ~3.2 MB a 50 s recording produces at 16 kHz mono 16-bit). */
 export const LOCAL_VOICE_AUDIO_MAX_BYTES = 25 * 1024 * 1024;
 const TRANSCRIPT_MAX_BYTES = 1024 * 1024;
 const STDERR_MAX_BYTES = 256 * 1024;
@@ -18,6 +18,8 @@ export interface LocalTranscribeDeps {
   run?: CapturedRunner;
   cpuCount?: number;
   tmpDir?: string;
+  /** Aborted when the daemon shuts down; kills the running whisper-cli child. */
+  signal?: AbortSignal;
 }
 
 export interface WavInfo {
@@ -78,6 +80,19 @@ export function transcribeThreadCount(cpuCount: number): number {
 function boundedMessage(message: string): string {
   const flat = message.replace(/\s+/g, ' ').trim();
   return flat.length > ERROR_MESSAGE_MAX ? `${flat.slice(0, ERROR_MESSAGE_MAX - 1)}…` : flat;
+}
+
+/**
+ * Replaces local filesystem paths with placeholders so whisper stderr (which
+ * echoes model and temp file paths) never reaches the renderer. Exact-match
+ * only: no regex heuristics, no risk of mangling transcript prose.
+ */
+export function redactLocalPaths(text: string, paths: readonly string[]): string {
+  let redacted = text;
+  for (const path of paths) {
+    if (path) redacted = redacted.split(path).join('<path>');
+  }
+  return redacted;
 }
 
 // --- Transcript cleanup (ported from prompt-voice cleanTranscription.ts) ---
@@ -150,8 +165,7 @@ export function parseDetectedLanguage(output: string): { language: string; confi
 /**
  * Runs whisper-cli on validated WAV audio. The transcript comes from the
  * `-otxt` file (guaranteed UTF-8); stdout is only a fallback. Temp files are
- * removed on every path. No cancellation in v1: the caller's timeout kills
- * the child.
+ * removed on every path. The timeout or `deps.signal` kills the child.
  */
 export async function runLocalTranscription(
   command: VoiceLocalTranscribeCommand,
@@ -178,22 +192,31 @@ export async function runLocalTranscription(
       '-t', String(transcribeThreadCount(deps.cpuCount ?? 4)),
       '-otxt', '-of', outBase
     ];
-    const result = await run(deps.binaryPath, args, { timeoutMs, maxOutputBytes: STDERR_MAX_BYTES, separateStderr: true });
+    const result = await run(deps.binaryPath, args, {
+      timeoutMs,
+      maxOutputBytes: STDERR_MAX_BYTES,
+      separateStderr: true,
+      ...(deps.signal && { signal: deps.signal })
+    });
+    if (result.aborted && !result.timedOut) {
+      throw new HostCommandError('voice_transcribe_cancelled', 'Local transcription was cancelled because the host daemon is shutting down.');
+    }
     if (result.timedOut || result.aborted) {
       throw new HostCommandError('voice_transcribe_timeout', `Local transcription timed out after ${timeoutMs}ms`);
     }
     if (result.exitCode !== 0) {
-      const tail = boundedMessage(result.stderr ?? result.output);
-      throw new HostCommandError('voice_transcribe_failed', `Local transcription failed (exit ${result.exitCode ?? 'signal'})${tail ? `: ${tail}` : ''}`);
+      const failureDetail = redactLocalPaths(boundedMessage(result.stderr ?? result.output), [dir, deps.modelPath]);
+      throw new HostCommandError('voice_transcribe_failed', `Local transcription failed (exit ${result.exitCode ?? 'signal'})${failureDetail ? `: ${failureDetail}` : ''}`);
     }
     let raw: string | null = null;
     try {
-      raw = await readFile(`${outBase}.txt`, 'utf8');
+      // Capped read: a corrupt multi-GB -otxt file must not exhaust memory.
+      raw = readCapped(`${outBase}.txt`, TRANSCRIPT_MAX_BYTES).text;
     } catch {
       raw = null;
     }
     if (!raw) raw = result.output;
-    const text = cleanTranscription(raw.slice(0, TRANSCRIPT_MAX_BYTES));
+    const text = cleanTranscription(raw);
     const detected = language === 'auto' ? parseDetectedLanguage(result.stderr ?? '') : undefined;
     return {
       modelId: command.modelId,

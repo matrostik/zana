@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HostRpcCommandSchema } from '@zana-ai/zcc-contracts/host-rpc';
 import { HostUnavailableError, AmbiguousHostError } from '../../http/host-hub.js';
 import type { ProductHttpContext } from '../../http/product-context.js';
-import { localVoiceStatus, manageVoiceLocalModel, transcribeVoiceOnHost, VoiceTranscriptionError, voiceEngine, voiceLanguageHint, voiceLocalModel, voiceStatus, voiceTranscriptionEnabled } from './voice-transcription.js';
+import { localVoiceStatus, manageVoiceLocalModel, transcribeVoiceOnHost, VoiceTranscriptionError, createVoiceRateLimiter, voiceEngine, voiceLanguageHint, voiceLocalModel, voiceStatus, voiceTranscriptionEnabled } from './voice-transcription.js';
 import { VOICE_TRANSCRIPTION_MAX_BYTES } from '../../http/multipart-voice.js';
 
 function ctx(overrides: {
@@ -11,6 +11,7 @@ function ctx(overrides: {
   voiceLanguage?: string;
   voiceEngine?: string;
   voiceLocalModel?: string;
+  voiceInputEnabled?: boolean;
   rpc?: ReturnType<typeof vi.fn>;
 }): ProductHttpContext {
   const connected = overrides.connected ?? ['host-1'];
@@ -28,7 +29,8 @@ function ctx(overrides: {
         voiceModel: overrides.voiceModel,
         voiceLanguage: overrides.voiceLanguage,
         voiceEngine: overrides.voiceEngine,
-        voiceLocalModel: overrides.voiceLocalModel
+        voiceLocalModel: overrides.voiceLocalModel,
+        ...(overrides.voiceInputEnabled !== undefined ? { voiceInputEnabled: overrides.voiceInputEnabled } : {})
       })
     }
   } as unknown as ProductHttpContext;
@@ -265,6 +267,7 @@ describe('local voice transcription', () => {
       ['voice_binary_invalid', 503],
       ['voice_model_missing', 503],
       ['voice_transcribe_busy', 503],
+      ['voice_transcribe_cancelled', 503],
       ['voice_transcribe_timeout', 504],
       ['invalid_request', 400],
       ['voice_transcribe_failed', 502],
@@ -375,6 +378,8 @@ describe('voiceStatus', () => {
       .resolves.toMatchObject({ ready: false, reason: 'model_not_installed' });
     await expect(voiceStatus(ctx({ rpc: vi.fn(async () => localStatus({ model: 'downloading' })), voiceEngine: 'local' })))
       .resolves.toMatchObject({ ready: false, reason: 'model_downloading' });
+    await expect(voiceStatus(ctx({ rpc: vi.fn(async () => localStatus({ model: 'failed' })), voiceEngine: 'local' })))
+      .resolves.toMatchObject({ ready: false, reason: 'model_failed' });
   });
 
   it('checks the selected model, not just any installed one', async () => {
@@ -401,5 +406,51 @@ describe('voiceStatus', () => {
     const broken = vi.fn(async () => { throw new Error('boom'); });
     await expect(voiceStatus(ctx({ rpc: broken, voiceEngine: 'local' })))
       .resolves.toMatchObject({ ready: false, reason: 'status_failed' });
+  });
+
+  it('reports voice_disabled when the master toggle is off but stays readable', async () => {
+    await expect(voiceStatus(ctx({ voiceInputEnabled: false }))).resolves.toEqual(
+      { enabled: false, engine: 'cloud', ready: false, reason: 'voice_disabled' });
+    expect(voiceTranscriptionEnabled(ctx({ voiceInputEnabled: false }))).toBe(false);
+    // Explicitly enabled still works.
+    expect(voiceTranscriptionEnabled(ctx({ voiceInputEnabled: true }))).toBe(true);
+  });
+
+  it('returns 403 from transcription and model routes when disabled', async () => {
+    const off = { voiceInputEnabled: false } as const;
+    const rpc = vi.fn(async () => ({ model: 'gpt-transcribe', text: 'hi' }));
+    await expect(transcribeVoiceOnHost(ctx({ ...off, rpc }), {
+      bytes: Buffer.from('audio'), mimeType: 'audio/webm', filename: 'recording.webm'
+    })).rejects.toMatchObject({ status: 403, code: 'voice_disabled' });
+    expect(rpc).not.toHaveBeenCalled();
+    await expect(manageVoiceLocalModel(ctx({ ...off, rpc }), 'voice.local.model_download', 'tiny'))
+      .rejects.toMatchObject({ status: 403, code: 'voice_disabled' });
+    await expect(localVoiceStatus(ctx({ ...off, rpc })))
+      .rejects.toMatchObject({ status: 403, code: 'voice_disabled' });
+  });
+
+  it('maps ambiguous hosts to 409 on the shared local routes', async () => {
+    const ambiguous = () => { throw new AmbiguousHostError(); };
+    await expect(localVoiceStatus(ctx({ rpc: vi.fn(ambiguous) })))
+      .rejects.toMatchObject({ status: 409, code: 'ambiguous-host' });
+    await expect(manageVoiceLocalModel(ctx({ rpc: vi.fn(ambiguous) }), 'voice.local.model_download', 'tiny'))
+      .rejects.toMatchObject({ status: 409, code: 'ambiguous-host' });
+  });
+});
+
+describe('createVoiceRateLimiter', () => {
+  it('allows a burst then blocks until the window slides', () => {
+    const limiter = createVoiceRateLimiter(1_000, 2);
+    expect(limiter.check('a', 0)).toBe(true);
+    expect(limiter.check('a', 10)).toBe(true);
+    expect(limiter.check('a', 20)).toBe(false);
+    expect(limiter.check('a', 1_001)).toBe(true);
+  });
+
+  it('isolates clients by key', () => {
+    const limiter = createVoiceRateLimiter(1_000, 1);
+    expect(limiter.check('a', 0)).toBe(true);
+    expect(limiter.check('a', 1)).toBe(false);
+    expect(limiter.check('b', 1)).toBe(true);
   });
 });

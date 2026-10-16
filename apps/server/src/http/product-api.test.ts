@@ -8,6 +8,7 @@ import { EMPTY_THREAD_ACTIVITY } from '@zana-ai/zcc-thread-view';
 import { startProductServer, type ProductServer } from './product-server.js';
 import { AmbiguousHostError, HostUnavailableError } from './host-hub.js';
 import { registerThreadProvider } from '../services/threads/thread-provider-catalog.js';
+import { resetVoiceRateLimitersForTest } from './product-api.js';
 
 const reconcileMock = vi.hoisted(() => ({ failure: undefined as unknown, active: false }));
 vi.mock('../services/hosts/host-bootstrap.js', async (importActual) => {
@@ -1746,6 +1747,29 @@ describe('product HTTP', () => {
     });
     expect(outdated.status).toBe(501);
     await expect(outdated.json()).resolves.toMatchObject({ error: 'unknown_command' });
+  });
+
+  it('rate-limits burst voice model posts per client with 429', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'zcc-product-voice-limit-'));
+    writeFileSync(join(dataDir, 'projects.json'), JSON.stringify({ version: 1, projects: [] }));
+    writeFileSync(join(dataDir, 'config.json'), JSON.stringify({ version: 1, theme: 'dark' }));
+    server = await startTestProductServer({
+      dataDir,
+      origins: { serverPort: 0, devAppPort: 5173 }
+    });
+    resetVoiceRateLimitersForTest();
+
+    const post = () => fetch(`${server!.url}api/v1/system/voice-local/model-delete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ modelId: 'large-v3' })
+    });
+    // Invalid bodies still pass the limiter first (400s), the 31st is 429.
+    for (let i = 0; i < 30; i++) expect((await post()).status).toBe(400);
+    const limited = await post();
+    expect(limited.status).toBe(429);
+    await expect(limited.json()).resolves.toMatchObject({ error: 'rate_limited' });
+    resetVoiceRateLimitersForTest();
   });
 
   it('serves environment diff file TOC and per-file patches', async () => {

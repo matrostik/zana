@@ -1,3 +1,4 @@
+import type { VoiceStatusReason } from '@zana-ai/zcc-domain/product';
 import {
   VOICE_LANGUAGE_PATTERN,
   VOICE_LOCAL_MODEL_IDS,
@@ -21,6 +22,8 @@ export const CODEX_VOICE_LOGIN_MESSAGE =
   'Voice input needs a Codex login on the connected computer. Sign in there, then try again.';
 export const LOCAL_VOICE_UPDATE_MESSAGE =
   'Update the host daemon to use local transcription.';
+export const VOICE_DISABLED_MESSAGE =
+  'Voice input is disabled. Enable it under Settings → Experimental → Voice input.';
 // Keep within CodexVoiceTranscribeCommandSchema's cap, including older hosts.
 export const VOICE_COMMAND_TIMEOUT_MS = 60_000;
 export const VOICE_RPC_TIMEOUT_MS = 85_000;
@@ -36,6 +39,46 @@ export class VoiceTranscriptionError extends Error {
   }
 }
 
+export interface VoiceRateLimiter {
+  /** Records a hit and reports whether it is within budget. */
+  check(key: string, now?: number): boolean;
+  /** Clears all recorded hits (tests). */
+  reset(): void;
+}
+
+/**
+ * Sliding-window per-client limiter for the voice POST routes (transcription
+ * is host-CPU-bound, model downloads hold a global daemon slot). Bounded: one
+ * small array per distinct client, capped map size, expired entries pruned on
+ * check. Not a security boundary — defense in depth behind localhost auth.
+ */
+export function createVoiceRateLimiter(windowMs: number, maxHits: number): VoiceRateLimiter {
+  const hits = new Map<string, number[]>();
+  return {
+    check(key: string, now: number = Date.now()): boolean {
+      const since = now - windowMs;
+      let times = hits.get(key);
+      if (!times) {
+        times = [];
+        hits.set(key, times);
+      }
+      let expired = 0;
+      while (expired < times.length && times[expired]! <= since) expired++;
+      if (expired > 0) times.splice(0, expired);
+      if (times.length >= maxHits) return false;
+      times.push(now);
+      if (hits.size > 1024) {
+        const oldest = hits.keys().next();
+        if (oldest.value !== undefined) hits.delete(oldest.value);
+      }
+      return true;
+    },
+    reset(): void {
+      hits.clear();
+    }
+  };
+}
+
 function hostErrorStatus(code: string): number {
   if (code === 'codex_auth_missing' || code === 'codex_auth_invalid' || code === 'codex_auth_failed' || code === 'not_configured') {
     return 501;
@@ -48,7 +91,45 @@ function hostErrorStatus(code: string): number {
 }
 
 export function voiceTranscriptionEnabled(ctx: ProductHttpContext): boolean {
-  return ctx.hostHub.connectedHostIds().length > 0;
+  return isVoiceInputEnabled(ctx) && ctx.hostHub.connectedHostIds().length > 0;
+}
+
+/**
+ * The master kill-switch. Unset counts as enabled so older configs/tests
+ * without the flag keep working; an explicit `false` disables dictation.
+ */
+export function isVoiceInputEnabled(ctx: ProductHttpContext): boolean {
+  return ctx.config.getConfig().voiceInputEnabled !== false;
+}
+
+/** Throws 403 when dictation is disabled. Status stays readable (200). */
+export function requireVoiceEnabled(ctx: ProductHttpContext): void {
+  if (!isVoiceInputEnabled(ctx)) {
+    throw new VoiceTranscriptionError(403, 'voice_disabled', VOICE_DISABLED_MESSAGE);
+  }
+}
+
+/**
+ * Shared host-connection mapping for the voice routes: disconnects → 503,
+ * ambiguous host → 409. Returns null when the error is not connection-level
+ * so callers can apply their own code mapping afterwards.
+ */
+function mapHostConnectionError(error: unknown): VoiceTranscriptionError | null {
+  if (error instanceof HostUnavailableError) {
+    return new VoiceTranscriptionError(503, error.code, error.message);
+  }
+  if (error instanceof AmbiguousHostError) {
+    return new VoiceTranscriptionError(409, error.code, error.message);
+  }
+  return null;
+}
+
+/** Shared outdated-daemon mapping: unknown host command → 501. */
+function mapUnknownCommandError(code: string): VoiceTranscriptionError | null {
+  if (code === 'unknown_command') {
+    return new VoiceTranscriptionError(501, code, LOCAL_VOICE_UPDATE_MESSAGE);
+  }
+  return null;
 }
 
 export type VoiceEngine = 'cloud' | 'local';
@@ -69,7 +150,7 @@ export interface VoiceStatus {
   engine: VoiceEngine;
   ready: boolean;
   /** Machine-readable reason when not ready; null when ready. */
-  reason: string | null;
+  reason: VoiceStatusReason | null;
 }
 
 /**
@@ -80,6 +161,7 @@ export interface VoiceStatus {
 export async function voiceStatus(ctx: ProductHttpContext): Promise<VoiceStatus> {
   const enabled = voiceTranscriptionEnabled(ctx);
   const engine = voiceEngine(ctx);
+  if (!isVoiceInputEnabled(ctx)) return { enabled, engine, ready: false, reason: 'voice_disabled' };
   if (!enabled) return { enabled, engine, ready: false, reason: 'no_host' };
   if (engine === 'cloud') return { enabled, engine, ready: true, reason: null };
   let status: VoiceLocalStatusResult;
@@ -101,7 +183,10 @@ export async function voiceStatus(ctx: ProductHttpContext): Promise<VoiceStatus>
   }
   const model = status.models.find((candidate) => candidate.id === voiceLocalModel(ctx));
   if (!model || model.state !== 'installed') {
-    return { enabled, engine, ready: false, reason: model?.state === 'downloading' ? 'model_downloading' : 'model_not_installed' };
+    const reason = model?.state === 'downloading'
+      ? 'model_downloading'
+      : model?.state === 'failed' ? 'model_failed' : 'model_not_installed';
+    return { enabled, engine, ready: false, reason };
   }
   return { enabled, engine, ready: true, reason: null };
 }
@@ -127,6 +212,7 @@ export type VoiceLocalModelAction = 'voice.local.model_download' | 'voice.local.
 
 /** Binary + per-model status for the Settings model manager. Throws like transcribeVoiceOnHost. */
 export async function localVoiceStatus(ctx: ProductHttpContext): Promise<VoiceLocalStatusResult> {
+  requireVoiceEnabled(ctx);
   try {
     const hostId = ctx.hostHub.resolveHostId();
     return await ctx.hostHub.callHostOnlineRpc<VoiceLocalStatusResult>({
@@ -135,16 +221,11 @@ export async function localVoiceStatus(ctx: ProductHttpContext): Promise<VoiceLo
       command: { type: 'voice.local.status' }
     });
   } catch (error) {
-    if (error instanceof HostUnavailableError) {
-      throw new VoiceTranscriptionError(503, error.code, error.message);
-    }
-    if (error instanceof AmbiguousHostError) {
-      throw new VoiceTranscriptionError(409, error.code, error.message);
-    }
+    const connectionError = mapHostConnectionError(error);
+    if (connectionError) throw connectionError;
     const code = hostErrorCode(error);
-    if (code === 'unknown_command') {
-      throw new VoiceTranscriptionError(501, code, LOCAL_VOICE_UPDATE_MESSAGE);
-    }
+    const unknownCommand = mapUnknownCommandError(code);
+    if (unknownCommand) throw unknownCommand;
     throw new VoiceTranscriptionError(502, code, error instanceof Error ? error.message : String(error));
   }
 }
@@ -158,6 +239,7 @@ export async function manageVoiceLocalModel(
   action: VoiceLocalModelAction,
   modelId: VoiceLocalModelId
 ): Promise<VoiceLocalStatusResult> {
+  requireVoiceEnabled(ctx);
   try {
     const hostId = ctx.hostHub.resolveHostId();
     return await ctx.hostHub.callHostOnlineRpc<VoiceLocalStatusResult>({
@@ -166,17 +248,12 @@ export async function manageVoiceLocalModel(
       command: { type: action, modelId }
     });
   } catch (error) {
-    if (error instanceof HostUnavailableError) {
-      throw new VoiceTranscriptionError(503, error.code, error.message);
-    }
-    if (error instanceof AmbiguousHostError) {
-      throw new VoiceTranscriptionError(409, error.code, error.message);
-    }
+    const connectionError = mapHostConnectionError(error);
+    if (connectionError) throw connectionError;
     const code = hostErrorCode(error);
     const message = error instanceof Error ? error.message : String(error);
-    if (code === 'unknown_command') {
-      throw new VoiceTranscriptionError(501, code, LOCAL_VOICE_UPDATE_MESSAGE);
-    }
+    const unknownCommand = mapUnknownCommandError(code);
+    if (unknownCommand) throw unknownCommand;
     throw new VoiceTranscriptionError(code === 'voice_model_busy' ? 503 : 502, code, message);
   }
 }
@@ -185,7 +262,8 @@ function localHostErrorStatus(code: string): number {
   if (code === 'invalid_request') return 400;
   if (
     code === 'voice_binary_missing' || code === 'voice_binary_invalid' ||
-    code === 'voice_model_missing' || code === 'voice_transcribe_busy'
+    code === 'voice_model_missing' || code === 'voice_transcribe_busy' ||
+    code === 'voice_transcribe_cancelled'
   ) {
     return 503;
   }
@@ -222,16 +300,13 @@ async function transcribeVoiceLocal(
       if (error.message.includes('timed out')) {
         throw new VoiceTranscriptionError(504, 'voice_transcribe_timeout', 'Local transcription timed out.');
       }
-      throw new VoiceTranscriptionError(503, error.code, error.message);
     }
-    if (error instanceof AmbiguousHostError) {
-      throw new VoiceTranscriptionError(409, error.code, error.message);
-    }
+    const connectionError = mapHostConnectionError(error);
+    if (connectionError) throw connectionError;
     const code = hostErrorCode(error);
     const message = error instanceof Error ? error.message : String(error);
-    if (code === 'unknown_command') {
-      throw new VoiceTranscriptionError(501, code, LOCAL_VOICE_UPDATE_MESSAGE);
-    }
+    const unknownCommand = mapUnknownCommandError(code);
+    if (unknownCommand) throw unknownCommand;
     // No cloud fallback: a local failure stays a local failure.
     throw new VoiceTranscriptionError(localHostErrorStatus(code), code, message);
   }
@@ -241,6 +316,7 @@ export async function transcribeVoiceOnHost(
   ctx: ProductHttpContext,
   args: { bytes: Buffer; mimeType: string; filename: string; prompt?: string }
 ): Promise<string> {
+  requireVoiceEnabled(ctx);
   if (args.bytes.byteLength === 0) {
     throw new VoiceTranscriptionError(400, 'invalid_request', 'Audio file must not be empty');
   }
@@ -270,12 +346,8 @@ export async function transcribeVoiceOnHost(
     });
     return result.text;
   } catch (error) {
-    if (error instanceof HostUnavailableError) {
-      throw new VoiceTranscriptionError(503, error.code, error.message);
-    }
-    if (error instanceof AmbiguousHostError) {
-      throw new VoiceTranscriptionError(409, error.code, error.message);
-    }
+    const connectionError = mapHostConnectionError(error);
+    if (connectionError) throw connectionError;
     const code = hostErrorCode(error);
     const message = error instanceof Error ? error.message : String(error);
     if (isCodexAuthErrorCode(code)) {

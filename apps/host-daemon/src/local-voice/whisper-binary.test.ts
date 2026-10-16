@@ -88,7 +88,10 @@ describe('WhisperBinaryResolver', () => {
     const onPath = binDir();
     fakeBinary(onPath);
     const env = { PATH: onPath, Path: onPath };
-    const resolver = new WhisperBinaryResolver({ platform, env, run: runner(), knownLocations: [] });
+    // Configured fakes live under the real temp root in tests; point the
+    // risky-location check elsewhere so the probe is what decides.
+    const safeTmp = join(tmpdir(), 'zcc-whisper-safe-sentinel');
+    const resolver = new WhisperBinaryResolver({ platform, env, run: runner(), knownLocations: [], tmpDir: safeTmp });
 
     await expect(resolver.resolve('whisper-cli')).resolves.toMatchObject({ state: 'invalid', source: 'config', message: expect.stringContaining('absolute') });
     await expect(resolver.resolve(join(binDir(), 'nope'))).resolves.toMatchObject({ state: 'invalid', source: 'config' });
@@ -96,20 +99,34 @@ describe('WhisperBinaryResolver', () => {
     const configured = fakeBinary(binDir(), 'custom-whisper');
     await expect(resolver.resolve(`  ${configured}  `)).resolves.toEqual({ state: 'ready', path: configured, source: 'config', message: null });
 
-    const failing = new WhisperBinaryResolver({ platform, env, run: runner('not whisper'), knownLocations: [] });
+    const failing = new WhisperBinaryResolver({ platform, env, run: runner('not whisper'), knownLocations: [], tmpDir: safeTmp });
     await expect(failing.resolve(configured)).resolves.toMatchObject({ state: 'invalid', path: configured, source: 'config' });
+  });
+
+  it('refuses configured binaries in temp or Downloads folders', async () => {
+    const home = binDir();
+    const downloadsBin = fakeBinary(join(home, 'Downloads'), 'custom-dl');
+    const tmpBin = fakeBinary(binDir(), 'custom-tmp');
+    const resolver = new WhisperBinaryResolver({ platform, env: {}, run: runner(), knownLocations: [], homeDir: home });
+    await expect(resolver.resolve(downloadsBin)).resolves.toMatchObject({
+      state: 'invalid', source: 'config', message: expect.stringContaining('permanent')
+    });
+    await expect(resolver.resolve(tmpBin)).resolves.toMatchObject({
+      state: 'invalid', source: 'config', message: expect.stringContaining('permanent')
+    });
   });
 
   it('rejects a directory and treats probe errors or timeouts as invalid', async () => {
     const dir = binDir();
-    const resolver = new WhisperBinaryResolver({ platform, env: {}, run: runner(), knownLocations: [] });
+    const resolver = new WhisperBinaryResolver({ platform, env: {}, run: runner(), knownLocations: [], tmpDir: join(tmpdir(), 'zcc-whisper-safe-sentinel') });
     await expect(resolver.resolve(dir)).resolves.toMatchObject({ state: 'invalid' });
 
     const path = fakeBinary(binDir());
-    const throwing = new WhisperBinaryResolver({ platform, env: {}, run: vi.fn<CapturedRunner>(async () => { throw new Error('spawn EACCES'); }) });
+    const safeTmp = join(tmpdir(), 'zcc-whisper-safe-sentinel');
+    const throwing = new WhisperBinaryResolver({ platform, env: {}, run: vi.fn<CapturedRunner>(async () => { throw new Error('spawn EACCES'); }), tmpDir: safeTmp });
     await expect(throwing.resolve(path)).resolves.toMatchObject({ state: 'invalid' });
     const slow = new WhisperBinaryResolver({
-      platform, env: {},
+      platform, env: {}, tmpDir: safeTmp,
       run: vi.fn<CapturedRunner>(async () => ({ exitCode: null, signal: 'SIGKILL', output: HELP, truncated: false, stderr: null, stderrTruncated: false, timedOut: true, aborted: false }))
     });
     await expect(slow.resolve(path)).resolves.toMatchObject({ state: 'invalid' });
@@ -118,7 +135,7 @@ describe('WhisperBinaryResolver', () => {
   it('caches the probe until the binary changes', async () => {
     const path = fakeBinary(binDir());
     const run = runner();
-    const resolver = new WhisperBinaryResolver({ platform, env: {}, run, knownLocations: [] });
+    const resolver = new WhisperBinaryResolver({ platform, env: {}, run, knownLocations: [], tmpDir: join(tmpdir(), 'zcc-whisper-safe-sentinel') });
     await resolver.resolve(path);
     await resolver.resolve(path);
     expect(run).toHaveBeenCalledTimes(1);

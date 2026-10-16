@@ -457,6 +457,14 @@ describe('config — voiceModel / voiceLanguage normalization', () => {
     expect(store.getConfig().voiceWhisperBinary).toBeUndefined();
   });
 
+  it('drops an overlong or NUL-containing voiceWhisperBinary (unchanged)', () => {
+    store.setConfig({ voiceWhisperBinary: '/opt/whisper/whisper-cli' });
+    store.setConfig({ voiceWhisperBinary: `/${'a'.repeat(1024)}` });
+    expect(store.getConfig().voiceWhisperBinary).toBe('/opt/whisper/whisper-cli');
+    store.setConfig({ voiceWhisperBinary: '/opt/whis\0per/whisper-cli' });
+    expect(store.getConfig().voiceWhisperBinary).toBe('/opt/whisper/whisper-cli');
+  });
+
   it('accepts only cloud/local voiceEngine and only known voiceLocalModel ids', () => {
     store.setConfig({ voiceEngine: 'local', voiceLocalModel: 'small' });
     expect(store.getConfig()).toMatchObject({ voiceEngine: 'local', voiceLocalModel: 'small' });

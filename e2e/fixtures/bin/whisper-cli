@@ -1,0 +1,67 @@
+#!/usr/bin/env node
+// Fake whisper-cli for the voice local-boundary E2E (e2e/voice-local-boundary.spec.ts).
+//
+// Serves every whisper-cli invocation the host daemon makes from ONE binary:
+//   --help                        → usage probe (binary discovery)
+//   -m/-f/-l/-t/-otxt/-of         → transcription; writes ${outbase}.txt
+//
+// The daemon forwards no test env to the binary, so the test phase is
+// multiplexed over the `-l` language flag (the one arg the daemon passes
+// through verbatim): `auto`/`en` succeed, `xx` exits 1, `yy` hangs until the
+// daemon timeout kills it. Documented here so the magic codes stay greppable.
+//
+// Note: the transcript is deliberately >8192 bytes — the Electron main
+// process once truncated piped child stdout at exactly 8192 bytes, so the
+// boundary spec asserts the full text lands in the composer.
+const args = process.argv.slice(2);
+const { appendFileSync, writeFileSync } = await import('node:fs');
+const { homedir, tmpdir } = await import('node:os');
+const { join } = await import('node:path');
+
+if (args.includes('--help')) {
+  process.stdout.write([
+    'usage: whisper-cli [options] file0 file1 ...',
+    '  -m FNAME,  --model FNAME   [models/ggml-base.en.bin] model path',
+    '  -l LANG,   --language LANG [en] spoken language',
+    '  -otxt,     --output-txt    [false] output result in a text file',
+    '  -of FNAME, --output-file FNAME [] output file path (without file extension)'
+  ].join('\n') + '\n');
+  process.exit(0);
+}
+
+const flag = (name) => {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+};
+
+// Invocation sidecar for the spec's env/HOME/cwd/executable assertions.
+try {
+  const home = process.env.ZCC_E2E_HOME || process.env.HOME || process.env.USERPROFILE || homedir();
+  appendFileSync(join(home, '.whisper-invocations.log'), JSON.stringify({ argv: args, cwd: process.cwd(), home }) + '\n');
+} catch {
+  try {
+    appendFileSync(join(tmpdir(), '.whisper-invocations.log'), JSON.stringify({ argv: args, cwd: process.cwd() }) + '\n');
+  } catch { /* best-effort observability only */ }
+}
+
+const lang = flag('-l') ?? 'auto';
+if (lang === 'yy') {
+  await new Promise(() => {}); // hang: the daemon timeout must kill us (504 path)
+}
+
+const outBase = flag('-of');
+const modelPath = flag('-m') ?? '<unknown-model>';
+if (lang === 'xx') {
+  // Echo the REAL model path back: the daemon must redact it before the
+  // renderer ever sees it (see transcribe.ts redactLocalPaths).
+  process.stderr.write(`error: failed to load model from '${modelPath}': file too short\n`);
+  process.exit(1);
+}
+
+if (!outBase) {
+  process.stderr.write('error: missing -of output base\n');
+  process.exit(1);
+}
+const sentence = 'Whisper boundary works. ';
+writeFileSync(`${outBase}.txt`, sentence.repeat(400));
+process.exit(0);
