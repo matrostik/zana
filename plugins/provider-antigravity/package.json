@@ -1,0 +1,40 @@
+{
+  "name": "@zcc-ext/provider-antigravity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Run Zana threads on Google Antigravity (agy) with your Google Pro subscription.",
+  "license": "MIT",
+  "engines": {
+    "zcc": ">=1.0.0",
+    "zccPluginSdk": ">=0.1.0"
+  },
+  "scripts": {
+    "build": "node --import tsx build.mjs",
+    "test": "vitest run src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@zana-ai/zcc-plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "@zana-ai/zcc-domain": "workspace:*"
+  },
+  "zcc": {
+    "name": "Antigravity",
+    "description": "Google Antigravity threads via the agy CLI and your Google Pro login. Requires agy on PATH.",
+    "branding": {
+      "icon": "./icons/antigravity.svg"
+    },
+    "server": "./server.ts",
+    "host": "./host.ts",
+    "extra": {
+      "threadProvider": true
+    }
+  }
+}
