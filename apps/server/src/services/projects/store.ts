@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import type { Project, ProjectRemote, AppConfig, ProjectSettings, OpenTarget, ProjectLaunchDefault, HarnessFamily } from '@zana-ai/zcc-domain/product';
 import { SESSION_MEMORY_DEFAULTS, AUTO_CLOSE_IDLE_DEFAULTS, COMPOSER_LAUNCH_SURFACES_REV, DEFAULT_PROJECT_DISPLAY_NAME } from '@zana-ai/zcc-domain/product';
 import { isTerminalThemeId } from '@zana-ai/zcc-domain/terminal-themes';
-import { VOICE_LANGUAGE_PATTERN } from '@zana-ai/zcc-contracts/host-rpc';
+import { VOICE_LANGUAGE_PATTERN, VOICE_LOCAL_MODEL_IDS } from '@zana-ai/zcc-contracts/host-rpc';
 import { PROJECT_COLORS, pickProjectColor } from '@zana-ai/zcc-domain/project-colors';
 import { registeredAdapters } from '@zana-ai/zcc-host-daemon/harness/registry';
 import { atomicDurableWrite } from '../harness-routing/storage.js';
@@ -1236,6 +1236,14 @@ export function normalizeConfig(input: Partial<AppConfig>): Partial<AppConfig> {
   }
   if (typeof input.voiceWhisperBinary === 'string') {
     normalized.voiceWhisperBinary = input.voiceWhisperBinary.trim() || undefined;
+  }
+  if (typeof input.voiceEngine === 'string') {
+    const engine = input.voiceEngine.trim().toLowerCase();
+    if (engine === 'cloud' || engine === 'local') normalized.voiceEngine = engine;
+  }
+  if (typeof input.voiceLocalModel === 'string') {
+    const model = input.voiceLocalModel.trim().toLowerCase();
+    if ((VOICE_LOCAL_MODEL_IDS as readonly string[]).includes(model)) normalized.voiceLocalModel = model;
   }
   if (typeof input.voiceLanguage === 'string') {
     const voiceLanguage = input.voiceLanguage.trim().toLowerCase();

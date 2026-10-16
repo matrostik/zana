@@ -2804,6 +2804,16 @@ export interface AppConfig {
    */
   voiceWhisperBinary?: string;
   /**
+   * Transcription engine for voice input: 'cloud' (Codex/OpenAI) or 'local'
+   * (whisper.cpp on the connected host). Absent ⇒ 'cloud'. Local never falls
+   * back to cloud: when it is not ready the mic is disabled with a reason.
+   */
+  voiceEngine?: string;
+  /**
+   * Local whisper.cpp model used for voice input. Absent ⇒ 'base'.
+   */
+  voiceLocalModel?: string;
+  /**
    * Render the macOS menu-bar tray as a clean frameless popover card (agent
    * mission-control) instead of the native context menu. macOS-only; on other
    * platforms the native menu is always used regardless of this flag. Default

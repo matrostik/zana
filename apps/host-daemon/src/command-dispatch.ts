@@ -1194,6 +1194,8 @@ export async function dispatchHostCommand(
       return runtime.localVoice.cancel(command.modelId);
     case 'voice.local.model_delete':
       return runtime.localVoice.delete(command.modelId);
+    case 'voice.local.transcribe':
+      return runtime.localVoice.transcribe(command);
     case 'interactive.resolve': {
       try {
         if (!runtime.deliverInteractiveResolve) {

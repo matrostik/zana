@@ -170,6 +170,7 @@ export const HostRpcCommandTypeSchema = z.enum([
   'project.clone_default_path',
   'codex.voice.transcribe',
   'voice.local.status',
+  'voice.local.transcribe',
   'voice.local.model_download',
   'voice.local.model_cancel',
   'voice.local.model_delete',
@@ -801,6 +802,20 @@ export const VoiceLocalModelDeleteCommandSchema = z.object({
 }).strict();
 export type VoiceLocalModelDeleteCommand = z.infer<typeof VoiceLocalModelDeleteCommandSchema>;
 
+/** 25 MB of WAV ≈ 13 min at 16 kHz mono 16-bit; base64 inflates it by 4/3. */
+const VOICE_LOCAL_AUDIO_BASE64_MAX = 34_000_000;
+
+export const VoiceLocalTranscribeCommandSchema = z.object({
+  type: z.literal('voice.local.transcribe'),
+  /** 16-bit PCM WAV bytes. Never a file path: the daemon writes its own temp file. */
+  audioBase64: z.string().min(1).max(VOICE_LOCAL_AUDIO_BASE64_MAX),
+  modelId: VoiceLocalModelIdSchema,
+  /** ISO-639 hint; absent ⇒ auto-detect (`-l auto`). */
+  language: z.string().regex(VOICE_LANGUAGE_PATTERN).optional(),
+  timeoutMs: z.number().int().positive().max(120_000)
+}).strict();
+export type VoiceLocalTranscribeCommand = z.infer<typeof VoiceLocalTranscribeCommandSchema>;
+
 export const CodexInferenceCompleteCommandSchema = z.object({
   type: z.literal('codex.inference.complete'),
   model: z.string().min(1).max(120),
@@ -1076,6 +1091,7 @@ export const HostRpcCommandSchema = z.union([
   VoiceLocalModelDownloadCommandSchema,
   VoiceLocalModelCancelCommandSchema,
   VoiceLocalModelDeleteCommandSchema,
+  VoiceLocalTranscribeCommandSchema,
   ProviderCliInstallCommandSchema,
   HostInstallGlobalSkillsCommandSchema,
   HostGlobalSkillsStatusCommandSchema,
@@ -1501,6 +1517,14 @@ export const VoiceLocalStatusResultSchema = z.object({
 }).strict();
 export type VoiceLocalStatusResult = z.infer<typeof VoiceLocalStatusResultSchema>;
 
+export const VoiceLocalTranscribeResultSchema = z.object({
+  modelId: VoiceLocalModelIdSchema,
+  text: z.string(),
+  /** whisper.cpp `auto-detected language` from stderr; null unless `-l auto` reported one. */
+  detectedLanguage: z.string().min(2).max(3).nullable()
+}).strict();
+export type VoiceLocalTranscribeResult = z.infer<typeof VoiceLocalTranscribeResultSchema>;
+
 export const CodexInferenceCompleteResultSchema = z.object({
   model: z.string().min(1),
   value: z.record(z.string(), z.unknown())
@@ -1651,6 +1675,7 @@ export const HostRpcResultSchemaByType = {
   'voice.local.model_download': VoiceLocalStatusResultSchema,
   'voice.local.model_cancel': VoiceLocalStatusResultSchema,
   'voice.local.model_delete': VoiceLocalStatusResultSchema,
+  'voice.local.transcribe': VoiceLocalTranscribeResultSchema,
   'provider.cli_install': ProviderCliInstallResultSchema,
   'host.install_global_skills': HostInstallGlobalSkillsResultSchema,
   'host.global_skills_status': HostGlobalSkillsStatusResultSchema,

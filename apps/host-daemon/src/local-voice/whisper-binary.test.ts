@@ -34,7 +34,7 @@ function fakeBinary(dir: string, name = exeName): string {
 }
 
 function runner(output = HELP): ReturnType<typeof vi.fn<CapturedRunner>> {
-  return vi.fn<CapturedRunner>(async () => ({ exitCode: 0, signal: null, output, truncated: false, timedOut: false, aborted: false }));
+  return vi.fn<CapturedRunner>(async () => ({ exitCode: 0, signal: null, output, truncated: false, stderr: null, stderrTruncated: false, timedOut: false, aborted: false }));
 }
 
 describe('looksLikeWhisperHelp', () => {
@@ -67,7 +67,7 @@ describe('WhisperBinaryResolver', () => {
     fakeBinary(first);
     const good = fakeBinary(second);
     const run = vi.fn<CapturedRunner>(async (command) => ({
-      exitCode: 0, signal: null, truncated: false, timedOut: false, aborted: false,
+      exitCode: 0, signal: null, truncated: false, stderr: null, stderrTruncated: false, timedOut: false, aborted: false,
       output: command === good ? HELP : 'something else'
     }));
     const env = { PATH: `${first}${delimiter}${second}`, Path: `${first}${delimiter}${second}` };
@@ -110,7 +110,7 @@ describe('WhisperBinaryResolver', () => {
     await expect(throwing.resolve(path)).resolves.toMatchObject({ state: 'invalid' });
     const slow = new WhisperBinaryResolver({
       platform, env: {},
-      run: vi.fn<CapturedRunner>(async () => ({ exitCode: null, signal: 'SIGKILL', output: HELP, truncated: false, timedOut: true, aborted: false }))
+      run: vi.fn<CapturedRunner>(async () => ({ exitCode: null, signal: 'SIGKILL', output: HELP, truncated: false, stderr: null, stderrTruncated: false, timedOut: true, aborted: false }))
     });
     await expect(slow.resolve(path)).resolves.toMatchObject({ state: 'invalid' });
   });

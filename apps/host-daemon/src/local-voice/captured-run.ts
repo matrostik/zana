@@ -11,6 +11,12 @@ export interface CapturedRunOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
+  /**
+   * Capture stderr to its own temp file instead of merging it into `output`.
+   * The transcript runner needs stdout alone as a fallback when `-otxt`
+   * writes nothing, and stderr alone for error messages and language logs.
+   */
+  separateStderr?: boolean;
 }
 
 export interface CapturedRunResult {
@@ -18,6 +24,9 @@ export interface CapturedRunResult {
   signal: NodeJS.Signals | null;
   output: string;
   truncated: boolean;
+  /** Set only with `separateStderr`; capped by the same `maxOutputBytes`. */
+  stderr: string | null;
+  stderrTruncated: boolean;
   timedOut: boolean;
   aborted: boolean;
 }
@@ -53,16 +62,24 @@ function readCapped(path: string, maxBytes: number): { text: string; truncated: 
  */
 export const runCaptured: CapturedRunner = (command, args, options) => new Promise((resolve, reject) => {
   const outputPath = join(tmpdir(), `zcc-voice-${randomUUID()}.log`);
+  const errorPath = options.separateStderr ? join(tmpdir(), `zcc-voice-${randomUUID()}.err`) : null;
   let outputFd: number | null = openSync(outputPath, 'wx', 0o600);
+  let errorFd: number | null = errorPath ? openSync(errorPath, 'wx', 0o600) : null;
   let settled = false;
   let timedOut = false;
   let aborted = false;
   let timer: NodeJS.Timeout | undefined;
 
   const closeOutput = () => {
-    if (outputFd === null) return;
-    try { closeSync(outputFd); } catch { /* already closed */ }
+    if (outputFd === null && errorFd === null) return;
+    try { if (outputFd !== null) closeSync(outputFd); } catch { /* already closed */ }
+    try { if (errorFd !== null) closeSync(errorFd); } catch { /* already closed */ }
     outputFd = null;
+    errorFd = null;
+  };
+  const removeFiles = () => {
+    rmSync(outputPath, { force: true });
+    if (errorPath) rmSync(errorPath, { force: true });
   };
   const finish = (result: { error: Error } | { exitCode: number | null; signal: NodeJS.Signals | null }) => {
     if (settled) return;
@@ -76,11 +93,12 @@ export const runCaptured: CapturedRunner = (command, args, options) => new Promi
         return;
       }
       const { text, truncated } = readCapped(outputPath, options.maxOutputBytes);
-      resolve({ ...result, output: text, truncated, timedOut, aborted });
+      const err = errorPath ? readCapped(errorPath, options.maxOutputBytes) : null;
+      resolve({ ...result, output: text, truncated, stderr: err?.text ?? null, stderrTruncated: err?.truncated ?? false, timedOut, aborted });
     } catch (error) {
       reject(error);
     } finally {
-      rmSync(outputPath, { force: true });
+      removeFiles();
     }
   };
 
@@ -91,11 +109,11 @@ export const runCaptured: CapturedRunner = (command, args, options) => new Promi
       env: options.env,
       shell: false,
       windowsHide: true,
-      stdio: ['ignore', outputFd, outputFd]
+      stdio: ['ignore', outputFd, errorFd ?? outputFd]
     });
   } catch (error) {
     closeOutput();
-    rmSync(outputPath, { force: true });
+    removeFiles();
     reject(error);
     return;
   }

@@ -457,6 +457,15 @@ describe('config — voiceModel / voiceLanguage normalization', () => {
     expect(store.getConfig().voiceWhisperBinary).toBeUndefined();
   });
 
+  it('accepts only cloud/local voiceEngine and only known voiceLocalModel ids', () => {
+    store.setConfig({ voiceEngine: 'local', voiceLocalModel: 'small' });
+    expect(store.getConfig()).toMatchObject({ voiceEngine: 'local', voiceLocalModel: 'small' });
+    store.setConfig({ voiceEngine: 'whisper', voiceLocalModel: 'large-v3' });
+    expect(store.getConfig()).toMatchObject({ voiceEngine: 'local', voiceLocalModel: 'small' });
+    store.setConfig({ voiceEngine: 'CLOUD', voiceLocalModel: 'MEDIUM' });
+    expect(store.getConfig()).toMatchObject({ voiceEngine: 'cloud', voiceLocalModel: 'medium' });
+  });
+
   it('drops an invalid voiceLanguage (unchanged) and lets empty clear it', () => {
     store.setConfig({ voiceLanguage: 'de' });
     for (const bad of ['english', 'e', 'en-US', 'e1', 'fr;rm']) {

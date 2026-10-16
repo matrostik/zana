@@ -656,6 +656,28 @@ describe('host-rpc contract', () => {
       ...localStatus,
       models: [{ ...localStatus.models[0], state: 'paused' }]
     })).toThrow();
+    const localTranscribe = {
+      type: 'voice.local.transcribe',
+      audioBase64: Buffer.from('RIFFfake').toString('base64'),
+      modelId: 'small',
+      timeoutMs: 120_000
+    };
+    expect(HostRpcCommandSchema.parse(localTranscribe).type).toBe('voice.local.transcribe');
+    expect(HostRpcCommandSchema.parse({ ...localTranscribe, language: 'fr' })).toMatchObject({ language: 'fr' });
+    expect(HostRpcCommandSchema.safeParse({ ...localTranscribe, language: 'EN' }).success).toBe(false);
+    expect(HostRpcCommandSchema.safeParse({ ...localTranscribe, timeoutMs: 120_001 }).success).toBe(false);
+    expect(HostRpcCommandSchema.safeParse({ ...localTranscribe, audioBase64: '' }).success).toBe(false);
+    expect(HostRpcCommandSchema.safeParse({ ...localTranscribe, modelPath: '/tmp/x.bin' }).success).toBe(false);
+    expect(parseHostRpcResult('voice.local.transcribe', {
+      modelId: 'small',
+      text: 'hello',
+      detectedLanguage: 'fr'
+    })).toEqual({ modelId: 'small', text: 'hello', detectedLanguage: 'fr' });
+    expect(() => parseHostRpcResult('voice.local.transcribe', {
+      modelId: 'small',
+      text: 'hello',
+      detectedLanguage: 'english'
+    })).toThrow();
     expect(parseHostRpcResult('codex.inference.complete', {
       model: 'gpt-5',
       value: { title: 'Hello' }

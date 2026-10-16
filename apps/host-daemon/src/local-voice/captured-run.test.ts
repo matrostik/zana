@@ -59,6 +59,16 @@ describe('runCaptured', () => {
     await expect(pending).resolves.toMatchObject({ aborted: true, timedOut: false });
   });
 
+  it('splits stderr into its own temp file when asked', async () => {
+    const before = new Set(leftoverCaptureFiles());
+    const child = script("process.stdout.write('out'); process.stderr.write('err');");
+    const result = await runCaptured(process.execPath, [child], { timeoutMs: 10_000, maxOutputBytes: 1024, separateStderr: true });
+    expect(result.output).toBe('out');
+    expect(result.stderr).toBe('err');
+    expect(result.stderrTruncated).toBe(false);
+    expect(leftoverCaptureFiles().filter((name) => !before.has(name))).toEqual([]);
+  });
+
   it('rejects when the executable cannot be spawned and still cleans up', async () => {
     const before = new Set(leftoverCaptureFiles());
     await expect(runCaptured(join(tmpdir(), 'zcc-definitely-missing-binary'), [], { timeoutMs: 1000, maxOutputBytes: 1024 }))
