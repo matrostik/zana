@@ -181,7 +181,7 @@ export function ExperimentalView({
                     ]}
                   />
                 </Field>
-                <VoiceModelManager />
+                <VoiceModelManager selectedModelId={config.voiceLocalModel ?? 'base'} />
               </>
             )}
             <Field searchId="experimental.voice-language" label="Language" help="ISO-639 code (e.g. 'en', 'fr'). Leave empty for auto-detect. Applies to OpenAI API-key and local transcription; Codex sign-in uses auto-detect.">

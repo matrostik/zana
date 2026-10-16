@@ -40,9 +40,11 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 it('shows binary state, per-model states, progress and failure errors', async () => {
-  render(<VoiceModelManager />);
+  render(<VoiceModelManager selectedModelId="base" />);
   await waitFor(() => expect(screen.getByTestId('voice-binary-status').textContent).toContain('/opt/homebrew/bin/whisper-cli'));
   expect(screen.getByTestId('voice-model-tiny').textContent).toContain('installed');
+  expect(screen.getByTestId('voice-model-tiny').textContent).not.toContain('selected');
+  expect(screen.getByTestId('voice-model-base').textContent).toContain('selected');
   expect(screen.getByTestId('voice-model-base').textContent).toContain('downloading 50%');
   expect(screen.getByTestId('voice-model-base').querySelector('progress')).not.toBeNull();
   expect(screen.getByTestId('voice-model-small').textContent).toContain('not installed');

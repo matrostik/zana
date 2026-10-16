@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { product } from '../../lib/product-client.js';
 import type { VoiceLocalStatusResponse } from '@zana-ai/zcc-domain/product';
 
-function formatMB(bytes: number): string {
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
   return `${Math.round(bytes / 1024 / 1024)} MB`;
 }
 
@@ -14,10 +15,12 @@ function modelActionLabel(state: string): string {
 
 /**
  * Local whisper.cpp model manager for Settings → Experimental → Voice input.
- * Reads binary + per-model state from the host and polls while a download is
- * in flight; progress comes from `voice.local.status`, not events.
+ * One row per model with its Download/Cancel/Delete action; progress comes
+ * from polling `voice.local.status` while a download is in flight. The model
+ * chosen in the Local model picker is marked so the Download button for the
+ * selected model is easy to find.
  */
-export function VoiceModelManager() {
+export function VoiceModelManager({ selectedModelId }: { selectedModelId?: string }) {
   const [status, setStatus] = useState<VoiceLocalStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -83,6 +86,7 @@ export function VoiceModelManager() {
 
   return (
     <div className="voice-model-manager">
+      <p className="settings-note">Models</p>
       <p className="settings-note" data-testid="voice-binary-status">
         {status.binary.state === 'ready'
           ? `whisper-cli ready at ${status.binary.path ?? 'unknown path'}`
@@ -97,7 +101,8 @@ export function VoiceModelManager() {
         {status.models.map((model) => (
           <li key={model.id} data-testid={`voice-model-${model.id}`}>
             <span>
-              {model.label} · {formatMB(model.sizeBytes)} ·{' '}
+              {model.label} · {formatSize(model.sizeBytes)}
+              {model.id === selectedModelId ? ' · selected' : ''} ·{' '}
               {model.state === 'downloading' && model.receivedBytes !== null
                 ? `downloading ${Math.round((model.receivedBytes / model.sizeBytes) * 100)}%`
                 : model.state === 'failed'
