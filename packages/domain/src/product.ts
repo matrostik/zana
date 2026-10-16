@@ -2798,6 +2798,12 @@ export interface AppConfig {
    */
   voiceLanguage?: string;
   /**
+   * Absolute path to whisper.cpp `whisper-cli` for local transcription.
+   * Absent ⇒ the host daemon searches PATH (and Homebrew locations on macOS).
+   * Read by each host from its own config; never sent over host RPC.
+   */
+  voiceWhisperBinary?: string;
+  /**
    * Render the macOS menu-bar tray as a clean frameless popover card (agent
    * mission-control) instead of the native context menu. macOS-only; on other
    * platforms the native menu is always used regardless of this flag. Default

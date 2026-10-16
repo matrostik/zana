@@ -1234,6 +1234,9 @@ export function normalizeConfig(input: Partial<AppConfig>): Partial<AppConfig> {
   if (typeof input.voiceModel === 'string') {
     normalized.voiceModel = input.voiceModel.trim();
   }
+  if (typeof input.voiceWhisperBinary === 'string') {
+    normalized.voiceWhisperBinary = input.voiceWhisperBinary.trim() || undefined;
+  }
   if (typeof input.voiceLanguage === 'string') {
     const voiceLanguage = input.voiceLanguage.trim().toLowerCase();
     // Empty clears the hint (auto-detect); anything else must be an ISO-639 code.

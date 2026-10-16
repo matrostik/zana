@@ -55,6 +55,7 @@ import { registrationFor, invalidateHarnessModelCatalog } from './harness/regist
 import { HostCommandError } from './host-command-error.js';
 import { readConfinedFileRange } from './read-file-range.js';
 import { transcribeCodexVoice } from './codex-voice-transcribe.js';
+import { LocalVoiceService } from './local-voice/local-voice-service.js';
 import { completeCodexInference } from './codex-inference-complete.js';
 import { getProviderCliStatus, runProviderCliInstall } from './provider-cli-health.js';
 import { installGlobalSkills, readGlobalSkillsStatus } from './global-skills.js';
@@ -227,6 +228,8 @@ export interface CommandRuntime {
   desktopBrowserBroker?: DesktopBrowserBroker;
   /** In-memory environment pushed by the server (host.environment.replace). */
   machineEnvironment?: MachineEnvironment;
+  /** Local whisper.cpp dictation; disposed with the connection. */
+  localVoice: LocalVoiceService;
 }
 
 export function createCommandRuntime(options: {
@@ -290,12 +293,15 @@ export function createCommandRuntime(options: {
   peerSsh?: PeerDaemonSsh;
   desktopBrowserBroker?: DesktopBrowserBroker;
   machineEnvironment?: MachineEnvironment;
+  localVoice?: LocalVoiceService;
 }): CommandRuntime {
   const terminals = new Map<string, { cwd: string }>();
   const loadConfig = options.loadConfig ?? (() => ({ version: 1, theme: 'dark', shell: '/bin/zsh', claudeBinary: 'claude', fontSize: 13, lastProjectId: null }) as AppConfig);
+  const dataDir = options.dataDir ?? resolveZccDataDir();
   return {
     pluginHosts: options.pluginHosts,
-    dataDir: options.dataDir ?? resolveZccDataDir(),
+    dataDir,
+    localVoice: options.localVoice ?? new LocalVoiceService({ dataDir, loadConfig }),
     loadConfig,
     environments: new Map(),
     threads: new Map(),
@@ -1180,6 +1186,14 @@ export async function dispatchHostCommand(
       return completeCodexInference(command);
     case 'codex.voice.transcribe':
       return transcribeCodexVoice(command);
+    case 'voice.local.status':
+      return runtime.localVoice.status();
+    case 'voice.local.model_download':
+      return runtime.localVoice.download(command.modelId);
+    case 'voice.local.model_cancel':
+      return runtime.localVoice.cancel(command.modelId);
+    case 'voice.local.model_delete':
+      return runtime.localVoice.delete(command.modelId);
     case 'interactive.resolve': {
       try {
         if (!runtime.deliverInteractiveResolve) {

@@ -450,6 +450,13 @@ describe('config — voiceModel / voiceLanguage normalization', () => {
     expect(store.getConfig().voiceLanguage).toBe('haw');
   });
 
+  it('trims voiceWhisperBinary and clears it when blank', () => {
+    store.setConfig({ voiceWhisperBinary: '  /opt/whisper/whisper-cli  ' });
+    expect(store.getConfig().voiceWhisperBinary).toBe('/opt/whisper/whisper-cli');
+    store.setConfig({ voiceWhisperBinary: '   ' });
+    expect(store.getConfig().voiceWhisperBinary).toBeUndefined();
+  });
+
   it('drops an invalid voiceLanguage (unchanged) and lets empty clear it', () => {
     store.setConfig({ voiceLanguage: 'de' });
     for (const bad of ['english', 'e', 'en-US', 'e1', 'fr;rm']) {

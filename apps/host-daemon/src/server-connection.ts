@@ -277,6 +277,8 @@ export function startEnrolledHostConnection(options: {
     previewTunnel.close();
     runtime.peerSsh?.close?.();
     await pluginHosts.shutdown();
+    // An injected runtime is owned (and disposed) by its caller.
+    if (!options.runtime) await runtime.localVoice.dispose();
     adapter?.dispose();
     enrolledPty?.dispose();
     await sink.dispose();

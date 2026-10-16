@@ -425,6 +425,12 @@ describe('host-rpc contract', () => {
     expect(HostRpcCommandSchema.parse({ ...voice, language: 'fr' })).toMatchObject({ language: 'fr' });
     expect(HostRpcCommandSchema.safeParse({ ...voice, language: 'en-US' }).success).toBe(false);
     expect(HostRpcCommandSchema.safeParse({ ...voice, language: 'EN' }).success).toBe(false);
+    expect(HostRpcCommandSchema.parse({ type: 'voice.local.status' }).type).toBe('voice.local.status');
+    for (const type of ['voice.local.model_download', 'voice.local.model_cancel', 'voice.local.model_delete']) {
+      expect(HostRpcCommandSchema.parse({ type, modelId: 'medium' }).type).toBe(type);
+      expect(HostRpcCommandSchema.safeParse({ type, modelId: 'large' }).success).toBe(false);
+      expect(HostRpcCommandSchema.safeParse({ type, modelId: 'tiny', url: 'https://x' }).success).toBe(false);
+    }
     expect(HostRpcCommandSchema.parse({
       type: 'codex.inference.complete',
       model: 'gpt-5',
@@ -641,6 +647,15 @@ describe('host-rpc contract', () => {
       model: 'gpt-transcribe',
       text: 'hello'
     })).toEqual({ model: 'gpt-transcribe', text: 'hello' });
+    const localStatus = {
+      binary: { state: 'ready', path: '/opt/homebrew/bin/whisper-cli', source: 'known', message: null },
+      models: [{ id: 'base', label: 'Base', sizeBytes: 147_951_465, state: 'downloading', receivedBytes: 1024, error: null }]
+    };
+    expect(parseHostRpcResult('voice.local.status', localStatus)).toEqual(localStatus);
+    expect(() => parseHostRpcResult('voice.local.model_download', {
+      ...localStatus,
+      models: [{ ...localStatus.models[0], state: 'paused' }]
+    })).toThrow();
     expect(parseHostRpcResult('codex.inference.complete', {
       model: 'gpt-5',
       value: { title: 'Hello' }

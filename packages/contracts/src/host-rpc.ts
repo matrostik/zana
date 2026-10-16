@@ -169,6 +169,10 @@ export const HostRpcCommandTypeSchema = z.enum([
   'project.clone',
   'project.clone_default_path',
   'codex.voice.transcribe',
+  'voice.local.status',
+  'voice.local.model_download',
+  'voice.local.model_cancel',
+  'voice.local.model_delete',
   'codex.inference.complete',
   'interactive.resolve',
   'provider.cli_status',
@@ -769,6 +773,34 @@ export const CodexVoiceTranscribeCommandSchema = z.object({
 }).strict();
 export type CodexVoiceTranscribeCommand = z.infer<typeof CodexVoiceTranscribeCommandSchema>;
 
+/** Pinned whisper.cpp models the host can download; the daemon owns URLs and digests. */
+export const VOICE_LOCAL_MODEL_IDS = ['tiny', 'base', 'small', 'medium'] as const;
+export const VoiceLocalModelIdSchema = z.enum(VOICE_LOCAL_MODEL_IDS);
+export type VoiceLocalModelId = z.infer<typeof VoiceLocalModelIdSchema>;
+
+export const VoiceLocalStatusCommandSchema = z.object({
+  type: z.literal('voice.local.status')
+}).strict();
+export type VoiceLocalStatusCommand = z.infer<typeof VoiceLocalStatusCommandSchema>;
+
+export const VoiceLocalModelDownloadCommandSchema = z.object({
+  type: z.literal('voice.local.model_download'),
+  modelId: VoiceLocalModelIdSchema
+}).strict();
+export type VoiceLocalModelDownloadCommand = z.infer<typeof VoiceLocalModelDownloadCommandSchema>;
+
+export const VoiceLocalModelCancelCommandSchema = z.object({
+  type: z.literal('voice.local.model_cancel'),
+  modelId: VoiceLocalModelIdSchema
+}).strict();
+export type VoiceLocalModelCancelCommand = z.infer<typeof VoiceLocalModelCancelCommandSchema>;
+
+export const VoiceLocalModelDeleteCommandSchema = z.object({
+  type: z.literal('voice.local.model_delete'),
+  modelId: VoiceLocalModelIdSchema
+}).strict();
+export type VoiceLocalModelDeleteCommand = z.infer<typeof VoiceLocalModelDeleteCommandSchema>;
+
 export const CodexInferenceCompleteCommandSchema = z.object({
   type: z.literal('codex.inference.complete'),
   model: z.string().min(1).max(120),
@@ -1040,6 +1072,10 @@ export const HostRpcCommandSchema = z.union([
   CodexInferenceCompleteCommandSchema,
   InteractiveResolveCommandSchema,
   ProviderCliStatusCommandSchema,
+  VoiceLocalStatusCommandSchema,
+  VoiceLocalModelDownloadCommandSchema,
+  VoiceLocalModelCancelCommandSchema,
+  VoiceLocalModelDeleteCommandSchema,
   ProviderCliInstallCommandSchema,
   HostInstallGlobalSkillsCommandSchema,
   HostGlobalSkillsStatusCommandSchema,
@@ -1440,6 +1476,31 @@ export const CodexVoiceTranscribeResultSchema = z.object({
 }).strict();
 export type CodexVoiceTranscribeResult = z.infer<typeof CodexVoiceTranscribeResultSchema>;
 
+export const VoiceLocalBinaryStatusSchema = z.object({
+  /** `invalid`: a candidate exists but is not an executable whisper-cli. */
+  state: z.enum(['ready', 'missing', 'invalid']),
+  path: PathSchema.nullable(),
+  source: z.enum(['config', 'path', 'known']).nullable(),
+  message: z.string().max(500).nullable()
+}).strict();
+export type VoiceLocalBinaryStatus = z.infer<typeof VoiceLocalBinaryStatusSchema>;
+
+export const VoiceLocalModelStatusSchema = z.object({
+  id: VoiceLocalModelIdSchema,
+  label: z.string().min(1).max(80),
+  sizeBytes: z.number().int().positive(),
+  state: z.enum(['not_installed', 'downloading', 'installed', 'failed']),
+  receivedBytes: z.number().int().nonnegative().nullable(),
+  error: z.string().max(500).nullable()
+}).strict();
+export type VoiceLocalModelStatus = z.infer<typeof VoiceLocalModelStatusSchema>;
+
+export const VoiceLocalStatusResultSchema = z.object({
+  binary: VoiceLocalBinaryStatusSchema,
+  models: z.array(VoiceLocalModelStatusSchema).max(VOICE_LOCAL_MODEL_IDS.length)
+}).strict();
+export type VoiceLocalStatusResult = z.infer<typeof VoiceLocalStatusResultSchema>;
+
 export const CodexInferenceCompleteResultSchema = z.object({
   model: z.string().min(1),
   value: z.record(z.string(), z.unknown())
@@ -1586,6 +1647,10 @@ export const HostRpcResultSchemaByType = {
   'codex.inference.complete': CodexInferenceCompleteResultSchema,
   'interactive.resolve': InteractiveResolveResultSchema,
   'provider.cli_status': ProviderCliStatusResultSchema,
+  'voice.local.status': VoiceLocalStatusResultSchema,
+  'voice.local.model_download': VoiceLocalStatusResultSchema,
+  'voice.local.model_cancel': VoiceLocalStatusResultSchema,
+  'voice.local.model_delete': VoiceLocalStatusResultSchema,
   'provider.cli_install': ProviderCliInstallResultSchema,
   'host.install_global_skills': HostInstallGlobalSkillsResultSchema,
   'host.global_skills_status': HostGlobalSkillsStatusResultSchema,
