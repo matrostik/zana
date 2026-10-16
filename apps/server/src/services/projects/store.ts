@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import type { Project, ProjectRemote, AppConfig, ProjectSettings, OpenTarget, ProjectLaunchDefault, HarnessFamily } from '@zana-ai/zcc-domain/product';
 import { SESSION_MEMORY_DEFAULTS, AUTO_CLOSE_IDLE_DEFAULTS, COMPOSER_LAUNCH_SURFACES_REV, DEFAULT_PROJECT_DISPLAY_NAME } from '@zana-ai/zcc-domain/product';
 import { isTerminalThemeId } from '@zana-ai/zcc-domain/terminal-themes';
+import { VOICE_LANGUAGE_PATTERN } from '@zana-ai/zcc-contracts/host-rpc';
 import { PROJECT_COLORS, pickProjectColor } from '@zana-ai/zcc-domain/project-colors';
 import { registeredAdapters } from '@zana-ai/zcc-host-daemon/harness/registry';
 import { atomicDurableWrite } from '../harness-routing/storage.js';
@@ -1234,7 +1235,11 @@ export function normalizeConfig(input: Partial<AppConfig>): Partial<AppConfig> {
     normalized.voiceModel = input.voiceModel.trim();
   }
   if (typeof input.voiceLanguage === 'string') {
-    normalized.voiceLanguage = input.voiceLanguage.trim();
+    const voiceLanguage = input.voiceLanguage.trim().toLowerCase();
+    // Empty clears the hint (auto-detect); anything else must be an ISO-639 code.
+    if (voiceLanguage === '' || VOICE_LANGUAGE_PATTERN.test(voiceLanguage)) {
+      normalized.voiceLanguage = voiceLanguage;
+    }
   }
   if (typeof input.maxLiveSessions === 'number' && Number.isFinite(input.maxLiveSessions)) {
     // Clamp to [min, hard-ceiling] so a hand-edited config can neither disable

@@ -752,6 +752,9 @@ export const ProjectCloneDefaultPathCommandSchema = z.object({
   projectSlug: z.string().min(1).max(120)
 }).strict();
 
+/** ISO-639 language hint accepted by voice transcription (e.g. 'en', 'fr', 'haw'). */
+export const VOICE_LANGUAGE_PATTERN = /^[a-z]{2,3}$/;
+
 export const CodexVoiceTranscribeCommandSchema = z.object({
   type: z.literal('codex.voice.transcribe'),
   model: z.string().min(1).max(120),
@@ -759,6 +762,9 @@ export const CodexVoiceTranscribeCommandSchema = z.object({
   mimeType: z.string().min(1).max(200),
   filename: z.string().min(1).max(200),
   prompt: z.string().max(4000).nullable(),
+  // Optional so older hosts with the strict schema keep accepting commands
+  // that omit it; senders include it only when a language is configured.
+  language: z.string().regex(VOICE_LANGUAGE_PATTERN).optional(),
   timeoutMs: z.number().int().positive().max(60_000)
 }).strict();
 export type CodexVoiceTranscribeCommand = z.infer<typeof CodexVoiceTranscribeCommandSchema>;

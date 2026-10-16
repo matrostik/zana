@@ -135,7 +135,7 @@ export function ExperimentalView({
                 ]}
               />
             </Field>
-            <Field searchId="experimental.voice-language" label="Language" help="ISO-639-1 code (e.g. 'en', 'fr'). Leave empty for auto-detect.">
+            <Field searchId="experimental.voice-language" label="Language" help="ISO-639 code (e.g. 'en', 'fr'). Leave empty for auto-detect. Applies to OpenAI API-key transcription; Codex sign-in uses auto-detect.">
               <input
                 type="text"
                 placeholder="auto-detect"

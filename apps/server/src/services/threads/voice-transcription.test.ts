@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { HostRpcCommandSchema } from '@zana-ai/zcc-contracts/host-rpc';
 import { HostUnavailableError, AmbiguousHostError } from '../../http/host-hub.js';
 import type { ProductHttpContext } from '../../http/product-context.js';
-import { transcribeVoiceOnHost, VoiceTranscriptionError, voiceTranscriptionEnabled } from './voice-transcription.js';
+import { transcribeVoiceOnHost, VoiceTranscriptionError, voiceLanguageHint, voiceTranscriptionEnabled } from './voice-transcription.js';
 import { VOICE_TRANSCRIPTION_MAX_BYTES } from '../../http/multipart-voice.js';
 
 function ctx(overrides: {
   connected?: string[];
   voiceModel?: string;
+  voiceLanguage?: string;
   rpc?: ReturnType<typeof vi.fn>;
 }): ProductHttpContext {
   const connected = overrides.connected ?? ['host-1'];
@@ -21,7 +22,7 @@ function ctx(overrides: {
       callHostOnlineRpc: overrides.rpc ?? vi.fn(async () => ({ model: 'gpt-transcribe', text: 'hello' }))
     },
     config: {
-      getConfig: () => ({ voiceModel: overrides.voiceModel })
+      getConfig: () => ({ voiceModel: overrides.voiceModel, voiceLanguage: overrides.voiceLanguage })
     }
   } as unknown as ProductHttpContext;
 }
@@ -70,6 +71,30 @@ describe('voice transcription service', () => {
       bytes: Buffer.from('audio'), mimeType: 'audio/mp4', filename: 'recording.mp4'
     })).resolves.toBe('transcribed');
     expect(rpc).toHaveBeenCalledOnce();
+  });
+
+  it('sends the configured language and omits it when unset or invalid', async () => {
+    const audio = { bytes: Buffer.from('audio'), mimeType: 'audio/webm', filename: 'recording.webm' };
+    const rpc = vi.fn(async ({ command }) => {
+      HostRpcCommandSchema.parse(command);
+      return { model: command.model, text: 'ok' };
+    });
+    await transcribeVoiceOnHost(ctx({ rpc, voiceLanguage: ' FR ' }), audio);
+    expect(rpc.mock.calls[0]![0].command.language).toBe('fr');
+
+    for (const voiceLanguage of [undefined, '', 'english']) {
+      rpc.mockClear();
+      await transcribeVoiceOnHost(ctx({ rpc, voiceLanguage }), audio);
+      expect(rpc.mock.calls[0]![0].command).not.toHaveProperty('language');
+    }
+  });
+
+  it('normalizes language hints', () => {
+    expect(voiceLanguageHint('EN')).toBe('en');
+    expect(voiceLanguageHint(' haw ')).toBe('haw');
+    expect(voiceLanguageHint(undefined)).toBeNull();
+    expect(voiceLanguageHint('')).toBeNull();
+    expect(voiceLanguageHint('en-US')).toBeNull();
   });
 
   it('rejects empty audio and maps missing Codex auth to 501', async () => {

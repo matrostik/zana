@@ -687,6 +687,7 @@ function terminalDataBase64(byteLength: number): string {
 
 const INTENTIONAL_OPTIONAL_HOST_DAEMON_FIELDS: Record<string, string> = {
   "hostDaemonCommandSchema.acpMode": "ACP mode is optional for providers without native session modes.",
+  "hostDaemonCommandSchema.language": "Voice transcription sends a language hint only when configured; older hosts reject unknown keys.",
   "hostDaemonCommandSchema.bridgeLaunch.envPassthrough": "Only providers declaring host environment overrides include variable names.",
   "hostDaemonCommandSchema.options.providerOptions": "Provider-owned launch statics are absent for providers without extra options.",
   "hostDaemonCommandSchema.resumeContext.acpMode": "Resume preserves a native ACP mode only when selected.",
@@ -1711,6 +1712,18 @@ describe("host-daemon command schemas", () => {
       model: "gpt-4o-mini-transcribe",
       mimeType: "audio/webm",
     });
+
+    const voice = {
+      type: "codex.voice.transcribe",
+      model: "whisper-1",
+      audioBase64: Buffer.from("audio").toString("base64"),
+      mimeType: "audio/webm",
+      filename: "prompt.webm",
+      prompt: null,
+      timeoutMs: 30000,
+    };
+    expect(hostDaemonCommandSchema.parse({ ...voice, language: "de" })).toMatchObject({ language: "de" });
+    expect(() => hostDaemonCommandSchema.parse({ ...voice, language: "de-DE" })).toThrow();
   });
 
   it("rejects old provider-agnostic AI command names", () => {

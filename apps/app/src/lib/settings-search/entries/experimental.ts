@@ -177,7 +177,7 @@ export const entries: readonly SettingsSearchEntry[] = [
     section: 'experimental',
     anchor: 'voice-input',
     label: 'Language',
-    help: "ISO-639-1 code (e.g. 'en', 'fr'). Leave empty for auto-detect.",
+    help: "ISO-639 code (e.g. 'en', 'fr'). Leave empty for auto-detect. Applies to OpenAI API-key transcription; Codex sign-in uses auto-detect.",
     keywords: ['locale', 'dictation language'],
     kind: 'setting',
     dependsOn: 'experimental.voice-input-enabled',

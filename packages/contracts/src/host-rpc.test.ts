@@ -413,6 +413,18 @@ describe('host-rpc contract', () => {
       prompt: null,
       timeoutMs: 10_000
     }).type).toBe('codex.voice.transcribe');
+    const voice = {
+      type: 'codex.voice.transcribe',
+      model: 'whisper-1',
+      audioBase64: 'YQ==',
+      mimeType: 'audio/webm',
+      filename: 'recording.webm',
+      prompt: null,
+      timeoutMs: 10_000
+    };
+    expect(HostRpcCommandSchema.parse({ ...voice, language: 'fr' })).toMatchObject({ language: 'fr' });
+    expect(HostRpcCommandSchema.safeParse({ ...voice, language: 'en-US' }).success).toBe(false);
+    expect(HostRpcCommandSchema.safeParse({ ...voice, language: 'EN' }).success).toBe(false);
     expect(HostRpcCommandSchema.parse({
       type: 'codex.inference.complete',
       model: 'gpt-5',

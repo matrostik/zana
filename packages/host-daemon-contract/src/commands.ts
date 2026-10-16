@@ -527,6 +527,7 @@ const codexVoiceTranscribeCommandSchema = z
     mimeType: z.string().min(1),
     filename: z.string().min(1),
     prompt: z.string().nullable(),
+    language: z.string().regex(/^[a-z]{2,3}$/).optional(),
     timeoutMs: z.number().int().positive(),
   })
   .strict();

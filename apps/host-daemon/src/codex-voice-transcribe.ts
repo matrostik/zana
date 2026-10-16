@@ -83,11 +83,14 @@ function decodeAudio(command: CodexVoiceTranscribeCommand): Buffer {
   return audio;
 }
 
-function buildFormData(command: CodexVoiceTranscribeCommand, audio: Buffer): FormData {
+function buildFormData(command: CodexVoiceTranscribeCommand, audio: Buffer, auth: CodexAuthCredentials): FormData {
   const form = new FormData();
   form.set('file', new Blob([new Uint8Array(audio)], { type: command.mimeType }), command.filename);
   form.set('model', command.model);
   if (command.prompt) form.set('prompt', command.prompt);
+  // `language` is documented for the public OpenAI API only; the ChatGPT
+  // backend's support is unverified, so it keeps auto-detect there.
+  if (command.language && auth.type === 'apiKey') form.set('language', command.language);
   return form;
 }
 
@@ -228,7 +231,7 @@ async function transcribeWithAuth(
   deadline: Deadline,
   now: () => number
 ): Promise<Response> {
-  const form = buildFormData(command, audio);
+  const form = buildFormData(command, audio, auth);
   if (auth.type === 'chatgpt') {
     return runFetch(fetchImpl, deadline, now, (signal) =>
       fetchChatGpt(fetchImpl, CHATGPT_TRANSCRIBE_URL, (cloudflare) => {

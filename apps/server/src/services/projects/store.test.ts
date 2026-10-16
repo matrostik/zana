@@ -442,6 +442,23 @@ describe('config — voiceModel / voiceLanguage normalization', () => {
     store.setConfig({ voiceLanguage: true as any });
     expect(store.getConfig().voiceLanguage).toBe('en');
   });
+
+  it('lowercases voiceLanguage and accepts three-letter codes', () => {
+    store.setConfig({ voiceLanguage: ' FR ' });
+    expect(store.getConfig().voiceLanguage).toBe('fr');
+    store.setConfig({ voiceLanguage: 'haw' });
+    expect(store.getConfig().voiceLanguage).toBe('haw');
+  });
+
+  it('drops an invalid voiceLanguage (unchanged) and lets empty clear it', () => {
+    store.setConfig({ voiceLanguage: 'de' });
+    for (const bad of ['english', 'e', 'en-US', 'e1', 'fr;rm']) {
+      store.setConfig({ voiceLanguage: bad });
+      expect(store.getConfig().voiceLanguage).toBe('de');
+    }
+    store.setConfig({ voiceLanguage: '   ' });
+    expect(store.getConfig().voiceLanguage).toBe('');
+  });
 });
 
 describe('config — projectViews normalization (shape-only: non-empty string)', () => {

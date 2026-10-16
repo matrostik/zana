@@ -95,6 +95,25 @@ describe('codex voice transcribe', () => {
     expect((init!.body as FormData).get('model')).toBe('gpt-4o-mini-transcribe');
     expect((init!.body as FormData).get('prompt')).toBe('context');
     expect(new Headers((init as RequestInit).headers).get('authorization')).toBe('Bearer sk-codex-api-key');
+    expect((init!.body as FormData).has('language')).toBe(false);
+  });
+
+  it('sends the language hint to the OpenAI API only', async () => {
+    const keyHome = mkdtempSync(join(tmpdir(), 'zcc-voice-lang-key-'));
+    mkdirSync(join(keyHome, '.codex'), { recursive: true });
+    writeFileSync(join(keyHome, '.codex', 'auth.json'), JSON.stringify({
+      auth_mode: 'apikey',
+      OPENAI_API_KEY: 'sk-codex-api-key'
+    }));
+    const keyFetch = vi.fn<typeof fetch>(async () => Response.json({ text: 'bonjour' }));
+    await transcribeCodexVoice(command({ language: 'fr' }), { homeDir: keyHome, fetchImpl: keyFetch });
+    expect((keyFetch.mock.calls[0]![1]!.body as FormData).get('language')).toBe('fr');
+
+    const chatHome = mkdtempSync(join(tmpdir(), 'zcc-voice-lang-cg-'));
+    writeChatGptAuth(chatHome);
+    const chatFetch = vi.fn<typeof fetch>(async () => Response.json({ text: 'bonjour' }));
+    await transcribeCodexVoice(command({ language: 'fr' }), { homeDir: chatHome, fetchImpl: chatFetch });
+    expect((chatFetch.mock.calls[0]![1]!.body as FormData).has('language')).toBe(false);
   });
 
   it('maps ChatGPT rate limits to a host error', async () => {

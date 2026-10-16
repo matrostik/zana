@@ -2791,9 +2791,10 @@ export interface AppConfig {
    */
   voiceModel?: string;
   /**
-   * ISO-639-1 language hint for the transcription model (e.g. 'en', 'fr').
-   * Absent/empty ⇒ auto-detect (the model infers from the audio). Only sent
-   * to the API when non-empty.
+   * ISO-639 language hint for the transcription model (e.g. 'en', 'fr'),
+   * stored lowercase; invalid values are rejected on save. Absent/empty ⇒
+   * auto-detect. Sent only when non-empty, and only honored by OpenAI
+   * API-key transcription (Codex sign-in keeps auto-detect).
    */
   voiceLanguage?: string;
   /**

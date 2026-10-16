@@ -1,4 +1,4 @@
-import type { CodexVoiceTranscribeResult } from '@zana-ai/zcc-contracts/host-rpc';
+import { VOICE_LANGUAGE_PATTERN, type CodexVoiceTranscribeResult } from '@zana-ai/zcc-contracts/host-rpc';
 import { AmbiguousHostError, HostUnavailableError } from '../../http/host-hub.js';
 import type { ProductHttpContext } from '../../http/product-context.js';
 import { VOICE_TRANSCRIPTION_MAX_BYTES } from '../../http/multipart-voice.js';
@@ -43,6 +43,12 @@ function hostErrorCode(error: unknown): string {
   return 'provider_rpc_error';
 }
 
+/** Returns a valid ISO-639 hint, or null for auto-detect (empty, absent, or a pre-validation legacy value). */
+export function voiceLanguageHint(value: string | undefined): string | null {
+  const language = value?.trim().toLowerCase() ?? '';
+  return VOICE_LANGUAGE_PATTERN.test(language) ? language : null;
+}
+
 function isCodexAuthErrorCode(code: string): boolean {
   return code === 'codex_auth_missing' || code === 'codex_auth_invalid' || code === 'codex_auth_failed';
 }
@@ -57,7 +63,9 @@ export async function transcribeVoiceOnHost(
   if (args.bytes.byteLength > VOICE_TRANSCRIPTION_MAX_BYTES) {
     throw new VoiceTranscriptionError(400, 'invalid_request', 'Audio file exceeds 25MB limit');
   }
-  const model = ctx.config.getConfig().voiceModel?.trim() || DEFAULT_VOICE_MODEL;
+  const config = ctx.config.getConfig();
+  const model = config.voiceModel?.trim() || DEFAULT_VOICE_MODEL;
+  const language = voiceLanguageHint(config.voiceLanguage);
   try {
     const hostId = ctx.hostHub.resolveHostId();
     const result = await ctx.hostHub.callHostOnlineRpc<CodexVoiceTranscribeResult>({
@@ -70,6 +78,8 @@ export async function transcribeVoiceOnHost(
         mimeType: args.mimeType || 'application/octet-stream',
         filename: args.filename || 'recording.webm',
         prompt: args.prompt?.trim() || null,
+        // Omitted when unset: older hosts reject unknown keys.
+        ...(language ? { language } : {}),
         timeoutMs: VOICE_COMMAND_TIMEOUT_MS
       }
     });
