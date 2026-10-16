@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { VoiceModelManager } from './VoiceModelManager.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SelectedModelDownload, VoiceModelManager } from './VoiceModelManager.js';
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -72,4 +72,42 @@ it('reports an unreachable host with a retry', async () => {
   mocks.localStatus.mockResolvedValueOnce(structuredClone(ready));
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(screen.getByTestId('voice-binary-status')).toBeTruthy());
+});
+
+describe('SelectedModelDownload', () => {
+  it('offers the selected model for download with its size', async () => {
+    render(<SelectedModelDownload modelId="small" />);
+    const action = await waitFor(() => screen.getByTestId('voice-download-small'));
+    expect(action.textContent).toContain('Download Small (465 MB)');
+    fireEvent.click(action.querySelector('button')!);
+    await waitFor(() => expect(mocks.downloadModel).toHaveBeenCalledWith('small'));
+  });
+
+  it('shows progress and cancel while the selected model downloads', async () => {
+    render(<SelectedModelDownload modelId="base" />);
+    const action = await waitFor(() => screen.getByTestId('voice-download-base'));
+    expect(action.textContent).toContain('Downloading Base… 50%');
+    expect(action.querySelector('progress')).not.toBeNull();
+    fireEvent.click(action.querySelector('button')!);
+    await waitFor(() => expect(mocks.cancelDownload).toHaveBeenCalledWith('base'));
+  });
+
+  it('confirms an installed model and retries a failed one', async () => {
+    render(<SelectedModelDownload modelId="tiny" />);
+    await waitFor(() => expect(screen.getByTestId('voice-download-tiny')).toBeTruthy());
+    expect(screen.getByTestId('voice-download-tiny').textContent).toContain('Tiny is downloaded and ready.');
+
+    cleanup();
+    render(<SelectedModelDownload modelId="medium" />);
+    const action = await waitFor(() => screen.getByTestId('voice-download-medium'));
+    expect(action.textContent).toContain('Last download failed: checksum mismatch');
+    fireEvent.click(action.querySelector('button')!);
+    await waitFor(() => expect(mocks.downloadModel).toHaveBeenCalledWith('medium'));
+  });
+
+  it('renders nothing when the model is unknown or unreachable', async () => {
+    const { container } = render(<SelectedModelDownload modelId="large" />);
+    await waitFor(() => expect(mocks.localStatus).toHaveBeenCalled());
+    expect(container.textContent).toBe('');
+  });
 });

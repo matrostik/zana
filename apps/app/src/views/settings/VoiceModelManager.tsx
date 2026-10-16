@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { product } from '../../lib/product-client.js';
-import type { VoiceLocalStatusResponse } from '@zana-ai/zcc-domain/product';
+import type { VoiceLocalModelStatusResponse, VoiceLocalStatusResponse } from '@zana-ai/zcc-domain/product';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
@@ -71,7 +71,6 @@ export function VoiceModelManager({ selectedModelId }: { selectedModelId?: strin
     if (state === 'installed') return act(id, (modelId) => product.voice.deleteModel(modelId));
     return act(id, (modelId) => product.voice.downloadModel(modelId));
   };
-
   if (error && !status) {
     return (
       <p className="settings-note" role="alert">
@@ -122,6 +121,87 @@ export function VoiceModelManager({ selectedModelId }: { selectedModelId?: strin
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Download action for the model chosen in the Local model picker. Sits right
+ * under the picker: when the selected model is missing it offers its Download
+ * button, and after the click it shows live progress (polled) with Cancel.
+ * The full list below stays the place for managing every model.
+ */
+export function SelectedModelDownload({ modelId }: { modelId: string }) {
+  const [model, setModel] = useState<VoiceLocalModelStatusResponse | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const status = await product.voice.localStatus();
+      setModel(status.models.find((candidate) => candidate.id === modelId) ?? null);
+    } catch {
+      setModel(null);
+    }
+  }, [modelId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (model?.state !== 'downloading') return;
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [model?.state, refresh]);
+
+  const act = async (fn: (id: string) => Promise<VoiceLocalStatusResponse>) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const status = await fn(modelId);
+      setModel(status.models.find((candidate) => candidate.id === modelId) ?? null);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!model) return null;
+  if (model.state === 'installed') {
+    return (
+      <div data-testid={`voice-download-${model.id}`}>
+        <p className="settings-note">{`${model.label} is downloaded and ready.`}</p>
+      </div>
+    );
+  }
+  if (model.state === 'downloading') {
+    return (
+      <div data-testid={`voice-download-${model.id}`}>
+        <p className="settings-note">{`Downloading ${model.label}…${model.receivedBytes === null ? '' : ` ${Math.round((model.receivedBytes / model.sizeBytes) * 100)}%`}`}</p>
+        {model.receivedBytes !== null && (
+          <progress value={model.receivedBytes} max={model.sizeBytes} aria-label={`${model.label} download progress`} />
+        )}{' '}
+        <button type="button" disabled={busy} onClick={() => void act((id) => product.voice.cancelDownload(id))}>
+          Cancel
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div data-testid={`voice-download-${model.id}`}>
+      {model.state === 'failed' && (
+        <p className="settings-note">{`Last download failed: ${model.error ?? 'unknown error'}`}</p>
+      )}
+      <button type="button" disabled={busy} onClick={() => void act((id) => product.voice.downloadModel(id))}>
+        {`Download ${model.label} (${formatSize(model.sizeBytes)})`}
+      </button>
+      {actionError && (
+        <p className="settings-note" role="alert">{actionError}</p>
+      )}
     </div>
   );
 }

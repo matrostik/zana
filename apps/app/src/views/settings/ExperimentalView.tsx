@@ -1,7 +1,7 @@
 import type { AppConfig } from '@zana-ai/zcc-domain/product';
 import { Section, Field, CheckboxField } from '@/components/settings/FormFields';
 import { PopoverPicklist } from '@/components/ui/PopoverPicklist';
-import { VoiceModelManager } from './VoiceModelManager.js';
+import { VoiceModelManager, SelectedModelDownload } from './VoiceModelManager.js';
 
 /**
  * Experimental settings — opt-in features still under evaluation. Each is OFF by
@@ -167,7 +167,7 @@ export function ExperimentalView({
                     onBlur={(e) => onUpdate({ voiceWhisperBinary: e.target.value.trim() })}
                   />
                 </Field>
-                <Field searchId="experimental.voice-local-model" label="Local model" help="Bigger models transcribe better and run slower. Base is the default.">
+                <Field searchId="experimental.voice-local-model" label="Local model" help="Bigger models transcribe better and run slower. Base is the default. Download the selected model here, watch its progress, or cancel a running download.">
                   <PopoverPicklist
                     value={config.voiceLocalModel ?? 'base'}
                     ariaLabel="Local Whisper model"
@@ -181,6 +181,7 @@ export function ExperimentalView({
                     ]}
                   />
                 </Field>
+                <SelectedModelDownload modelId={config.voiceLocalModel ?? 'base'} />
                 <VoiceModelManager selectedModelId={config.voiceLocalModel ?? 'base'} />
               </>
             )}

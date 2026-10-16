@@ -200,7 +200,7 @@ export const entries: readonly SettingsSearchEntry[] = [
     section: 'experimental',
     anchor: 'voice-input',
     label: 'Local model',
-    help: 'Bigger models transcribe better and run slower. Base is the default.',
+    help: 'Bigger models transcribe better and run slower. Base is the default. Download the selected model here, watch its progress, or cancel a running download.',
     options: ['Tiny · 74 MB · fastest', 'Base · 141 MB · default', 'Small · 465 MB', 'Medium · 1.4 GB · slowest'],
     keywords: ['whisper', 'offline model'],
     kind: 'setting',
