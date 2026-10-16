@@ -123,6 +123,64 @@ function isCodexAuthErrorCode(code: string): boolean {
   return code === 'codex_auth_missing' || code === 'codex_auth_invalid' || code === 'codex_auth_failed';
 }
 
+export type VoiceLocalModelAction = 'voice.local.model_download' | 'voice.local.model_cancel' | 'voice.local.model_delete';
+
+/** Binary + per-model status for the Settings model manager. Throws like transcribeVoiceOnHost. */
+export async function localVoiceStatus(ctx: ProductHttpContext): Promise<VoiceLocalStatusResult> {
+  try {
+    const hostId = ctx.hostHub.resolveHostId();
+    return await ctx.hostHub.callHostOnlineRpc<VoiceLocalStatusResult>({
+      hostId,
+      timeoutMs: VOICE_STATUS_RPC_TIMEOUT_MS,
+      command: { type: 'voice.local.status' }
+    });
+  } catch (error) {
+    if (error instanceof HostUnavailableError) {
+      throw new VoiceTranscriptionError(503, error.code, error.message);
+    }
+    if (error instanceof AmbiguousHostError) {
+      throw new VoiceTranscriptionError(409, error.code, error.message);
+    }
+    const code = hostErrorCode(error);
+    if (code === 'unknown_command') {
+      throw new VoiceTranscriptionError(501, code, LOCAL_VOICE_UPDATE_MESSAGE);
+    }
+    throw new VoiceTranscriptionError(502, code, error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
+ * Starts/cancels/deletes a whisper.cpp model download on the host, returning
+ * the fresh binary + model status for the Settings UI to render.
+ */
+export async function manageVoiceLocalModel(
+  ctx: ProductHttpContext,
+  action: VoiceLocalModelAction,
+  modelId: VoiceLocalModelId
+): Promise<VoiceLocalStatusResult> {
+  try {
+    const hostId = ctx.hostHub.resolveHostId();
+    return await ctx.hostHub.callHostOnlineRpc<VoiceLocalStatusResult>({
+      hostId,
+      timeoutMs: VOICE_STATUS_RPC_TIMEOUT_MS,
+      command: { type: action, modelId }
+    });
+  } catch (error) {
+    if (error instanceof HostUnavailableError) {
+      throw new VoiceTranscriptionError(503, error.code, error.message);
+    }
+    if (error instanceof AmbiguousHostError) {
+      throw new VoiceTranscriptionError(409, error.code, error.message);
+    }
+    const code = hostErrorCode(error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (code === 'unknown_command') {
+      throw new VoiceTranscriptionError(501, code, LOCAL_VOICE_UPDATE_MESSAGE);
+    }
+    throw new VoiceTranscriptionError(code === 'voice_model_busy' ? 503 : 502, code, message);
+  }
+}
+
 function localHostErrorStatus(code: string): number {
   if (code === 'invalid_request') return 400;
   if (

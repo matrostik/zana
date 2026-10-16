@@ -1034,7 +1034,7 @@ export function ThreadCommandComposer({
                     !voice.isSupported
                       ? 'Voice input is not supported in this browser'
                       : !voice.available
-                        ? 'Host daemon is not connected'
+                        ? (voice.blockReason ?? 'Host daemon is not connected')
                         : 'Start voice input'
                   }
                 >
@@ -1044,7 +1044,7 @@ export function ThreadCommandComposer({
                       !voice.isSupported
                         ? 'Voice input is not supported in this browser'
                         : !voice.available
-                          ? 'Host daemon is not connected'
+                          ? (voice.blockReason ?? 'Host daemon is not connected')
                           : 'Start voice input'
                     }
                     disabled={!voice.canStart}

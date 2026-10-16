@@ -53,7 +53,7 @@ The first (and currently only) consumer is **tab auto-naming**. The layer was bu
 
 Three layers, three reasons:
 
-1. **`PromptRegistry`** — *what* to run, as data. A faithful clone of `QuickPromptStore` (`src/main/quick-prompt-store.ts`): built-in entries live in code, a JSON file in `~/.zcc/llm-prompts/` with the same `id` shadows a built-in, `fs.watch` hot-reloads, edits are also driven from the Settings → Prompts tab. Exports `get`/`list`/`saveUser`/`deleteUser`.
+1. **`PromptRegistry`** — *what* to run, as data. A faithful clone of `QuickPromptStore` (`apps/server/src/services/library/quick-prompt-store.ts`): built-in entries live in code, a JSON file in `~/.zcc/llm-prompts/` with the same `id` shadows a built-in, `fs.watch` hot-reloads, edits are also driven from the Settings → Prompts tab. Exports `get`/`list`/`saveUser`/`deleteUser`.
 2. **`LlmService`** — the dispatcher. `run(entry, vars, dedupeKey?)` fills `{{var}}` placeholders, selects the provider, and coalesces concurrent identical calls by `dedupeKey`. Provider-agnostic; knows nothing about any specific model.
 3. **`LlmProvider`** — the transport seam (`packages/llm/src/provider.ts`). One implementation per backend. **Contract: never throw** — every failure (spawn error, timeout, non-zero exit, missing provider, no key, HTTP error, network error, abort) resolves to an `LlmRunResult { ok: false, error }`, so callers stay branch-free.
 
@@ -77,11 +77,11 @@ The seam carries two optional extensions:
 | `packages/llm/src/model-resolve.ts` | Claude `settings.json` family-alias resolver (Electron-free; settings path injectable) |
 | `packages/llm/src/llm-service.ts` | `LlmService`, `fillTemplate`, `availableProviders`, `setProvider` |
 | `packages/llm/src/prompt-registry.ts` | `PromptRegistry` + the `builtin:tab-namer` entry (HOME / reveal-path injected) |
-| `src/main/index.ts` | constructs `PromptRegistry` / `LlmService` from `@zana-ai/zcc-llm`, `rebuildProviders(config)`, IPC handlers, consumers |
-| `src/main/voice/secrets.ts` | encrypted (`safeStorage`) OpenAI/Gemini API keys + env-var fallbacks |
+| `apps/desktop/src/host.ts` | constructs `PromptRegistry` / `LlmService` from `@zana-ai/zcc-llm`, `rebuildProviders(config)`, IPC handlers, consumers |
+| `apps/desktop/src/native/voice/secrets.ts` | encrypted (`safeStorage`) OpenAI/Gemini API keys + env-var fallbacks |
 | `apps/app/src/views/settings/PromptsView.tsx` | the editor UI |
 
-Singletons are constructed in `index.ts` (`const promptRegistry`, `const llmService`) — the same module-scope pattern as `quickPrompts`/`personas`. Any other main-process feature imports nothing new; it already has them in scope. Providers are (re)registered by one helper, `rebuildProviders(config)`, called at the three lifecycle points — boot, `config:set`, and window-open — so a changed `claudeBinary` or a newly-stored API key takes effect without a restart. It replaces the previously-duplicated construction:
+Singletons are constructed in `host.ts` (`const promptRegistry`, `const llmService`) — the same module-scope pattern as `quickPrompts`/`personas`. Any other main-process feature imports nothing new; it already has them in scope. Providers are (re)registered by one helper, `rebuildProviders(config)`, called at the three lifecycle points — boot, `config:set`, and window-open — so a changed `claudeBinary` or a newly-stored API key takes effect without a restart. It replaces the previously-duplicated construction:
 
 ```ts
 function rebuildProviders(config: AppConfig): void {
@@ -91,7 +91,7 @@ function rebuildProviders(config: AppConfig): void {
 }
 ```
 
-The HTTP providers are registered unconditionally with a **lazy** key getter (`getOpenAiKey`/`getGeminiKey` from `voice/secrets.ts`); a provider with no key resolves to `ok:false` rather than being absent. `LlmService.availableProviders()` (which consults each provider's `isConfigured?()`) then drives the Settings → Prompts picker so only usable providers are offered.
+The HTTP providers are registered unconditionally with a **lazy** key getter (`getOpenAiKey`/`getGeminiKey` from `apps/desktop/src/native/voice/secrets.ts`); a provider with no key resolves to `ok:false` rather than being absent. `LlmService.availableProviders()` (which consults each provider's `isConfigured?()`) then drives the Settings → Prompts picker so only usable providers are offered.
 
 ---
 
@@ -179,7 +179,7 @@ The `LlmProviderId` union in `@zana-ai/zcc-domain/llm` already enumerates `'anth
 Today the **only** run path exposed to the renderer is `llmPrompts.test` (the Settings → Prompts "Test" button). It works, but it's named/scoped as a test affordance. When a real renderer-driven consumer lands (e.g. a "Summarize" button in the inbox), add a dedicated production channel rather than borrowing `test`:
 
 1. `packages/desktop-contract/src/ipc.ts` — add `run: 'llmPrompts:run'` to the `llmPrompts` group.
-2. `src/main/index.ts` — `safeHandle(IPC.llmPrompts.run, (id, vars) => llmService.run(promptRegistry.get(id)!, vars), …)` (mirror the `test` handler's error fallback).
+2. `apps/desktop/src/host.ts` — `safeHandle(IPC.llmPrompts.run, (id, vars) => llmService.run(promptRegistry.get(id)!, vars), …)` (mirror the `test` handler's error fallback).
 3. `apps/desktop/src/preload.ts` — `run: (id, vars) => ipcRenderer.invoke(IPC.llmPrompts.run, id, vars)`.
 4. `packages/desktop-contract/src/cc-api.ts` — add `run(id, vars): Promise<LlmRunResult>` to `CcApi.llmPrompts`.
 
@@ -203,7 +203,7 @@ The natural question is "shouldn't the prompt definition be a YAML file (model +
 
 Multi-provider was a design goal from day one, which is why the `LlmProvider` seam exists and `LlmProviderId` enumerates `'claude-cli' | 'anthropic-sdk' | 'openai' | 'gemini'`. Three of the four now ship (`claude-cli`, `openai`, `gemini`); only the Anthropic SDK transport is still a reserved seam. How the shipped providers handle the cross-cutting concerns:
 
-- **Credentials.** `claude-cli` needs none (it reuses the user's Claude Code login). The HTTP providers take a lazy key getter and read from `voice/secrets.ts`: the OpenAI key comes from `OPENAI_API_KEY` **or** a `safeStorage`-encrypted key in `~/.zcc/voice-secrets.enc`; the Gemini key from `GEMINI_API_KEY` / `GOOGLE_API_KEY` **or** the same encrypted store. Keys are read at call time, never written to `~/.zcc/config.json` or exposed to the renderer as plaintext (only a "key configured" boolean via `isConfigured()`). Gemini sends its key in the `x-goog-api-key` header (never the URL) so it can't leak into request-log / error text.
+- **Credentials.** `claude-cli` needs none (it reuses the user's Claude Code login). The HTTP providers take a lazy key getter and read from `apps/desktop/src/native/voice/secrets.ts`: the OpenAI key comes from `OPENAI_API_KEY` **or** a `safeStorage`-encrypted key in `~/.zcc/voice-secrets.enc`; the Gemini key from `GEMINI_API_KEY` / `GOOGLE_API_KEY` **or** the same encrypted store. Keys are read at call time, never written to `~/.zcc/config.json` or exposed to the renderer as plaintext (only a "key configured" boolean via `isConfigured()`). Gemini sends its key in the `x-goog-api-key` header (never the URL) so it can't leak into request-log / error text.
 - **Model ids.** The `model` field is provider-scoped, but the built-in prompts speak Claude tier aliases (`haiku`/`sonnet`/`opus`) because `claude-cli` was the only transport. So — reversing an earlier decision — there **is** now a shared cross-provider alias table: `packages/llm/src/model-aliases.ts`. Each HTTP provider calls `resolveModelAlias(this.id, req.model)` inside `run()`, which maps the three Claude tiers onto that provider's own concrete id (e.g. `haiku` → `gpt-4o-mini` / `gemini-2.0-flash`); any other value — a provider-native id like `gpt-4o` — passes through untouched. This is what lets an existing built-in prompt (`model: 'haiku'`) work unchanged when re-pointed at `openai`/`gemini`. `LlmService` itself stays alias-agnostic — it passes `entry.model` straight through; resolution happens in the provider. `isKnownModel(provider, model)` is the config-**write**-time twin, wired into `packages/llm/src/prompt-registry.ts` (`readPromptFile` drops an invalid model to `undefined`; `saveUser` rejects the save) so a bad model id surfaces when a prompt is saved rather than as a silent `ok:false` at dispatch.
 - **Budget caps.** The HTTP providers are metered and populate `LlmRunResult.usage` (input/output tokens) from the response, so a `maxTokens`/`maxUsdCost` budget field on `LlmPromptEntry` now has the accounting it needs (see below — still not built).
 - **Caching/latency.** `claude-cli` cold calls run ~10–20s. The HTTP providers are faster; don't hard-code latency assumptions in consumers (the tab-namer already tolerates ~20s and re-checks liveness after).
@@ -234,4 +234,4 @@ Deliberately deferred until a consumer needs them — listed so the next person 
 ## Related
 
 - Memory: `tab-auto-rename-osc` (the first consumer), `llm-micro-call-service` (this layer), `security-hook-exec-false-positive`.
-- Sibling pattern: `src/main/quick-prompt-store.ts` (the clone source for `PromptRegistry`).
+- Sibling pattern: `apps/server/src/services/library/quick-prompt-store.ts` (the clone source for `PromptRegistry`).

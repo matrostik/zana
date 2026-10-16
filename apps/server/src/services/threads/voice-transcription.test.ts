@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HostRpcCommandSchema } from '@zana-ai/zcc-contracts/host-rpc';
 import { HostUnavailableError, AmbiguousHostError } from '../../http/host-hub.js';
 import type { ProductHttpContext } from '../../http/product-context.js';
-import { transcribeVoiceOnHost, VoiceTranscriptionError, voiceEngine, voiceLanguageHint, voiceLocalModel, voiceStatus, voiceTranscriptionEnabled } from './voice-transcription.js';
+import { localVoiceStatus, manageVoiceLocalModel, transcribeVoiceOnHost, VoiceTranscriptionError, voiceEngine, voiceLanguageHint, voiceLocalModel, voiceStatus, voiceTranscriptionEnabled } from './voice-transcription.js';
 import { VOICE_TRANSCRIPTION_MAX_BYTES } from '../../http/multipart-voice.js';
 
 function ctx(overrides: {
@@ -300,6 +300,56 @@ describe('local voice transcription', () => {
     });
     await expect(transcribeVoiceOnHost(ctx({ rpc: down, voiceEngine: 'local' }), audio))
       .rejects.toMatchObject({ status: 503, code: 'host-unavailable' });
+  });
+});
+
+describe('local model management', () => {
+  const status = {
+    binary: { state: 'ready', path: '/b', source: 'path', message: null },
+    models: [{ id: 'tiny', label: 'Tiny', sizeBytes: 1, state: 'downloading', receivedBytes: 0, error: null }]
+  };
+
+  it.each([
+    ['voice.local.model_download', 'download'],
+    ['voice.local.model_cancel', 'cancel'],
+    ['voice.local.model_delete', 'delete']
+  ])('sends %s and returns fresh status', async (type, _label) => {
+    const rpc = vi.fn(async () => status);
+    await expect(manageVoiceLocalModel(
+      ctx({ rpc }),
+      type as 'voice.local.model_download' | 'voice.local.model_cancel' | 'voice.local.model_delete',
+      'tiny'
+    )).resolves.toEqual(status);
+    expect(rpc).toHaveBeenCalledWith(expect.objectContaining({
+      command: { type, modelId: 'tiny' }
+    }));
+  });
+
+  it('maps management errors', async () => {
+    const old = vi.fn(async () => {
+      throw Object.assign(new Error('unknown or invalid command type'), { code: 'unknown_command' });
+    });
+    await expect(manageVoiceLocalModel(ctx({ rpc: old }), 'voice.local.model_download', 'tiny'))
+      .rejects.toMatchObject({ status: 501, message: expect.stringContaining('Update the host daemon') });
+
+    const busy = vi.fn(async () => {
+      throw Object.assign(new Error('busy'), { code: 'voice_model_busy' });
+    });
+    await expect(manageVoiceLocalModel(ctx({ rpc: busy }), 'voice.local.model_download', 'tiny'))
+      .rejects.toMatchObject({ status: 503, code: 'voice_model_busy' });
+
+    const down = vi.fn(async () => { throw new HostUnavailableError(); });
+    await expect(manageVoiceLocalModel(ctx({ rpc: down }), 'voice.local.model_delete', 'tiny'))
+      .rejects.toMatchObject({ status: 503 });
+  });
+
+  it('reads local status and maps an outdated daemon', async () => {
+    await expect(localVoiceStatus(ctx({ rpc: vi.fn(async () => status) }))).resolves.toEqual(status);
+    const old = vi.fn(async () => {
+      throw Object.assign(new Error('unknown'), { code: 'unknown_command' });
+    });
+    await expect(localVoiceStatus(ctx({ rpc: old })))
+      .rejects.toMatchObject({ status: 501, message: expect.stringContaining('Update the host daemon') });
   });
 });
 

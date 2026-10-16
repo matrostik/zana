@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { product } from '../../../lib/product-client.js';
 import { useUi } from '../../../store.js';
 import { createVoiceCapture, type VoiceCaptureSession } from './voice-session.js';
-import { voiceStartBlockReason, type VoiceInputState } from './voice-helpers.js';
+import { voiceStartBlockReason, voiceStatusBlockReason, type VoiceInputState } from './voice-helpers.js';
 
 interface CaptureEntry {
   state: VoiceInputState;
@@ -28,6 +28,7 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
     return hasMediaDevices && typeof MediaRecorder !== 'undefined';
   });
   const [available, setAvailable] = useState(false);
+  const [blockReason, setBlockReason] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
   const showError = useCallback((message: string) => {
@@ -38,9 +39,18 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
   useEffect(() => {
     if (!enabled) {
       setAvailable(false);
+      setBlockReason(null);
       return;
     }
-    void product.voice.hasApiKey().then(setAvailable).catch(() => setAvailable(false));
+    void product.voice.status().then((status) => {
+      // Cloud only needs a connected host; local needs its binary + model.
+      const ok = status.enabled && (status.engine !== 'local' || status.ready === true);
+      setAvailable(ok);
+      setBlockReason(ok ? null : voiceStatusBlockReason(status));
+    }).catch(() => {
+      setAvailable(false);
+      setBlockReason('Host daemon is not connected');
+    });
   }, [enabled]);
 
   const uniqueId = useId();
@@ -86,7 +96,7 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
   }, [key, pushToast]);
 
   const start = useCallback(async () => {
-    const blocked = voiceStartBlockReason(isSupported, available);
+    const blocked = voiceStartBlockReason(isSupported, available, blockReason);
     if (blocked) {
       showError(blocked);
       return;
@@ -99,7 +109,7 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
     }
     if (entry) entry.transcript = transcriptRef.current;
     await sessionRef.current?.start();
-  }, [available, isSupported, showError, key, pushToast]);
+  }, [available, blockReason, isSupported, showError, key, pushToast]);
 
   const stop = useCallback((onTranscript?: (text: string) => void | Promise<void>) => {
     const entry = captures.get(key);
@@ -115,6 +125,7 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
     state,
     isSupported,
     available,
+    blockReason,
     canStart: isSupported && available && state !== 'recording' && state !== 'transcribing',
     stream,
     start,

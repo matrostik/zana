@@ -4050,6 +4050,37 @@ export interface VoiceTranscribeResult {
   ms: number;
 }
 
+/** GET /api/v1/system/voice-status: whether dictation can run right now. */
+export interface VoiceStatusResponse {
+  enabled: boolean;
+  engine: 'cloud' | 'local';
+  ready: boolean;
+  /** Machine-readable reason when not ready; null when ready. */
+  reason: string | null;
+}
+
+export interface VoiceLocalBinaryStatusResponse {
+  state: 'ready' | 'missing' | 'invalid';
+  path: string | null;
+  source: string | null;
+  message: string | null;
+}
+
+export interface VoiceLocalModelStatusResponse {
+  id: string;
+  label: string;
+  sizeBytes: number;
+  state: string;
+  receivedBytes: number | null;
+  error: string | null;
+}
+
+/** Host whisper.cpp binary + per-model state for the Settings model manager. */
+export interface VoiceLocalStatusResponse {
+  binary: VoiceLocalBinaryStatusResponse;
+  models: VoiceLocalModelStatusResponse[];
+}
+
 export interface PersonaHarnessIntentV1 {
   roleTargetId?: string;
   providerTargetId?: string;

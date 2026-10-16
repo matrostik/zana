@@ -29,6 +29,30 @@ describe('Experimental voice settings', () => {
     expect(html).toContain('OPENAI_API_KEY');
   });
 
+  it('offers a local whisper.cpp engine with binary, model and download UI', () => {
+    const cloud = renderToStaticMarkup(
+      <ExperimentalView
+        config={{ ...base, voiceInputEnabled: true }}
+        onConfigDraft={vi.fn()}
+        onUpdate={vi.fn()}
+      />
+    );
+    expect(cloud).toContain('Transcription engine');
+    expect(cloud).not.toContain('whisper-cli path');
+
+    const local = renderToStaticMarkup(
+      <ExperimentalView
+        config={{ ...base, voiceInputEnabled: true, voiceEngine: 'local', voiceLocalModel: 'small' }}
+        onConfigDraft={vi.fn()}
+        onUpdate={vi.fn()}
+      />
+    );
+    expect(local).toContain('whisper-cpp');
+    expect(local).toContain('whisper-cli path');
+    expect(local).toContain('Local model');
+    expect(local).not.toContain('Fallback transcription model');
+  });
+
   it('hides fallback fields until voice input is enabled', () => {
     const html = renderToStaticMarkup(
       <ExperimentalView

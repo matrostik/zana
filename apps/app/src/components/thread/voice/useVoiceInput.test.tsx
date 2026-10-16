@@ -6,6 +6,7 @@ import { useVoiceInput } from './useVoiceInput.js';
 vi.mock('../../../lib/product-client.js', () => ({
   product: {
     voice: {
+      status: async () => ({ enabled: false, engine: 'cloud', ready: false, reason: 'no_host' }),
       hasApiKey: async () => false,
       ensureMicAccess: async () => true,
       transcribe: async () => ({ ok: true, text: 'hi' })
@@ -28,7 +29,7 @@ describe('useVoiceInput', () => {
     const source = readFileSync(new URL('./useVoiceInput.ts', import.meta.url), 'utf8');
     expect(source).toContain('createVoiceCapture');
     expect(source).toContain('voiceStartBlockReason');
-    expect(source).toContain('product.voice.hasApiKey');
+    expect(source).toContain('product.voice.status');
     expect(source).toContain('product.voice.ensureMicAccess');
     expect(source).toContain('product.voice.transcribe');
     expect(source).toContain('showError(blocked)');

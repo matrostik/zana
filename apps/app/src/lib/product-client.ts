@@ -34,6 +34,38 @@ import { subscribeProductEvent } from './product-ws.js';
 import { readHttpLibrary, subscribeHttpLibrary, mutateHttpLibrary, readHttpLibrarySnapshot, subscribeHttpLibrarySnapshot } from './http-library.js';
 import { readConversationJson } from './conversation-read.js';
 import { createEnvironmentStatusClient } from './environment-status-client.js';
+import { convertToSpeechWav } from '../components/thread/voice/voice-helpers.js';
+import type { VoiceLocalStatusResponse, VoiceStatusResponse } from '@zana-ai/zcc-domain/product';
+
+async function postVoiceLocalModel(action: 'model-download' | 'model-cancel' | 'model-delete', modelId: string): Promise<VoiceLocalStatusResponse> {
+  const response = await fetchWithAppSurface(`/api/v1/system/voice-local/${action}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ modelId })
+  });
+  const body = (await response.json().catch(() => null)) as (VoiceLocalStatusResponse & { error?: string; message?: string }) | null;
+  if (!response.ok || !body || !Array.isArray(body.models)) {
+    throw new Error(body?.message ?? body?.error ?? `Request failed (${response.status})`);
+  }
+  return body;
+}
+
+/**
+ * The renderer's voice surface: the CcApi IPC shape plus the server-HTTP
+ * local-transcription methods (status, model management). These never go over
+ * Electron IPC — not even with the desktop bridge — so CcApi['voice'] keeps
+ * only the legacy preload surface.
+ */
+export interface ProductVoice {
+  transcribe(audio: string, mimeType: string): Promise<{ ok: boolean; text: string; error?: string; ms: number }>;
+  hasApiKey(): Promise<boolean>;
+  status(): Promise<VoiceStatusResponse>;
+  downloadModel(modelId: string): Promise<VoiceLocalStatusResponse>;
+  cancelDownload(modelId: string): Promise<VoiceLocalStatusResponse>;
+  deleteModel(modelId: string): Promise<VoiceLocalStatusResponse>;
+  localStatus(): Promise<VoiceLocalStatusResponse>;
+  ensureMicAccess(): Promise<boolean>;
+}
 
 export interface PreferredJoinCode {
   enrollmentId?: string;
@@ -113,7 +145,7 @@ const environmentStatusClient = createEnvironmentStatusClient({
   fetchStatus: (environmentId) => apiJson(`/environments/${encodeURIComponent(environmentId)}/status`)
 });
 
-function httpProduct(): Pick<
+function httpProduct(): Omit<Pick<
   CcApi,
   | 'projects'
   | 'config'
@@ -143,7 +175,7 @@ function httpProduct(): Pick<
   | 'relay'
   | 'marketplaces'
   | 'cliSkills'
-> {
+>, 'voice'> & { voice: ProductVoice } {
   let terminalRosterRead: Promise<{ sessions: TerminalSession[] }> | undefined;
   const terminalRoster = () => {
     if (!terminalRosterRead) {
@@ -1267,20 +1299,43 @@ function httpProduct(): Pick<
       }
     } as CcApi['pluginApps'],
     voice: {
+      status: async () => {
+        try {
+          return await apiJson<VoiceStatusResponse>('/system/voice-status');
+        } catch {
+          return { enabled: false, engine: 'cloud', ready: false, reason: 'no_host' };
+        }
+      },
       hasApiKey: async () => {
-        const body = await apiJson<{ enabled: boolean }>('/system/voice-status');
-        return body.enabled;
+        try {
+          const body = await apiJson<VoiceStatusResponse>('/system/voice-status');
+          return body.enabled && (body.engine !== 'local' || body.ready === true);
+        } catch {
+          return false;
+        }
       },
       ensureMicAccess: async () => true,
       transcribe: async (audio, mimeType) => {
         const started = Date.now();
         try {
+          let engine: string | undefined;
+          try {
+            engine = (await apiJson<VoiceStatusResponse>('/system/voice-status')).engine;
+          } catch {
+            engine = undefined;
+          }
           const binary = atob(audio);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
           const form = new FormData();
-          const extension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
-          form.set('file', new Blob([bytes], { type: mimeType }), `recording.${extension}`);
+          if (engine === 'local') {
+            // whisper-cli takes 16 kHz mono WAV; anything else fails validation on the host.
+            const wav = await convertToSpeechWav(new Blob([bytes], { type: mimeType }));
+            form.set('file', wav, 'recording.wav');
+          } else {
+            const extension = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+            form.set('file', new Blob([bytes], { type: mimeType }), `recording.${extension}`);
+          }
           const response = await fetchWithAppSurface('/api/v1/system/voice-transcription', {
             method: 'POST',
             body: form
@@ -1305,7 +1360,11 @@ function httpProduct(): Pick<
             ms: Date.now() - started
           };
         }
-      }
+      },
+      downloadModel: async (modelId) => postVoiceLocalModel('model-download', modelId),
+      cancelDownload: async (modelId) => postVoiceLocalModel('model-cancel', modelId),
+      deleteModel: async (modelId) => postVoiceLocalModel('model-delete', modelId),
+      localStatus: async (): Promise<VoiceLocalStatusResponse> => apiJson('/system/voice-local/status')
     },
     extensions: {
       list: async () => {
@@ -1380,7 +1439,9 @@ function stubFamily(family: string): unknown {
  * tab uses loopback `/api/v1` + `/ws` and never receives a `window.cc` stand-in.
  */
 let terminalAdapter: CcApi['terminals'] | undefined;
-export const product: CcApi = new Proxy({} as CcApi, {
+export type ProductApi = Omit<CcApi, 'voice'> & { voice: ProductVoice };
+
+export const product: ProductApi = new Proxy({} as ProductApi, {
   get(_target, family: string | symbol) {
     const name = String(family);
     if (name === 'extensions' && !hasDesktopBridge()) return withStubs('extensions', sharedExtensions(
@@ -1498,6 +1559,11 @@ export const product: CcApi = new Proxy({} as CcApi, {
         return {
           transcribe: http.transcribe,
           hasApiKey: http.hasApiKey,
+          status: http.status,
+          downloadModel: http.downloadModel,
+          cancelDownload: http.cancelDownload,
+          deleteModel: http.deleteModel,
+          localStatus: http.localStatus,
           ensureMicAccess: desktop?.ensureMicAccess ?? http.ensureMicAccess
         };
       }

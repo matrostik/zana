@@ -147,7 +147,7 @@ export const entries: readonly SettingsSearchEntry[] = [
     section: 'experimental',
     anchor: 'voice-input',
     label: 'Voice input (dictation)',
-    help: 'Push-to-talk dictation. Audio is transcribed through Codex ChatGPT login on this machine (`codex login`). An OpenAI API key is only an optional fallback.',
+    help: 'Push-to-talk dictation. Cloud uses the Codex ChatGPT login on this machine (`codex login`), with an OpenAI API key as an optional fallback. Local runs whisper.cpp on the connected host — fully offline after the one-time model download.',
     keywords: ['microphone', 'speech', 'dictate', 'push-to-talk', 'transcription'],
     kind: 'subsection'
   },
@@ -173,11 +173,46 @@ export const entries: readonly SettingsSearchEntry[] = [
     value: (s) => s.config.voiceModel ?? 'gpt-transcribe'
   },
   {
+    id: 'experimental.voice-engine',
+    section: 'experimental',
+    anchor: 'voice-input',
+    label: 'Transcription engine',
+    help: 'Cloud uses the Codex login or an OpenAI key. Local runs whisper.cpp on the connected host, fully offline after the model download.',
+    options: ['Cloud (Codex / OpenAI)', 'Local (whisper.cpp, offline)'],
+    keywords: ['whisper', 'offline', 'local transcription'],
+    kind: 'setting',
+    dependsOn: 'experimental.voice-input-enabled',
+    value: (s) => s.config.voiceEngine ?? 'cloud'
+  },
+  {
+    id: 'experimental.voice-whisper-binary',
+    section: 'experimental',
+    anchor: 'voice-input',
+    label: 'whisper-cli path',
+    help: 'Absolute path on the host. Leave empty to search PATH and the usual install locations.',
+    keywords: ['whisper', 'binary', 'whisper.cpp location'],
+    kind: 'setting',
+    dependsOn: 'experimental.voice-input-enabled',
+    value: (s) => s.config.voiceWhisperBinary || undefined
+  },
+  {
+    id: 'experimental.voice-local-model',
+    section: 'experimental',
+    anchor: 'voice-input',
+    label: 'Local model',
+    help: 'Bigger models transcribe better and run slower. Base is the default.',
+    options: ['Tiny · 74 MB · fastest', 'Base · 141 MB · default', 'Small · 465 MB', 'Medium · 1.4 GB · slowest'],
+    keywords: ['whisper', 'offline model'],
+    kind: 'setting',
+    dependsOn: 'experimental.voice-input-enabled',
+    value: (s) => s.config.voiceLocalModel ?? 'base'
+  },
+  {
     id: 'experimental.voice-language',
     section: 'experimental',
     anchor: 'voice-input',
     label: 'Language',
-    help: "ISO-639 code (e.g. 'en', 'fr'). Leave empty for auto-detect. Applies to OpenAI API-key transcription; Codex sign-in uses auto-detect.",
+    help: "ISO-639 code (e.g. 'en', 'fr'). Leave empty for auto-detect. Applies to OpenAI API-key and local transcription; Codex sign-in uses auto-detect.",
     keywords: ['locale', 'dictation language'],
     kind: 'setting',
     dependsOn: 'experimental.voice-input-enabled',

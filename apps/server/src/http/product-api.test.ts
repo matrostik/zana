@@ -1696,6 +1696,58 @@ describe('product HTTP', () => {
     expect(originDenied.status).toBe(403);
   });
 
+  it('manages local voice models over system routes', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'zcc-product-voice-local-'));
+    writeFileSync(join(dataDir, 'projects.json'), JSON.stringify({ version: 1, projects: [] }));
+    writeFileSync(join(dataDir, 'config.json'), JSON.stringify({ version: 1, theme: 'dark' }));
+    server = await startTestProductServer({
+      dataDir,
+      origins: { serverPort: 0, devAppPort: 5173 }
+    });
+
+    const localStatus = {
+      binary: { state: 'ready', path: '/b', source: 'path', message: null },
+      models: [{ id: 'tiny', label: 'Tiny', sizeBytes: 1, state: 'installed', receivedBytes: null, error: null }]
+    };
+    const rpc = vi.fn(async () => localStatus);
+    server.ctx.hostHub.connectedHostIds = () => ['host-1'];
+    server.ctx.hostHub.resolveHostId = () => 'host-1';
+    server.ctx.hostHub.callHostOnlineRpc = rpc;
+
+    const download = await fetch(`${server.url}api/v1/system/voice-local/model-download`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ modelId: 'tiny' })
+    });
+    expect(download.status).toBe(200);
+    await expect(download.json()).resolves.toEqual(localStatus);
+    expect(rpc).toHaveBeenCalledWith(expect.objectContaining({
+      command: { type: 'voice.local.model_download', modelId: 'tiny' }
+    }));
+
+    const hosted = await fetch(`${server.url}api/v1/system/voice-local/status`);
+    expect(hosted.status).toBe(200);
+    await expect(hosted.json()).resolves.toEqual(localStatus);
+
+    const bad = await fetch(`${server.url}api/v1/system/voice-local/model-delete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ modelId: 'large-v3' })
+    });
+    expect(bad.status).toBe(400);
+
+    server.ctx.hostHub.callHostOnlineRpc = vi.fn(async () => {
+      throw Object.assign(new Error('unknown'), { code: 'unknown_command' });
+    });
+    const outdated = await fetch(`${server.url}api/v1/system/voice-local/model-cancel`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ modelId: 'tiny' })
+    });
+    expect(outdated.status).toBe(501);
+    await expect(outdated.json()).resolves.toMatchObject({ error: 'unknown_command' });
+  });
+
   it('serves environment diff file TOC and per-file patches', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'zcc-product-diff-'));
     server = await startTestProductServer({

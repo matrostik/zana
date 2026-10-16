@@ -2,8 +2,8 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ captures: [] as any[], toast: vi.fn(), available: vi.fn() }));
-vi.mock('../../../lib/product-client.js', () => ({ product: { voice: { hasApiKey: mocks.available } } }));
+const mocks = vi.hoisted(() => ({ captures: [] as any[], toast: vi.fn(), status: vi.fn() }));
+vi.mock('../../../lib/product-client.js', () => ({ product: { voice: { status: mocks.status } } }));
 vi.mock('../../../store.js', () => ({ useUi: (select: any) => select({ pushToast: mocks.toast }) }));
 vi.mock('./voice-session.js', () => ({ createVoiceCapture: (_deps: any, callbacks: any) => {
   const session = {
@@ -18,7 +18,7 @@ vi.mock('./voice-session.js', () => ({ createVoiceCapture: (_deps: any, callback
 } }));
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks(); mocks.captures.length = 0;
-  mocks.available.mockResolvedValue(true);
+  mocks.status.mockResolvedValue({ enabled: true, engine: 'cloud', ready: true, reason: null });
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: vi.fn() } });
   vi.stubGlobal('MediaRecorder', class {});
 });
@@ -71,10 +71,20 @@ it('bounds pending recordings without evicting another owner', async () => {
 });
 
 it('blocks unavailable voice and honours the disabled option', async () => {
-  mocks.available.mockResolvedValue(false);
+  mocks.status.mockResolvedValue({ enabled: true, engine: 'local', ready: false, reason: 'model_not_installed' });
   const { useVoiceInput } = await import('./useVoiceInput.js');
   const hook = renderHook(() => useVoiceInput({ onTranscript: vi.fn(), enabled: false }));
-  expect(mocks.available).not.toHaveBeenCalled();
+  expect(mocks.status).not.toHaveBeenCalled();
   await act(() => hook.result.current.start());
   expect(hook.result.current.state).toBe('error'); expect(mocks.captures[0].start).not.toHaveBeenCalled();
+});
+
+it('disables the mic with the local reason while the model is missing', async () => {
+  mocks.status.mockResolvedValue({ enabled: true, engine: 'local', ready: false, reason: 'model_not_installed' });
+  const { useVoiceInput } = await import('./useVoiceInput.js');
+  const hook = renderHook(() => useVoiceInput({ onTranscript: vi.fn() }));
+  await waitFor(() => expect(hook.result.current.canStart).toBe(false));
+  expect(hook.result.current.blockReason).toContain('not downloaded');
+  await act(() => hook.result.current.start());
+  expect(mocks.toast).toHaveBeenCalledWith(expect.stringContaining('not downloaded'), 'error');
 });

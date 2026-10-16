@@ -11,6 +11,45 @@ const { build } = createRequire(new URL('../apps/host-daemon/package.json', impo
 
 test.use({ launchEnv: { ZCC_FAKE_PROVIDER: '1' }, initialConfig: { sponsorPromptDismissed: true, voiceInputEnabled: true } });
 
+function installSyntheticWavMicrophone() {
+  // A real (silent) 1s 16 kHz mono 16-bit WAV, so the renderer's Web Audio
+  // conversion decodes actual audio instead of stub bytes.
+  const samples = 16000;
+  const buffer = new ArrayBuffer(44 + samples * 2);
+  const view = new DataView(buffer);
+  const ascii = (at, text) => { for (let i = 0; i < text.length; i++) view.setUint8(at + i, text.charCodeAt(i)); };
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 16000, true);
+  view.setUint32(28, 32000, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  const wav = new Blob([buffer], { type: 'audio/mp4' });
+  Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => new MediaStream() });
+  class Recorder {
+    static isTypeSupported(type) { return type === 'audio/mp4'; }
+    mimeType = 'audio/mp4';
+    state = 'inactive';
+    onstart;
+    ondataavailable;
+    onstop;
+    start() { this.state = 'recording'; this.onstart?.(); }
+    stop() {
+      this.state = 'inactive';
+      this.ondataavailable?.({ data: wav });
+      this.onstop?.();
+    }
+  }
+  Object.defineProperty(window, 'MediaRecorder', { value: Recorder });
+}
+
 function installSyntheticMicrophone() {
   Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => new MediaStream() });
   class Recorder {
@@ -168,4 +207,61 @@ else {
     await browser.close();
     await gateway.close();
   }
+});
+
+test('local engine uploads converted WAV and disables the mic while the model is missing', async ({ app, home }, testInfo) => {
+  test.setTimeout(120_000);
+  await app.electron.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler('voice:ensureMicAccess');
+    ipcMain.handle('voice:ensureMicAccess', async () => true);
+  });
+  await app.window.addInitScript(installSyntheticWavMicrophone);
+  await app.window.evaluate(() => window.cc.config.set({ voiceEngine: 'local', voiceLocalModel: 'tiny' }));
+  let localStatus = { enabled: true, engine: 'local', ready: true, reason: null };
+  await app.window.route('**/api/v1/system/voice-status', (route) => route.fulfill({ json: localStatus }));
+  await app.window.route('**/api/v1/system/voice-transcription', async (route) => {
+    const req = route.request();
+    const form = await new Request(req.url(), { method: 'POST', headers: { 'content-type': req.headers()['content-type']! }, body: req.postDataBuffer()! }).formData();
+    const audio = form.get('file') as File;
+    // The renderer converts the mp4 recording to 16-bit PCM WAV for the local engine.
+    expect(audio.name).toBe('recording.wav');
+    const bytes = Buffer.from(await audio.arrayBuffer());
+    expect(bytes.subarray(0, 4).toString('ascii')).toBe('RIFF');
+    expect(bytes.subarray(8, 12).toString('ascii')).toBe('WAVE');
+    expect(bytes.readUInt16LE(20)).toBe(1);
+    expect(bytes.readUInt16LE(34)).toBe(16);
+    await route.fulfill({ json: { text: 'Local voice works.' } });
+  });
+
+  const project = join(home, 'voice-local-project');
+  mkdirSync(project);
+  const threadId = await app.window.evaluate(async (path) => {
+    const project = await window.cc.projects.add(path);
+    if (!project.ok) throw new Error('Cannot add voice fixture project');
+    const response = await fetch('/api/v1/threads', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: project.value.id, providerId: 'fake', input: 'Voice fixture' }) });
+    const body = await response.json();
+    return (body.thread ?? body.value).id;
+  }, project);
+  await app.window.goto(`${new URL(app.window.url()).origin}/threads/${threadId}`);
+  const input = app.window.getByTestId('thread-command-input');
+  await expect(input).toBeVisible();
+  await input.fill('Local draft: ');
+  await input.press('End');
+  await app.window.getByRole('button', { name: 'Start voice input', exact: true }).click();
+  await expect(app.window.getByTestId('thread-voice-bar')).toBeVisible();
+  await app.window.waitForTimeout(1100);
+  await app.window.getByRole('button', { name: 'Stop and transcribe recording', exact: true }).click();
+  await expect(input).toContainText('Local voice works.');
+  await expect(input).toContainText('Local draft:');
+  await app.window.screenshot({ path: testInfo.outputPath('local-voice-transcript.png') });
+
+  // A host without the model disables the mic with the status reason.
+  localStatus = { enabled: true, engine: 'local', ready: false, reason: 'model_not_installed' };
+  await app.window.reload();
+  await expect(app.window.getByTestId('thread-command-input')).toBeVisible();
+  const blocked = app.window.getByRole('button', { name: /not downloaded/i });
+  await expect(blocked).toBeVisible();
+  await expect(blocked).toBeDisabled();
+  await app.window.evaluate(() => window.cc.config.set({ voiceEngine: 'cloud' }));
 });

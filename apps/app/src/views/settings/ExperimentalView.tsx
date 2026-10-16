@@ -1,6 +1,7 @@
 import type { AppConfig } from '@zana-ai/zcc-domain/product';
 import { Section, Field, CheckboxField } from '@/components/settings/FormFields';
 import { PopoverPicklist } from '@/components/ui/PopoverPicklist';
+import { VoiceModelManager } from './VoiceModelManager.js';
 
 /**
  * Experimental settings — opt-in features still under evaluation. Each is OFF by
@@ -105,7 +106,7 @@ export function ExperimentalView({
         searchId="experimental.voice-input"
         anchorId="voice-input"
         title="Voice input (dictation)"
-        help="Push-to-talk dictation. Audio is transcribed through Codex ChatGPT login on this machine (`codex login`). An OpenAI API key is only an optional fallback."
+        help="Push-to-talk dictation. Cloud uses the Codex ChatGPT login on this machine (`codex login`), with an OpenAI API key as an optional fallback. Local runs whisper.cpp on the connected host — fully offline after the one-time model download."
       >
         <CheckboxField
           searchId="experimental.voice-input-enabled"
@@ -116,26 +117,74 @@ export function ExperimentalView({
         />
         {config.voiceInputEnabled && (
           <>
-            <p className="settings-note">
-              Voice uses Codex credentials from <strong>~/.codex/auth.json</strong> when present.
-              If Codex is not signed in, it can fall back to <strong>OPENAI_API_KEY</strong> or the
-              OpenAI key under Settings → LLM Providers.
-            </p>
-            <Field searchId="experimental.voice-model" label="Fallback transcription model">
+            <Field searchId="experimental.voice-engine" label="Transcription engine">
               <PopoverPicklist
-                value={config.voiceModel ?? 'gpt-transcribe'}
-                ariaLabel="Transcription model"
+                value={config.voiceEngine ?? 'cloud'}
+                ariaLabel="Transcription engine"
                 searchable={false}
-                onChange={(voiceModel) => onUpdate({ voiceModel })}
+                onChange={(voiceEngine) => onUpdate({ voiceEngine })}
                 options={[
-                  { value: 'gpt-transcribe', label: 'gpt-transcribe (Codex)' },
-                  { value: 'whisper-1', label: 'whisper-1' },
-                  { value: 'gpt-4o-transcribe', label: 'gpt-4o-transcribe' },
-                  { value: 'gpt-4o-mini-transcribe', label: 'gpt-4o-mini-transcribe' }
+                  { value: 'cloud', label: 'Cloud (Codex / OpenAI)' },
+                  { value: 'local', label: 'Local (whisper.cpp, offline)' }
                 ]}
               />
             </Field>
-            <Field searchId="experimental.voice-language" label="Language" help="ISO-639 code (e.g. 'en', 'fr'). Leave empty for auto-detect. Applies to OpenAI API-key transcription; Codex sign-in uses auto-detect.">
+            {(config.voiceEngine ?? 'cloud') === 'cloud' ? (
+              <>
+                <p className="settings-note">
+                  Voice uses Codex credentials from <strong>~/.codex/auth.json</strong> when present.
+                  If Codex is not signed in, it can fall back to <strong>OPENAI_API_KEY</strong> or the
+                  OpenAI key under Settings → LLM Providers.
+                </p>
+                <Field searchId="experimental.voice-model" label="Fallback transcription model">
+                  <PopoverPicklist
+                    value={config.voiceModel ?? 'gpt-transcribe'}
+                    ariaLabel="Transcription model"
+                    searchable={false}
+                    onChange={(voiceModel) => onUpdate({ voiceModel })}
+                    options={[
+                      { value: 'gpt-transcribe', label: 'gpt-transcribe (Codex)' },
+                      { value: 'whisper-1', label: 'whisper-1' },
+                      { value: 'gpt-4o-transcribe', label: 'gpt-4o-transcribe' },
+                      { value: 'gpt-4o-mini-transcribe', label: 'gpt-4o-mini-transcribe' }
+                    ]}
+                  />
+                </Field>
+              </>
+            ) : (
+              <>
+                <p className="settings-note">
+                  The host runs whisper.cpp <strong>whisper-cli</strong> on your recording — no audio
+                  leaves the machine. Install it yourself (e.g. <strong>brew install whisper-cpp</strong> on
+                  macOS); the mic stays disabled until the binary and a model below are ready.
+                </p>
+                <Field searchId="experimental.voice-whisper-binary" label="whisper-cli path" help="Absolute path on the host. Leave empty to search PATH and the usual install locations.">
+                  <input
+                    type="text"
+                    placeholder="auto-detect"
+                    value={config.voiceWhisperBinary ?? ''}
+                    onChange={(e) => onConfigDraft({ ...config, voiceWhisperBinary: e.target.value })}
+                    onBlur={(e) => onUpdate({ voiceWhisperBinary: e.target.value.trim() })}
+                  />
+                </Field>
+                <Field searchId="experimental.voice-local-model" label="Local model" help="Bigger models transcribe better and run slower. Base is the default.">
+                  <PopoverPicklist
+                    value={config.voiceLocalModel ?? 'base'}
+                    ariaLabel="Local Whisper model"
+                    searchable={false}
+                    onChange={(voiceLocalModel) => onUpdate({ voiceLocalModel })}
+                    options={[
+                      { value: 'tiny', label: 'Tiny · 74 MB · fastest' },
+                      { value: 'base', label: 'Base · 141 MB · default' },
+                      { value: 'small', label: 'Small · 465 MB' },
+                      { value: 'medium', label: 'Medium · 1.4 GB · slowest' }
+                    ]}
+                  />
+                </Field>
+                <VoiceModelManager />
+              </>
+            )}
+            <Field searchId="experimental.voice-language" label="Language" help="ISO-639 code (e.g. 'en', 'fr'). Leave empty for auto-detect. Applies to OpenAI API-key and local transcription; Codex sign-in uses auto-detect.">
               <input
                 type="text"
                 placeholder="auto-detect"

@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
+  convertToSpeechWav,
   createRecordingFile,
+  encodeWav16,
   fileToBase64,
   MIN_RECORDING_DURATION_MS,
   normalizeTranscript,
   resolvePreferredAudioMimeType,
   resolveRecordingErrorMessage,
-  voiceStartBlockReason
+  voiceStartBlockReason,
+  voiceStatusAvailable,
+  voiceStatusBlockReason,
+  voiceUnavailableReason
 } from './voice-helpers.js';
 import { VoiceRecordingBar } from './VoiceRecordingBar.js';
 
@@ -56,6 +61,83 @@ describe('voice helpers', () => {
     };
     expect(resolvePreferredAudioMimeType()).toBe('audio/mp4');
     delete (globalThis as { MediaRecorder?: unknown }).MediaRecorder;
+  });
+
+  it('maps local-engine status to availability and block messages', () => {
+    expect(voiceStatusAvailable({ enabled: true })).toBe(true);
+    expect(voiceStatusAvailable({ enabled: true, engine: 'local', ready: true })).toBe(true);
+    expect(voiceStatusAvailable({ enabled: true, engine: 'local', ready: false })).toBe(false);
+    expect(voiceStatusAvailable({ enabled: false })).toBe(false);
+    expect(voiceStatusBlockReason({ enabled: true })).toBeNull();
+    expect(voiceStatusBlockReason({ enabled: false })).toBe('Host daemon is not connected');
+    expect(voiceStatusBlockReason({ enabled: true, engine: 'local', ready: false, reason: 'binary_missing' }))
+      .toContain('whisper-cli was not found');
+    expect(voiceStatusBlockReason({ enabled: true, engine: 'local', ready: false, reason: 'model_downloading' }))
+      .toContain('still downloading');
+    expect(voiceStatusBlockReason({ enabled: true, engine: 'local', ready: false, reason: 'daemon_outdated' }))
+      .toContain('Update the host daemon');
+    expect(voiceUnavailableReason('model_not_installed')).toContain('not downloaded');
+    expect(voiceUnavailableReason(undefined)).toBe('Host daemon is not connected');
+    expect(voiceStartBlockReason(true, false, 'custom reason')).toBe('custom reason');
+    expect(voiceStartBlockReason(true, false)).toBe('Host daemon is not connected');
+  });
+
+  it('encodes 16-bit PCM WAV with a valid header', async () => {
+    const wav = encodeWav16(new Float32Array([0, 0.5, -0.5, 1, -1]), 16000);
+    expect(wav.type).toBe('audio/wav');
+    const bytes = new Uint8Array(await wav.arrayBuffer());
+    const ascii = (at: number, len: number) => String.fromCharCode(...bytes.subarray(at, at + len));
+    expect(ascii(0, 4)).toBe('RIFF');
+    expect(ascii(8, 4)).toBe('WAVE');
+    expect(ascii(12, 4)).toBe('fmt ');
+    expect(new DataView(bytes.buffer).getUint16(20, true)).toBe(1);
+    expect(new DataView(bytes.buffer).getUint16(34, true)).toBe(16);
+    expect(ascii(36, 4)).toBe('data');
+    expect(bytes.length).toBe(44 + 5 * 2);
+    const samples = new DataView(bytes.buffer);
+    expect(samples.getInt16(44, true)).toBe(0);
+    expect(samples.getInt16(46, true)).toBe(16383);
+    expect(samples.getInt16(48, true)).toBe(-16384);
+    expect(samples.getInt16(50, true)).toBe(32767);
+    expect(samples.getInt16(52, true)).toBe(-32768);
+  });
+
+  it('converts a recording to 16 kHz mono WAV and rejects bad input', async () => {
+    const rendered = { getChannelData: () => new Float32Array([0.25]) };
+    const calls: Array<{ channels: number; length: number; rate: number }> = [];
+    const deps = {
+      AudioContextClass: class {
+        decodeAudioData = async () => ({ duration: 2, sampleRate: 48000 });
+        close = async () => undefined;
+      } as unknown as typeof AudioContext,
+      OfflineAudioContextClass: class {
+        constructor(channels: number, length: number, rate: number) {
+          calls.push({ channels, length, rate });
+        }
+        createBufferSource = () => ({ buffer: null, connect: () => undefined, start: () => undefined });
+        destination = {};
+        startRendering = async () => rendered;
+      } as unknown as typeof OfflineAudioContext
+    };
+    const wav = await convertToSpeechWav(new Blob(['fake']), deps);
+    expect(calls).toEqual([{ channels: 1, length: 32000, rate: 16000 }]);
+    expect(new Uint8Array(await wav.arrayBuffer()).length).toBe(44 + 2);
+
+    await expect(convertToSpeechWav(new Blob(['x']), {})).rejects.toThrow('Web Audio');
+    await expect(convertToSpeechWav(new Blob(['x']), {
+      AudioContextClass: class {
+        decodeAudioData = async () => { throw new Error('nope'); };
+        close = async () => undefined;
+      } as unknown as typeof AudioContext,
+      OfflineAudioContextClass: deps.OfflineAudioContextClass
+    })).rejects.toThrow('Could not decode');
+    await expect(convertToSpeechWav(new Blob(['x']), {
+      AudioContextClass: class {
+        decodeAudioData = async () => ({ duration: 60 * 60, sampleRate: 48000 });
+        close = async () => undefined;
+      } as unknown as typeof AudioContext,
+      OfflineAudioContextClass: deps.OfflineAudioContextClass
+    })).rejects.toThrow('too long');
   });
 });
 

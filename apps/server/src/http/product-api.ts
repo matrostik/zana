@@ -4,6 +4,7 @@ import { withoutSecretValues } from '../plugins/plugin-settings-redaction.js';
 import { handlePreviewsApi } from './previews-api.js';
 import { libraryDocumentOperation } from '../services/library/library-documents.js';
 import { LibraryDocumentRequestSchema, LIBRARY_DOCUMENT_BODY_LIMIT } from '@zana-ai/zcc-contracts/library-documents';
+import { VoiceLocalModelIdSchema } from '@zana-ai/zcc-contracts/host-rpc';
 import { recoverFailedTerminalStart } from './terminal-start-recovery.js';
 import { registerProductTerminal } from './terminal-retention.js';
 import { readProjectImage, ProjectFsError } from './project-fs-via-host.js';
@@ -170,6 +171,8 @@ import {
   storeAttachment
 } from '../services/projects/attachments.js';
 import {
+  localVoiceStatus,
+  manageVoiceLocalModel,
   transcribeVoiceOnHost,
   VoiceTranscriptionError,
   voiceStatus
@@ -3720,6 +3723,49 @@ export async function handleProductHttp(
 
     if (path === '/api/v1/system/voice-status' && method === 'GET') {
       sendJson(response, 200, await voiceStatus(ctx));
+      return true;
+    }
+
+    if (path === '/api/v1/system/voice-local/status' && method === 'GET') {
+      try {
+        sendJson(response, 200, await localVoiceStatus(ctx));
+      } catch (error) {
+        if (error instanceof VoiceTranscriptionError) {
+          sendJson(response, error.status, { error: error.code, message: error.message });
+          return true;
+        }
+        throw error;
+      }
+      return true;
+    }
+
+    const voiceModelAction = {
+      '/api/v1/system/voice-local/model-download': 'voice.local.model_download',
+      '/api/v1/system/voice-local/model-cancel': 'voice.local.model_cancel',
+      '/api/v1/system/voice-local/model-delete': 'voice.local.model_delete'
+    } as const;
+    if (path in voiceModelAction && method === 'POST') {
+      let body: unknown;
+      try {
+        body = await readJsonBody(request);
+      } catch {
+        sendJson(response, 400, { error: 'invalid JSON' });
+        return true;
+      }
+      const modelId = VoiceLocalModelIdSchema.safeParse((body as { modelId?: unknown } | null)?.modelId);
+      if (!modelId.success) {
+        sendJson(response, 400, { error: 'invalid_request', message: 'modelId must be one of tiny, base, small, medium' });
+        return true;
+      }
+      try {
+        sendJson(response, 200, await manageVoiceLocalModel(ctx, voiceModelAction[path as keyof typeof voiceModelAction], modelId.data));
+      } catch (error) {
+        if (error instanceof VoiceTranscriptionError) {
+          sendJson(response, error.status, { error: error.code, message: error.message });
+          return true;
+        }
+        throw error;
+      }
       return true;
     }
 

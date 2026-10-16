@@ -1,4 +1,5 @@
 import { product } from '../lib/product-client.js';
+import { voiceStatusBlockReason } from './thread/voice/voice-helpers.js';
 import { useState, useRef, useEffect } from 'react';
 import { Mic, Loader2 } from 'lucide-react';
 import { useUi } from '../store.js';
@@ -44,6 +45,7 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [hasKey, setHasKey] = useState(false);
+  const [blockReason, setBlockReason] = useState<string | null>(null);
   const pushToast = useUi((s) => s.pushToast);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -58,7 +60,14 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   const barRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
   useEffect(() => {
-    product.voice.hasApiKey().then(setHasKey).catch(() => setHasKey(false));
+    product.voice.status().then((status) => {
+      const ok = status.enabled && (status.engine !== 'local' || status.ready === true);
+      setHasKey(ok);
+      setBlockReason(ok ? null : voiceStatusBlockReason(status));
+    }).catch(() => {
+      setHasKey(false);
+      setBlockReason('Host daemon is not connected');
+    });
   }, []);
 
   useEffect(() => {
@@ -128,7 +137,7 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
 
   const startRecording = async () => {
     if (!hasKey) {
-      pushToast('Host daemon is not connected', 'error');
+      pushToast(blockReason ?? 'Host daemon is not connected', 'error');
       return;
     }
 
@@ -256,7 +265,7 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   const label = transcribing ? 'Transcribing…' : recording ? 'Stop recording' : 'Dictate';
 
   const title = !hasKey
-    ? 'Host daemon is not connected'
+    ? (blockReason ?? 'Host daemon is not connected')
     : transcribing
       ? 'Transcribing your voice…'
       : recording
