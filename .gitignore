@@ -75,3 +75,7 @@ resources/scheduled-supervisor
 docker/remote-machine/.env
 docker/remote-machine/.proxy-state
 docker/remote-machine/.proxy.pid
+
+# Local agent skills lockfile
+skills-lock.json
+

@@ -270,6 +270,13 @@ export const OFFICIAL_PLUGINS: BundledPluginDefinition[] = [
     autoInstall: false,
     defaultEnabled: false,
     category: 'Host access'
+  },
+  {
+    name: 'git-graph',
+    pluginId: 'git-graph',
+    autoInstall: false,
+    defaultEnabled: true,
+    category: 'Developer tools'
   }
 ];
 

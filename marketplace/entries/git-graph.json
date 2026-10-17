@@ -1,0 +1,24 @@
+{
+  "id": "git-graph",
+  "displayName": "Git Graph",
+  "description": "View an interactive Git Graph of your repository and perform Git actions from the graph.",
+  "overview": "Visualize your project's commit history, branches, tags, stashes, and working-tree changes inside a dedicated project tab.\n\n## What you get\n\n- **Interactive Commit DAG**: Multi-lane SVG commit graph (`rounded` or `angular` curves) with local/remote branch pills, tags, stashes, `HEAD` indicator, and an Uncommitted Changes row.\n- **Commit Details & Two-Commit Comparison**: Click any commit to inspect metadata, GPG signature status, and changed files in a hierarchical File Tree or flat File List, or `Ctrl/Cmd+Click` a second commit to compare any two revisions.\n- **Inline Unified & Split Diff Viewer**: Inspect file diffs directly inside the Commit Details pane.\n- **Persistent Code Reviews**: Start a Code Review on any commit or comparison and check off files as you review them.\n- **Full Context Menus & Git Actions**: Right-click branches, tags, commits, stashes, or uncommitted changes to checkout, create/rename/delete branches, merge, rebase, cherry-pick, revert, reset, drop commits, manage tags/stashes, or open a Pull Request.\n- **Ask Agent Integration**: Click **Ask Agent** on any commit or diff to spawn a Zana thread pre-populated with the commit metadata and patch context.\n\n## For agents\n\nUse `zcc git-graph repos|log|details|compare|diff|remotes` from the CLI or the `git_graph_inspect` agent tool.\n",
+  "icon": {
+    "lucide": "GitBranch"
+  },
+  "tags": [
+    "official"
+  ],
+  "author": {
+    "name": "Zana",
+    "github": "salesforce",
+    "url": "https://github.com/salesforce/zana"
+  },
+  "source": {
+    "git": {
+      "url": "https://github.com/salesforce/zana",
+      "subdir": "plugins/git-graph",
+      "ref": "HEAD"
+    }
+  }
+}
