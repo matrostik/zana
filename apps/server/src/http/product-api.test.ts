@@ -1626,7 +1626,7 @@ describe('product HTTP', () => {
     });
 
     const disabled = await fetch(`${server.url}api/v1/system/voice-status`).then((response) => response.json());
-    expect(disabled).toEqual({ enabled: false });
+    expect(disabled).toEqual({ enabled: false, reason: 'no_host' });
 
     const rpc = vi.fn(async () => ({ model: 'gpt-transcribe', text: 'hello from voice' }));
     server.ctx.hostHub.connectedHostIds = () => ['host-1'];
@@ -1634,7 +1634,7 @@ describe('product HTTP', () => {
     server.ctx.hostHub.callHostOnlineRpc = rpc;
 
     const enabled = await fetch(`${server.url}api/v1/system/voice-status`).then((response) => response.json());
-    expect(enabled).toEqual({ enabled: true });
+    expect(enabled).toEqual({ enabled: true, reason: null });
 
     const form = new FormData();
     form.set('file', new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/webm' }), 'recording.webm');

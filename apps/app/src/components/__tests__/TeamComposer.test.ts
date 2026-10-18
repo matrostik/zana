@@ -41,7 +41,7 @@ describe('TeamComposer', () => {
     expect(source).not.toContain('LauncherModelPicker');
     expect(source).toContain("className=\"composer-control-tooltip\" data-tooltip={field.canAttach ? 'Attach files' : 'Attachments are unavailable while sending'}");
     expect(source).toContain('className="composer-control-tooltip" data-tooltip="Attach source files for the squad to work from"');
-    expect(source).toContain("'Start voice input'");
+    expect(source).toContain('<VoiceMicButton voice={voice}');
   });
 
   it('carries the job-specific optional Title/Summary and attached source capabilities', () => {

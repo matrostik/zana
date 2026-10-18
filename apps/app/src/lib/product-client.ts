@@ -50,6 +50,16 @@ export type PreferredJoinCodeResult =
   | { ok: false; error: 'pairing_unavailable' };
 
 /** Mint a join code; a 409 pairing refusal comes back as a typed result instead of an opaque throw. */
+export interface VoiceStatusResponse {
+  enabled: boolean;
+  reason?: 'no_host' | 'auth_missing' | null;
+}
+
+/** Voice readiness incl. why it is unavailable (the desktop IPC `hasApiKey` is boolean-only and unused by composers). */
+export function fetchVoiceStatus(): Promise<VoiceStatusResponse> {
+  return apiJson<VoiceStatusResponse>('/system/voice-status');
+}
+
 export async function requestPreferredJoinCode(): Promise<PreferredJoinCodeResult> {
   const response = await fetchWithAppSurface('/api/v1/hosts/join-codes/preferred', {
     method: 'POST',

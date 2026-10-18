@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HostRpcCommandSchema } from '@zana-ai/zcc-contracts/host-rpc';
 import { HostUnavailableError, AmbiguousHostError } from '../../http/host-hub.js';
 import type { ProductHttpContext } from '../../http/product-context.js';
-import { transcribeVoiceOnHost, VoiceTranscriptionError, voiceTranscriptionEnabled } from './voice-transcription.js';
+import { transcribeVoiceOnHost, VoiceTranscriptionError, voiceTranscriptionStatus } from './voice-transcription.js';
 import { VOICE_TRANSCRIPTION_MAX_BYTES } from '../../http/multipart-voice.js';
 
 function ctx(overrides: {
@@ -35,9 +35,33 @@ describe('voice transcription service', () => {
       bytes: Buffer.from('audio'), mimeType: 'audio/mp4', filename: 'recording.mp4'
     })).rejects.toMatchObject({ status: 503, code: 'codex_keyring_unavailable', message: 'Unlock Keychain on your Mac, then try again.' });
   });
-  it('reports enabled only when a host is connected', () => {
-    expect(voiceTranscriptionEnabled(ctx({ connected: [] }))).toBe(false);
-    expect(voiceTranscriptionEnabled(ctx({ connected: ['h1'] }))).toBe(true);
+  describe('voiceTranscriptionStatus', () => {
+    const status = (rpc?: ReturnType<typeof vi.fn>, connected?: string[]) => voiceTranscriptionStatus(ctx({ rpc, connected }));
+
+    it('reports no_host without calling the host when none is connected', async () => {
+      const rpc = vi.fn();
+      await expect(status(rpc, [])).resolves.toEqual({ enabled: false, reason: 'no_host' });
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it('probes the host with codex.voice.status', async () => {
+      const rpc = vi.fn(async () => ({ state: 'ready' }));
+      await expect(status(rpc)).resolves.toEqual({ enabled: true, reason: null });
+      expect(rpc).toHaveBeenCalledWith(expect.objectContaining({
+        hostId: 'host-1', command: { type: 'codex.voice.status' }
+      }));
+      expect(HostRpcCommandSchema.safeParse({ type: 'codex.voice.status' }).success).toBe(true);
+    });
+
+    it('disables only when the host reports missing credentials', async () => {
+      await expect(status(vi.fn(async () => ({ state: 'missing' })))).resolves.toEqual({ enabled: false, reason: 'auth_missing' });
+      await expect(status(vi.fn(async () => ({ state: 'unverified' })))).resolves.toEqual({ enabled: true, reason: null });
+    });
+
+    it('stays enabled when the probe fails or returns an unknown shape (older host)', async () => {
+      await expect(status(vi.fn(async () => { throw new Error('unknown command'); }))).resolves.toEqual({ enabled: true, reason: null });
+      await expect(status(vi.fn(async () => ({ model: 'x', text: 'y' })))).resolves.toEqual({ enabled: true, reason: null });
+    });
   });
 
   it('RPCs the host with base64 audio and returns text', async () => {

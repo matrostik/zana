@@ -172,7 +172,7 @@ import {
 import {
   transcribeVoiceOnHost,
   VoiceTranscriptionError,
-  voiceTranscriptionEnabled
+  voiceTranscriptionStatus
 } from '../services/threads/voice-transcription.js';
 import { cliSkillsStatus, installCliSkills } from '../services/skills/cli-skills.js';
 import { toPluginAppSnapshot } from '../plugins/plugin-service.js';
@@ -3701,7 +3701,7 @@ export async function handleProductHttp(
     }
 
     if (path === '/api/v1/system/voice-status' && method === 'GET') {
-      sendJson(response, 200, { enabled: voiceTranscriptionEnabled(ctx) });
+      sendJson(response, 200, await voiceTranscriptionStatus(ctx));
       return true;
     }
 

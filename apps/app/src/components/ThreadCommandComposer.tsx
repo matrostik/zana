@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowUp, Folder, Laptop, Loader2, Mic, Minimize2, Paperclip, Square } from 'lucide-react';
+import { ArrowUp, Folder, Laptop, Loader2, Minimize2, Paperclip, Square } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Project } from '@zana-ai/zcc-domain/product';
 import type { ThreadContextWindowUsage } from '@zana-ai/zcc-server-contract';
@@ -52,6 +52,7 @@ import { useThreadComposerOptions } from './thread/pickers/useThreadComposerOpti
 import { preferredThreadProviderId } from './legacy-agent-home.js';
 import { VoiceRecordingBar } from './thread/voice/VoiceRecordingBar.js';
 import { useVoiceInput } from './thread/voice/useVoiceInput.js';
+import { VoiceMicButton } from './thread/voice/VoiceMicButton.js';
 import { appendVoiceDraft, consumeVoiceDraft, subscribeVoiceDrafts, voiceDraft } from './thread/voice/voice-drafts.js';
 import { persistComposerImages } from '../lib/prompt-attachments.js';
 import { shouldShowThreadStop } from './thread/thread-timeline-model.js';
@@ -1018,32 +1019,9 @@ export function ThreadCommandComposer({
                       : undefined
                   }
                 />
-                <span
-                  className="composer-control-tooltip"
-                  data-tooltip={
-                    !voice.isSupported
-                      ? 'Voice input is not supported in this browser'
-                      : !voice.available
-                        ? 'Host daemon is not connected'
-                        : 'Start voice input'
-                  }
-                >
-                  <ComposerIconButton
-                    className="voice-input-btn voice-input-btn--icon"
-                    aria-label={
-                      !voice.isSupported
-                        ? 'Voice input is not supported in this browser'
-                        : !voice.available
-                          ? 'Host daemon is not connected'
-                          : 'Start voice input'
-                    }
-                    disabled={!voice.canStart}
-                    onClick={() => void voice.start()}
-                  >
-                    <Mic size={14} />
-                    <span className="thread-command-action-label" aria-hidden="true">Voice input</span>
-                  </ComposerIconButton>
-                </span>
+                <VoiceMicButton voice={voice}>
+                  <span className="thread-command-action-label" aria-hidden="true">Voice input</span>
+                </VoiceMicButton>
               </>
             }
             stop={

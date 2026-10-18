@@ -228,16 +228,15 @@ describe('ThreadCommandComposer submit path', () => {
     expect(source).toContain('searchable={false}');
     expect(source).toContain("tone: row.tone");
     expect(source).toContain('VoiceRecordingBar');
-    expect(source).toContain('Start voice input');
+    expect(source).toContain('<VoiceMicButton voice={voice}');
     expect(source).toContain('className="composer-control-tooltip"');
     expect(source).toContain('field.canAttach');
-    expect(source).toContain('!voice.isSupported');
     expect(source).toContain('expandTestId="thread-command-expand"');
     expect(source).toContain('<ThreadContextMeter');
     expect(source).toContain('contextWindowUsage');
     expect(source).toContain('onCompact=');
     expect(source.indexOf('Attach files')).toBeLessThan(source.indexOf('<ThreadContextMeter'));
-    expect(source.indexOf('<ThreadContextMeter')).toBeLessThan(source.indexOf('Start voice input'));
+    expect(source.indexOf('<ThreadContextMeter')).toBeLessThan(source.indexOf('<VoiceMicButton'));
     expect(source).not.toContain('thread-command-context-group');
     expect(source).toContain('onTranscript');
     expect(source).not.toContain('Queue if active');

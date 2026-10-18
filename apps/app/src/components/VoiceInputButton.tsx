@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Mic, Loader2 } from 'lucide-react';
 import { useUi } from '../store.js';
 import type { AutoGrowTextareaHandle } from './ui/CommandComposer.js';
+import { voiceStartBlockReason } from './thread/voice/voice-helpers.js';
+import { useVoiceAvailability } from './thread/voice/voice-status-store.js';
 
 interface Props {
   value: string;
@@ -43,7 +45,9 @@ function bytesToBase64(bytes: Uint8Array): string {
 export function VoiceInputButton({ value, onChange, className, textareaRef, iconOnly, onTranscript }: Props) {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [hasKey, setHasKey] = useState(false);
+  const { availability } = useVoiceAvailability();
+  const blockReason = voiceStartBlockReason(true, availability);
+  const hasKey = blockReason === null;
   const pushToast = useUi((s) => s.pushToast);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -56,10 +60,6 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
   const barRefs = useRef<Array<HTMLSpanElement | null>>([]);
-
-  useEffect(() => {
-    product.voice.hasApiKey().then(setHasKey).catch(() => setHasKey(false));
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -127,8 +127,8 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
   };
 
   const startRecording = async () => {
-    if (!hasKey) {
-      pushToast('Host daemon is not connected', 'error');
+    if (blockReason) {
+      pushToast(blockReason, 'error');
       return;
     }
 
@@ -255,8 +255,8 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
 
   const label = transcribing ? 'Transcribing…' : recording ? 'Stop recording' : 'Dictate';
 
-  const title = !hasKey
-    ? 'Host daemon is not connected'
+  const title = blockReason
+    ? blockReason
     : transcribing
       ? 'Transcribing your voice…'
       : recording

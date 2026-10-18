@@ -1,6 +1,6 @@
 import { product } from '../lib/product-client.js';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, FileText, Folder, Loader2, Mic, Paperclip, Users, X } from 'lucide-react';
+import { ArrowUp, FileText, Folder, Loader2, Paperclip, Users, X } from 'lucide-react';
 import type { ExecutionSourceCapabilityView, Project, TeamAvailabilityUnknown, TeamCoordinationMode, TeamRequirementFailure } from '@zana-ai/zcc-domain/product';
 import {
   CommandComposer,
@@ -9,6 +9,7 @@ import {
 } from './ui/CommandComposer.js';
 import { VoiceRecordingBar } from './thread/voice/VoiceRecordingBar.js';
 import { useVoiceInput } from './thread/voice/useVoiceInput.js';
+import { VoiceMicButton } from './thread/voice/VoiceMicButton.js';
 import { useData, useTeams, useUi } from '../store.js';
 import { useShallow } from 'zustand/react/shallow';
 import { posixQuote } from '../lib/quote.js';
@@ -393,28 +394,7 @@ export function TeamComposer({
                     <FileText size={14} aria-hidden="true" />
                   </ComposerIconButton>
                 </span>
-                <span className="composer-control-tooltip" data-tooltip={
-                  !voice.isSupported
-                    ? 'Voice input is not supported in this browser'
-                    : !voice.available
-                      ? 'Host daemon is not connected'
-                      : 'Start voice input'
-                }>
-                  <ComposerIconButton
-                    className="voice-input-btn voice-input-btn--icon"
-                    aria-label={
-                    !voice.isSupported
-                      ? 'Voice input is not supported in this browser'
-                      : !voice.available
-                        ? 'Host daemon is not connected'
-                        : 'Start voice input'
-                    }
-                    disabled={!voice.canStart}
-                    onClick={() => void voice.start()}
-                  >
-                    <Mic size={14} />
-                  </ComposerIconButton>
-                </span>
+                <VoiceMicButton voice={voice} />
                 <ComposerIconButton
                     className={`thread-command-send${launching ? ' is-sending' : ''}`}
                     aria-label={launching ? 'Launching squad' : 'Launch squad'}

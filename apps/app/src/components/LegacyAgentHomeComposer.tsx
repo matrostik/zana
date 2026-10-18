@@ -1,7 +1,7 @@
 import { product } from '../lib/product-client.js';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUp, Folder, Loader2, Mic, Paperclip } from 'lucide-react';
+import { ArrowUp, Folder, Loader2, Paperclip } from 'lucide-react';
 import type { HarnessAdapterDescriptor, HarnessModelTarget } from '@zana-ai/zcc-domain/harness-adapter';
 import type {
   EffectiveHarnessDefaultResult,
@@ -21,6 +21,7 @@ import {
 } from './ui/CommandComposer.js';
 import { VoiceRecordingBar } from './thread/voice/VoiceRecordingBar.js';
 import { useVoiceInput } from './thread/voice/useVoiceInput.js';
+import { VoiceMicButton } from './thread/voice/VoiceMicButton.js';
 import { useData, usePersonas, useUi } from '../store.js';
 import { inspectAgentSession } from '../lib/inspect-session.js';
 import { useShallow } from 'zustand/react/shallow';
@@ -872,28 +873,7 @@ export function LegacyAgentHomeComposer({
                     <Paperclip size={14} aria-hidden="true" />
                   </ComposerIconButton>
                 </span>
-                <span className="composer-control-tooltip" data-tooltip={
-                    !voice.isSupported
-                      ? 'Voice input is not supported in this browser'
-                      : !voice.available
-                        ? 'Host daemon is not connected'
-                        : 'Start voice input'
-                  }>
-                  <ComposerIconButton
-                    className="voice-input-btn voice-input-btn--icon"
-                    aria-label={
-                      !voice.isSupported
-                        ? 'Voice input is not supported in this browser'
-                        : !voice.available
-                          ? 'Host daemon is not connected'
-                          : 'Start voice input'
-                    }
-                    disabled={!voice.canStart}
-                    onClick={() => void voice.start()}
-                  >
-                    <Mic size={14} />
-                  </ComposerIconButton>
-                </span>
+                <VoiceMicButton voice={voice} />
                 <ComposerIconButton
                     className={`thread-command-send${launching ? ' is-sending' : ''}`}
                     aria-label={launching ? 'Launching agent' : 'Launch agent'}
