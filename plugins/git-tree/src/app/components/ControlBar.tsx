@@ -74,9 +74,9 @@ export function ControlBar(props: ControlBarProps) {
   };
 
   return (
-    <header className="gg-control-bar git-graph-toolbar" role="toolbar" aria-label="Git Graph controls">
+    <header className="gg-control-bar git-graph-toolbar" role="toolbar" aria-label="Git Tree controls">
       <div className="git-graph-toolbar-left">
-        <span className="git-graph-title">⑂ Git Graph</span>
+        <span className="git-graph-title">⑂ Git Tree</span>
 
         {projects && projects.length > 1 && (
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -310,7 +310,7 @@ export function ControlBar(props: ControlBarProps) {
           className="gg-btn git-graph-btn"
           onClick={onRefresh}
           disabled={loading}
-          title="Refresh Git Graph (Ctrl/Cmd+R)"
+          title="Refresh Git Tree (Ctrl/Cmd+R)"
         >
           ↻ {loading ? 'Loading…' : 'Refresh'}
         </button>

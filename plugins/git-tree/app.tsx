@@ -1,11 +1,11 @@
 import { definePluginApp } from '@zana-ai/zcc-plugin-sdk/app';
 import { GIT_GRAPH_STYLES } from './src/app/styles.js';
 import {
-  GitGraphProjectTab,
-  GitGraphDetachedPlaceholder
-} from './src/app/GitGraphProjectTab.js';
+  GitTreeProjectTab,
+  GitTreeDetachedPlaceholder
+} from './src/app/GitTreeProjectTab.js';
 
-const STYLE_ELEMENT_ID = 'zcc-ext-git-graph-styles';
+const STYLE_ELEMENT_ID = 'zcc-ext-git-tree-styles';
 
 function ensureStylesInjected(): void {
   if (typeof document === 'undefined') return;
@@ -21,25 +21,25 @@ export default definePluginApp((app) => {
 
   // Project Tab (left menu inside each project)
   app.slots.projectTab({
-    id: 'git-graph',
-    label: 'Git Graph',
+    id: 'git-tree',
+    label: 'Git Tree',
     icon: 'GitBranch',
     order: 40,
     global: false,
     header: 'custom',
     detachable: true,
-    component: GitGraphProjectTab,
-    detachedPlaceholder: GitGraphDetachedPlaceholder
+    component: GitTreeProjectTab,
+    detachedPlaceholder: GitTreeDetachedPlaceholder
   });
 
   // Command Palette Quick Open Action (available when viewing a project)
   app.slots.commandPaletteAction({
-    id: 'open-git-graph',
-    title: 'Git Graph: View Git Graph',
+    id: 'open-git-tree',
+    title: 'Git Tree: View Git Tree',
     isAvailable: (ctx) => Boolean(ctx.projectId),
     run: (ctx) => {
       if (ctx.projectId) {
-        ctx.toProject(ctx.projectId, { tabId: 'git-graph' });
+        ctx.toProject(ctx.projectId, { tabId: 'git-tree' });
       }
     }
   });

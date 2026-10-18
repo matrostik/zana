@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, waitFor, render } from '@testing-library/react';
 import { loadPluginApp, renderSlot } from '@zana-ai/zcc-plugin-sdk/testing/app';
+import { CommitDetailsPane } from '../app/components/CommitDetailsPane.js';
 import type {
   GitCommitComparison,
   GitCommitDetails,
+  GitFileChange,
   GitFileDiff,
   LoadGraphDataResult
 } from '../server/types.js';
@@ -199,19 +201,19 @@ function makeSampleDiff(): GitFileDiff {
   };
 }
 
-describe('git-graph app UI tests', () => {
+describe('git-tree app UI tests', () => {
   afterEach(() => {
     cleanup();
   });
 
   it('registers projectTab and commandPaletteAction slots on app.tsx load', async () => {
-    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-graph');
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
     expect(registrations.navPanels).toHaveLength(0);
 
     expect(registrations.projectTabs).toHaveLength(1);
     const tab = registrations.projectTabs[0];
-    expect(tab.id).toBe('git-graph');
-    expect(tab.label).toBe('Git Graph');
+    expect(tab.id).toBe('git-tree');
+    expect(tab.label).toBe('Git Tree');
     expect(tab.icon).toBe('GitBranch');
     expect(tab.global).toBe(false);
     expect(tab.header).toBe('custom');
@@ -220,13 +222,13 @@ describe('git-graph app UI tests', () => {
 
     expect(registrations.commandPaletteActions).toHaveLength(1);
     const cmd = registrations.commandPaletteActions[0];
-    expect(cmd.id).toBe('open-git-graph');
+    expect(cmd.id).toBe('open-git-tree');
     expect(cmd.isAvailable?.({ projectId: 'proj-1', threadId: null, openPanel: () => false, toPluginPanel: () => false, toProject: () => false })).toBe(true);
     expect(cmd.isAvailable?.({ projectId: null, threadId: null, openPanel: () => false, toPluginPanel: () => false, toProject: () => false })).toBe(false);
   });
 
   it('renders commit DAG, opens Commit Details & Split Diff, runs Code Review, Find, Context Menus, and Dialogs', async () => {
-    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-graph');
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
     const tab = registrations.projectTabs[0];
     const graphData = makeSampleGraphData();
 
@@ -246,7 +248,7 @@ describe('git-graph app UI tests', () => {
 
     const view = renderSlot(
       tab,
-      { pluginId: 'git-graph', projectId: 'proj-1' },
+      { pluginId: 'git-tree', projectId: 'proj-1' },
       {
         context: { projectId: 'proj-1' },
         rpc: {
@@ -431,7 +433,7 @@ describe('git-graph app UI tests', () => {
       const detached = renderSlot(
         { component: tab.detachedPlaceholder },
         {
-          pluginId: 'git-graph',
+          pluginId: 'git-tree',
           projectId: 'proj-1',
           focusWindow: focusSpy,
           bringBack: bringBackSpy
@@ -596,14 +598,14 @@ describe('git-graph app UI tests', () => {
   });
 
   it('keeps the SVG DAG visible and correctly positioned when clicking commits in inline details mode', async () => {
-    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-graph');
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
     const tab = registrations.projectTabs[0];
     const graphData = makeSampleGraphData();
     graphData.globalSettings.commitDetailsLocation = 'inline';
 
     const view = renderSlot(
       tab,
-      { pluginId: 'git-graph', projectId: 'proj-1' },
+      { pluginId: 'git-tree', projectId: 'proj-1' },
       {
         context: { projectId: 'proj-1' },
         rpc: {
@@ -646,14 +648,14 @@ describe('git-graph app UI tests', () => {
   });
 
   it('bounds the inline commit details pane within the visible viewport width', async () => {
-    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-graph');
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
     const tab = registrations.projectTabs[0];
     const graphData = makeSampleGraphData();
     graphData.globalSettings.commitDetailsLocation = 'inline';
 
     const view = renderSlot(
       tab,
-      { pluginId: 'git-graph', projectId: 'proj-1' },
+      { pluginId: 'git-tree', projectId: 'proj-1' },
       {
         context: { projectId: 'proj-1' },
         rpc: {
@@ -691,7 +693,7 @@ describe('git-graph app UI tests', () => {
   });
 
   it('renders "Initialize Git Repository" button when no repo found and calls runGitAction with init', async () => {
-    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-graph');
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
     const tab = registrations.projectTabs[0];
     const graphData = makeSampleGraphData();
 
@@ -700,7 +702,7 @@ describe('git-graph app UI tests', () => {
 
     const view = renderSlot(
       tab,
-      { pluginId: 'git-graph', projectId: 'proj-1' },
+      { pluginId: 'git-tree', projectId: 'proj-1' },
       {
         context: { projectId: 'proj-1' },
         rpc: {
@@ -735,6 +737,391 @@ describe('git-graph app UI tests', () => {
       expect(initActionCalled).toBe(true);
       expect(view.getByTestId('gg-commit-row-aaaa111')).toBeTruthy();
     });
+
+    view.unmount();
+  });
+
+  it('supports resizing the file list column and pane height with auto-sizing and persistence', async () => {
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
+    const tab = registrations.projectTabs[0];
+    const graphData = makeSampleGraphData();
+
+    const view = renderSlot(
+      tab,
+      { pluginId: 'git-tree', projectId: 'proj-1' },
+      {
+        context: { projectId: 'proj-1' },
+        rpc: {
+          discoverRepos: () => ({ repos: [graphData.repo], globalSettings: graphData.globalSettings }),
+          loadGraph: () => graphData,
+          getCommitDetails: () => ({
+            details: makeSampleDetails(),
+            codeReview: null
+          }),
+          getFileDiff: () => makeSampleDiff(),
+          getFileContent: () => ({
+            filePath: 'src/app/Graph.tsx',
+            commitHash: 'aaaa111',
+            content: 'export const Graph = () => <div />;\n',
+            isBinary: false
+          })
+        }
+      }
+    );
+
+    // Open commit details
+    await waitFor(() => {
+      expect(view.getByTestId('gg-commit-row-aaaa111')).toBeTruthy();
+    });
+    fireEvent.click(view.getByTestId('gg-commit-row-aaaa111'));
+
+    await waitFor(() => {
+      expect(view.getByTestId('gg-details-pane')).toBeTruthy();
+      expect(view.getByTestId('gg-details-col-resizer')).toBeTruthy();
+      expect(view.getByTestId('gg-details-top-resizer')).toBeTruthy();
+    });
+
+    const colResizer = view.getByTestId('gg-details-col-resizer');
+    const topResizer = view.getByTestId('gg-details-top-resizer');
+    const filesCol = view.getByTestId('gg-file-list').parentElement!;
+
+    // Initial width was auto-fitted
+    const initialWidth = filesCol.style.width;
+    expect(initialWidth).toBeTruthy();
+
+    // Drag column resizer to resize width
+    const startWidthNum = parseInt(initialWidth, 10);
+    fireEvent.mouseDown(colResizer, { clientX: 200 });
+    fireEvent.mouseMove(window, { clientX: 300 });
+    fireEvent.mouseUp(window);
+
+    expect(parseInt(filesCol.style.width, 10)).toBe(startWidthNum + 100);
+
+    // Double-click column resizer to reset to auto-fit
+    fireEvent.doubleClick(colResizer);
+    await waitFor(() => {
+      expect(filesCol.style.width).toBe(initialWidth);
+    });
+
+    // Drag top resizer to resize height
+    const detailsPane = view.getByTestId('gg-details-pane');
+    fireEvent.mouseDown(topResizer, { clientY: 500 });
+    fireEvent.mouseMove(window, { clientY: 400 }); // moving up increases height
+    fireEvent.mouseUp(window);
+
+    expect(detailsPane.style.height).toBeTruthy();
+
+    // Double-click top resizer to reset height
+    fireEvent.doubleClick(topResizer);
+    expect(detailsPane.style.height).toBe('');
+
+    view.unmount();
+  });
+
+  it('supports stacked vertical view auto-split (50/50 for large list, shrink for small) and row resizer', async () => {
+    const details = makeSampleDetails();
+    const manyChanges: GitFileChange[] = Array.from({ length: 40 }, (_, i) => ({
+      oldPath: `file-${i}.txt`,
+      newPath: `file-${i}.txt`,
+      status: 'M' as const,
+      additions: 1,
+      deletions: 0
+    }));
+
+    const view = render(
+      <CommitDetailsPane
+        mode="single"
+        details={{ ...details, fileChanges: manyChanges }}
+        comparison={null}
+        loading={false}
+        inline={false}
+        fileViewType="list"
+        compactFolders={true}
+        diffViewMode="unified"
+        dateFormat="relative"
+        issueRules={[]}
+        codeReview={null}
+        selectedFilePath="file-0.txt"
+        fileDiff={makeSampleDiff()}
+        loadingDiff={false}
+        onSelectFile={() => {}}
+        onChangeFileViewType={() => {}}
+        onToggleCompactFolders={() => {}}
+        onChangeDiffViewMode={() => {}}
+        onStartCodeReview={() => {}}
+        onToggleReviewedFile={() => {}}
+        onEndCodeReview={() => {}}
+        onSelectParentHash={() => {}}
+        onAskAgent={() => {}}
+        onCopyText={() => {}}
+        onClose={() => {}}
+      />
+    );
+
+    const columnsEl = view.getByTestId('gg-details-columns');
+    Object.defineProperty(columnsEl, 'clientWidth', { value: 500, configurable: true });
+    Object.defineProperty(columnsEl, 'clientHeight', { value: 600, configurable: true });
+
+    fireEvent(window, new Event('resize'));
+
+    await waitFor(() => {
+      expect(view.getByTestId('gg-details-row-resizer')).toBeTruthy();
+    });
+
+    const rowResizer = view.getByTestId('gg-details-row-resizer');
+    const filesCol = view.getByTestId('gg-file-list').parentElement!;
+
+    // For 40 files, needed height > 300 (halfHeight), so it caps at 300px (50/50 split)
+    await waitFor(() => {
+      expect(filesCol.style.height).toBe('300px');
+    });
+
+    // Drag row resizer down by 60px
+    fireEvent.mouseDown(rowResizer, { clientY: 300 });
+    fireEvent.mouseMove(window, { clientY: 360 });
+    fireEvent.mouseUp(window);
+
+    expect(filesCol.style.height).toBe('360px');
+
+    // Double-click row resizer to reset back to auto-split (300px)
+    fireEvent.doubleClick(rowResizer);
+    await waitFor(() => {
+      expect(filesCol.style.height).toBe('300px');
+    });
+
+    view.unmount();
+  });
+
+  it('resets auto-sizing when switching to a different commit', async () => {
+    const details1 = makeSampleDetails();
+    const manyChanges: GitFileChange[] = Array.from({ length: 40 }, (_, i) => ({
+      oldPath: `file-${i}.txt`,
+      newPath: `file-${i}.txt`,
+      status: 'M' as const,
+      additions: 1,
+      deletions: 0
+    }));
+
+    const view = render(
+      <CommitDetailsPane
+        mode="single"
+        details={{ ...details1, hash: 'commit-111', fileChanges: manyChanges }}
+        comparison={null}
+        loading={false}
+        inline={false}
+        fileViewType="list"
+        compactFolders={true}
+        diffViewMode="unified"
+        dateFormat="relative"
+        issueRules={[]}
+        codeReview={null}
+        selectedFilePath="file-0.txt"
+        fileDiff={makeSampleDiff()}
+        loadingDiff={false}
+        onSelectFile={() => {}}
+        onChangeFileViewType={() => {}}
+        onToggleCompactFolders={() => {}}
+        onChangeDiffViewMode={() => {}}
+        onStartCodeReview={() => {}}
+        onToggleReviewedFile={() => {}}
+        onEndCodeReview={() => {}}
+        onSelectParentHash={() => {}}
+        onAskAgent={() => {}}
+        onCopyText={() => {}}
+        onClose={() => {}}
+      />
+    );
+
+    const columnsEl = view.getByTestId('gg-details-columns');
+    Object.defineProperty(columnsEl, 'clientWidth', { value: 500, configurable: true });
+    Object.defineProperty(columnsEl, 'clientHeight', { value: 600, configurable: true });
+    fireEvent(window, new Event('resize'));
+
+    const filesCol = view.getByTestId('gg-file-list').parentElement!;
+    await waitFor(() => {
+      expect(filesCol.style.height).toBe('300px');
+    });
+
+    // Manually resize to 400px
+    const rowResizer = view.getByTestId('gg-details-row-resizer');
+    fireEvent.mouseDown(rowResizer, { clientY: 300 });
+    fireEvent.mouseMove(window, { clientY: 400 });
+    fireEvent.mouseUp(window);
+    expect(filesCol.style.height).toBe('400px');
+
+    // Switch commit to a small commit (2 files)
+    const smallChanges: GitFileChange[] = [
+      { oldPath: 'a.txt', newPath: 'a.txt', status: 'M', additions: 1, deletions: 0 },
+      { oldPath: 'b.txt', newPath: 'b.txt', status: 'M', additions: 2, deletions: 0 }
+    ];
+
+    view.rerender(
+      <CommitDetailsPane
+        mode="single"
+        details={{ ...details1, hash: 'commit-222', fileChanges: smallChanges }}
+        comparison={null}
+        loading={false}
+        inline={false}
+        fileViewType="list"
+        compactFolders={true}
+        diffViewMode="unified"
+        dateFormat="relative"
+        issueRules={[]}
+        codeReview={null}
+        selectedFilePath="a.txt"
+        fileDiff={makeSampleDiff()}
+        loadingDiff={false}
+        onSelectFile={() => {}}
+        onChangeFileViewType={() => {}}
+        onToggleCompactFolders={() => {}}
+        onChangeDiffViewMode={() => {}}
+        onStartCodeReview={() => {}}
+        onToggleReviewedFile={() => {}}
+        onEndCodeReview={() => {}}
+        onSelectParentHash={() => {}}
+        onAskAgent={() => {}}
+        onCopyText={() => {}}
+        onClose={() => {}}
+      />
+    );
+
+    // Should automatically reset manual height and auto-size to small commit height
+    await waitFor(() => {
+      const h = parseInt(filesCol.style.height, 10);
+      expect(h).toBeLessThan(300);
+      expect(h).toBeGreaterThanOrEqual(100);
+    });
+
+    view.unmount();
+  });
+
+  it('supports resizing table columns (description, date, author, commit) with persistence and double-click reset', async () => {
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
+    const tab = registrations.projectTabs[0];
+    const graphData = makeSampleGraphData();
+    const updateSettingsSpy = vi.fn(() => ({ ok: true }));
+
+    const view = renderSlot(
+      tab,
+      { pluginId: 'git-tree', projectId: 'proj-1' },
+      {
+        context: { projectId: 'proj-1' },
+        rpc: {
+          discoverRepos: () => ({ repos: [graphData.repo], globalSettings: graphData.globalSettings }),
+          loadGraph: () => graphData,
+          updateGlobalSettings: updateSettingsSpy
+        }
+      }
+    );
+
+    await waitFor(() => {
+      expect(view.getByTestId('gg-col-resizer-description')).toBeTruthy();
+      expect(view.getByTestId('gg-col-resizer-date')).toBeTruthy();
+      expect(view.getByTestId('gg-col-resizer-author')).toBeTruthy();
+      expect(view.getByTestId('gg-col-resizer-commit')).toBeTruthy();
+    });
+
+    const descResizer = view.getByTestId('gg-col-resizer-description');
+    const dateResizer = view.getByTestId('gg-col-resizer-date');
+    const authorResizer = view.getByTestId('gg-col-resizer-author');
+    const commitResizer = view.getByTestId('gg-col-resizer-commit');
+
+    // Drag Date resizer to the right by 40px (increases width from 125 to 165)
+    fireEvent.mouseDown(dateResizer, { clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 540 });
+    fireEvent.mouseUp(window);
+
+    expect(updateSettingsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          columnWidths: expect.objectContaining({ date: 165 })
+        })
+      })
+    );
+
+    const firstRow = view.getByTestId('gg-commit-row-aaaa111');
+    const dateCell = firstRow.querySelector('.gg-commit-date') as HTMLElement;
+    const authorCell = firstRow.querySelector('.gg-commit-author') as HTMLElement;
+    const commitCell = firstRow.querySelector('.gg-commit-hash') as HTMLElement;
+    const descCell = firstRow.querySelector('.gg-commit-desc') as HTMLElement;
+
+    // Drag Date resizer to the left by 30px (decreases width from 165 to 135)
+    fireEvent.mouseDown(dateResizer, { clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 470 });
+    fireEvent.mouseUp(window);
+
+    expect(updateSettingsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          columnWidths: expect.objectContaining({ date: 135 })
+        })
+      })
+    );
+    expect(dateCell.style.width).toBe('135px');
+
+    // Double-click Date resizer to reset back to default 125px
+    fireEvent.doubleClick(dateResizer);
+    expect(updateSettingsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          columnWidths: expect.objectContaining({ date: 125 })
+        })
+      })
+    );
+    expect(dateCell.style.width).toBe('125px');
+
+    // Drag Author resizer to the left by 40px (decreases width from 130 to 90)
+    fireEvent.mouseDown(authorResizer, { clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 460 });
+    fireEvent.mouseUp(window);
+
+    expect(updateSettingsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          columnWidths: expect.objectContaining({ author: 90 })
+        })
+      })
+    );
+    expect(authorCell.style.width).toBe('90px');
+
+    // Drag Commit resizer to the left beyond min width (should clamp to min 50px)
+    fireEvent.mouseDown(commitResizer, { clientX: 500 });
+    fireEvent.mouseMove(window, { clientX: 300 });
+    fireEvent.mouseUp(window);
+
+    expect(updateSettingsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          columnWidths: expect.objectContaining({ commit: 50 })
+        })
+      })
+    );
+    expect(commitCell.style.width).toBe('50px');
+
+    // Drag Description resizer to the right by 50px
+    fireEvent.mouseDown(descResizer, { clientX: 300 });
+    fireEvent.mouseMove(window, { clientX: 350 });
+    fireEvent.mouseUp(window);
+
+    expect(updateSettingsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          columnWidths: expect.objectContaining({ description: expect.any(Number) })
+        })
+      })
+    );
+    expect(descCell.style.width).toBeTruthy();
+
+    // Double-click Description resizer to reset back to auto-fit
+    fireEvent.doubleClick(descResizer);
+    expect(updateSettingsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          columnWidths: expect.not.objectContaining({ description: expect.anything() })
+        })
+      })
+    );
+    expect(descCell.style.flex).toBe('1 1 0px');
 
     view.unmount();
   });

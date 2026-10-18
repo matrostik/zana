@@ -31,7 +31,7 @@ import {
 import { buildPullRequestUrl, executeGitAction } from '../server/git-actions.js';
 import { GitGraphStorage } from '../server/storage.js';
 
-describe('git-graph server unit & contract tests', () => {
+describe('git-tree server unit & contract tests', () => {
   describe('git-exec & path validation', () => {
     it('rejects option-injection tokens and unsafe relative paths', async () => {
       expect(() => assertSafeGitToken('--upload-pack=evil', 'branch')).toThrow(
@@ -419,7 +419,7 @@ describe('git-graph server unit & contract tests', () => {
       await gitGraphPlugin(zcc);
 
       expect(harness.projectTabAvailability).toHaveLength(1);
-      expect(harness.projectTabAvailability[0].tabId).toBe('git-graph');
+      expect(harness.projectTabAvailability[0].tabId).toBe('git-tree');
       expect(
         await harness.projectTabAvailability[0].evaluate({ projectId: 'proj-1' })
       ).toEqual({ available: true });
@@ -634,22 +634,24 @@ describe('git-graph server unit & contract tests', () => {
       ).toBe(0);
       expect((await harness.runCli(['remotes'], { projectId: 'proj-1' })).exitCode).toBe(0);
 
-      // 9. Agent tool `git_graph_inspect` across all actions
-      expect(harness.agentTools).toHaveLength(1);
-      for (const action of ['repos', 'log', 'details', 'compare', 'diff', 'remotes']) {
-        const res = await harness.callAgentTool(
-          'git_graph_inspect',
-          {
-            action,
-            commit: headCommitHash,
-            fromCommit: firstCommitHash,
-            toCommit: headCommitHash,
-            filePath: 'src/hello.ts',
-            maxCount: 5
-          },
-          { projectId: 'proj-1', threadId: 't-1' }
-        );
-        expect(res).toBeDefined();
+      // 9. Agent tools `git_tree_inspect` and alias `git_graph_inspect` across all actions
+      expect(harness.agentTools).toHaveLength(2);
+      for (const toolName of ['git_tree_inspect', 'git_graph_inspect']) {
+        for (const action of ['repos', 'log', 'details', 'compare', 'diff', 'remotes']) {
+          const res = await harness.callAgentTool(
+            toolName,
+            {
+              action,
+              commit: headCommitHash,
+              fromCommit: firstCommitHash,
+              toCommit: headCommitHash,
+              filePath: 'src/hello.ts',
+              maxCount: 5
+            },
+            { projectId: 'proj-1', threadId: 't-1' }
+          );
+          expect(res).toBeDefined();
+        }
       }
     });
   });

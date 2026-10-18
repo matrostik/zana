@@ -14,7 +14,7 @@ function readFlag(argv: string[], flag: string): string | undefined {
   return undefined;
 }
 
-export function registerGitGraphCliAndTools(args: {
+export function registerGitTreeCliAndTools(args: {
   zcc: ZccPluginApi;
   git: GitRunner;
   fs: ProjectFsDeps;
@@ -24,38 +24,38 @@ export function registerGitGraphCliAndTools(args: {
   const { zcc, git, fs, storage, readGlobalSettings } = args;
 
   zcc.cli.register({
-    name: 'git-graph',
-    summary: 'Inspect project Git Graph commits, branches, comparisons, diffs, and remotes',
+    name: 'git-tree',
+    summary: 'Inspect project Git Tree commits, branches, comparisons, diffs, and remotes',
     commands: [
       {
         name: 'repos',
         summary: 'List discovered Git repositories in a project',
-        usage: 'zcc git-graph repos [--project <id>]'
+        usage: 'zcc git-tree repos [--project <id>]'
       },
       {
         name: 'log',
         summary: 'Show commit graph log',
-        usage: 'zcc git-graph log [--project <id>] [--max-count 30] [--branches a,b]'
+        usage: 'zcc git-tree log [--project <id>] [--max-count 30] [--branches a,b]'
       },
       {
         name: 'details',
         summary: 'Show commit details and changed files',
-        usage: 'zcc git-graph details [--project <id>] --commit <sha>'
+        usage: 'zcc git-tree details [--project <id>] --commit <sha>'
       },
       {
         name: 'compare',
         summary: 'Compare two commits',
-        usage: 'zcc git-graph compare [--project <id>] --from <sha> --to <sha>'
+        usage: 'zcc git-tree compare [--project <id>] --from <sha> --to <sha>'
       },
       {
         name: 'diff',
         summary: 'Show file diff',
-        usage: 'zcc git-graph diff [--project <id>] --commit <sha> --file <path>'
+        usage: 'zcc git-tree diff [--project <id>] --commit <sha> --file <path>'
       },
       {
         name: 'remotes',
         summary: 'List repository remotes',
-        usage: 'zcc git-graph remotes [--project <id>]'
+        usage: 'zcc git-tree remotes [--project <id>]'
       }
     ],
     async run(argv, ctx) {
@@ -64,7 +64,7 @@ export function registerGitGraphCliAndTools(args: {
         return {
           exitCode: 0,
           stdout:
-            'Usage: zcc git-graph <repos|log|details|compare|diff|remotes> [--project <id>]\n'
+            'Usage: zcc git-tree <repos|log|details|compare|diff|remotes> [--project <id>]\n'
         };
       }
       const projectId = readFlag(argv, '--project') ?? ctx.projectId ?? '';
@@ -208,10 +208,10 @@ export function registerGitGraphCliAndTools(args: {
     }
   });
 
-  zcc.agents.registerTool({
-    name: 'git_graph_inspect',
+  const toolDef = {
+    name: 'git_tree_inspect',
     description:
-      'Inspect the Git commit graph, commit details, two-commit comparisons, or file diffs for a registered Zana project.',
+      'Inspect the Git commit tree/graph, commit details, two-commit comparisons, or file diffs for a registered Zana project.',
     parameters: {
       type: 'object',
       properties: {
@@ -251,7 +251,10 @@ export function registerGitGraphCliAndTools(args: {
       },
       required: ['action']
     },
-    async execute(rawInput, ctx) {
+    async execute(
+      rawInput: unknown,
+      ctx: { threadId: string; projectId: string; signal: AbortSignal }
+    ) {
       const input = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, unknown>;
       const action = typeof input.action === 'string' ? input.action : 'log';
       const projectId =
@@ -323,5 +326,8 @@ export function registerGitGraphCliAndTools(args: {
         useMailmap: globalSettings.useMailmap
       });
     }
-  });
+  };
+
+  zcc.agents.registerTool(toolDef);
+  zcc.agents.registerTool({ ...toolDef, name: 'git_graph_inspect' });
 }

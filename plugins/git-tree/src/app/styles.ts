@@ -294,6 +294,12 @@ export const GIT_GRAPH_STYLES = `
   background: var(--gg-bg-base);
 }
 
+.gg-table-header-scroll {
+  width: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
 .gg-table-header,
 .git-graph-header-row {
   display: flex !important;
@@ -313,7 +319,48 @@ export const GIT_GRAPH_STYLES = `
   box-sizing: border-box;
   flex-shrink: 0;
   user-select: none;
-  width: 100%;
+  min-width: 100%;
+  width: max-content;
+}
+
+.gg-col-resizer {
+  position: relative;
+  width: 0px;
+  flex: 0 0 0px;
+  height: 100%;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  user-select: none;
+}
+
+.gg-col-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 9px;
+  cursor: col-resize;
+}
+
+.gg-col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: -1px;
+  width: 1px;
+  background: var(--gg-border-subtle, rgba(255, 255, 255, 0.12));
+  transition: background 120ms ease;
+}
+
+.gg-col-resizer:hover::after,
+.gg-col-resizer.active::after {
+  background: var(--gg-accent, #3b82f6);
+  box-shadow: 0 0 4px var(--gg-accent, #3b82f6);
 }
 
 .gg-table-scroll,
@@ -416,15 +463,12 @@ export const GIT_GRAPH_STYLES = `
 
 .gg-commit-desc,
 .git-graph-cell--desc {
-  flex: 1 1 auto;
-  min-width: 260px;
   display: flex;
   align-items: center;
   gap: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-right: 12px;
   box-sizing: border-box;
 }
 
@@ -434,6 +478,8 @@ export const GIT_GRAPH_STYLES = `
   white-space: nowrap;
   color: #e1e1e1;
   font-size: 12.5px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .gg-commit-date,
@@ -587,13 +633,14 @@ export const GIT_GRAPH_STYLES = `
    -------------------------------------------------------------------------- */
 .gg-details-pane {
   container-type: inline-size;
+  position: relative;
 }
 
 .gg-details-pane:not(.inline),
 .git-graph-details-pane:not(.inline) {
   width: 48%;
   min-width: 300px;
-  max-width: 65%;
+  max-width: 75%;
   border-left: 1px solid var(--gg-border-subtle);
   background: var(--gg-bg-card);
   display: flex;
@@ -602,6 +649,7 @@ export const GIT_GRAPH_STYLES = `
   height: 100%;
   overflow: hidden;
   box-sizing: border-box;
+  position: relative;
 }
 
 .gg-inline-details-wrapper {
@@ -622,12 +670,149 @@ export const GIT_GRAPH_STYLES = `
   border-radius: 6px;
   background: #181a20;
   height: clamp(420px, 60vh, 700px);
-  max-height: 700px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+/* Resizers for Commit Details Pane */
+.gg-details-top-resizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+  z-index: 20;
+  user-select: none;
+}
+
+.gg-details-top-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.gg-details-top-resizer:hover::after,
+.gg-details-top-resizer:active::after {
+  background: var(--accent-color, #4da3ff);
+}
+
+.gg-details-bottom-resizer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+  z-index: 20;
+  user-select: none;
+}
+
+.gg-details-bottom-resizer::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.gg-details-bottom-resizer:hover::after,
+.gg-details-bottom-resizer:active::after {
+  background: var(--accent-color, #4da3ff);
+}
+
+.gg-details-left-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 20;
+  user-select: none;
+}
+
+.gg-details-left-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.gg-details-left-resizer:hover::after,
+.gg-details-left-resizer:active::after {
+  background: var(--accent-color, #4da3ff);
+}
+
+.gg-details-col-resizer {
+  width: 8px;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  z-index: 5;
+  user-select: none;
+}
+
+.gg-details-col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: var(--gg-border-subtle);
+  transition: background-color 0.15s ease, width 0.15s ease, left 0.15s ease;
+}
+
+.gg-details-col-resizer:hover::after,
+.gg-details-col-resizer:active::after {
+  background: var(--accent-color, #4da3ff);
+  width: 2px;
+  left: 3px;
+}
+
+.gg-details-row-resizer {
+  height: 8px;
+  cursor: row-resize;
+  position: relative;
+  flex-shrink: 0;
+  z-index: 5;
+  user-select: none;
+}
+
+.gg-details-row-resizer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 1px;
+  background: var(--gg-border-subtle);
+  transition: background-color 0.15s ease, height 0.15s ease, top 0.15s ease;
+}
+
+.gg-details-row-resizer:hover::after,
+.gg-details-row-resizer:active::after {
+  background: var(--accent-color, #4da3ff);
+  height: 2px;
+  top: 3px;
 }
 
 .gg-details-header,
@@ -739,23 +924,20 @@ export const GIT_GRAPH_STYLES = `
   min-height: 0;
   display: flex;
   flex-direction: row;
-  gap: 12px;
   overflow: hidden;
   box-sizing: border-box;
 }
 
 .gg-details-col-files {
-  width: 290px;
-  min-width: 240px;
-  max-width: 360px;
+  min-width: 180px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  border-right: 1px solid var(--gg-border-subtle);
-  padding-right: 10px;
   box-sizing: border-box;
+  padding-right: 6px;
+  overflow: hidden;
 }
 
 .gg-details-col-diff {
@@ -766,6 +948,7 @@ export const GIT_GRAPH_STYLES = `
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
+  padding-left: 6px;
 }
 
 .gg-file-list,
@@ -1012,51 +1195,92 @@ export const GIT_GRAPH_STYLES = `
 }
 
 /* Responsive side-by-side to stacked collapse */
+.gg-details-columns.stacked {
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.gg-details-columns.stacked .gg-details-col-resizer {
+  display: none !important;
+}
+
+.gg-details-columns.stacked .gg-details-col-files {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-right: none !important;
+  padding-right: 0 !important;
+  padding-bottom: 4px;
+  min-height: 80px;
+  overflow: hidden !important;
+}
+
+.gg-details-columns.stacked .gg-details-col-diff {
+  width: 100% !important;
+  min-width: 0 !important;
+  padding-left: 0 !important;
+  padding-top: 4px;
+  flex: 1 1 0 !important;
+  min-height: 100px !important;
+  overflow: hidden !important;
+}
+
+.gg-details-columns:not(.stacked) .gg-details-row-resizer {
+  display: none !important;
+}
+
 @container (max-width: 640px) {
-  .gg-details-body {
-    overflow-y: auto !important;
-  }
   .gg-details-columns {
     flex-direction: column !important;
-    overflow: visible !important;
+    overflow: hidden !important;
+  }
+  .gg-details-col-resizer {
+    display: none !important;
   }
   .gg-details-col-files {
     width: 100% !important;
     max-width: 100% !important;
     border-right: none !important;
-    border-bottom: 1px solid var(--gg-border-subtle);
     padding-right: 0 !important;
-    padding-bottom: 8px;
-    height: 180px;
-    flex-shrink: 0 !important;
+    padding-bottom: 4px;
+    min-height: 80px;
+    overflow: hidden !important;
   }
   .gg-details-col-diff {
-    min-height: 250px;
-    overflow: visible !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-top: 4px;
+    flex: 1 1 0 !important;
+    min-height: 100px !important;
+    overflow: hidden !important;
   }
 }
 
 @media (max-width: 640px) {
-  .gg-details-body {
-    overflow-y: auto !important;
-  }
   .gg-details-columns {
     flex-direction: column !important;
-    overflow: visible !important;
+    overflow: hidden !important;
+  }
+  .gg-details-col-resizer {
+    display: none !important;
   }
   .gg-details-col-files {
     width: 100% !important;
     max-width: 100% !important;
     border-right: none !important;
-    border-bottom: 1px solid var(--gg-border-subtle);
     padding-right: 0 !important;
-    padding-bottom: 8px;
-    height: 180px;
-    flex-shrink: 0 !important;
+    padding-bottom: 4px;
+    min-height: 80px;
+    overflow: hidden !important;
   }
   .gg-details-col-diff {
-    min-height: 250px;
-    overflow: visible !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-top: 4px;
+    flex: 1 1 0 !important;
+    min-height: 100px !important;
+    overflow: hidden !important;
   }
 }
 
@@ -1243,3 +1467,5 @@ export const GIT_GRAPH_STYLES = `
   text-align: center;
 }
 `;
+
+export const GIT_TREE_STYLES = GIT_GRAPH_STYLES;

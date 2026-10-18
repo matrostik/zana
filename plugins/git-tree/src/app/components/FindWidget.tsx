@@ -22,7 +22,7 @@ export function FindWidget(props: FindWidgetProps) {
   } = props;
 
   return (
-    <div className="git-graph-find-bar" role="search" aria-label="Find in Git Graph" data-testid="gg-find-widget">
+    <div className="git-graph-find-bar" role="search" aria-label="Find in Git Tree" data-testid="gg-find-widget">
       <input
         type="search"
         className="git-graph-input"

@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ZccPluginApi } from '@zana-ai/zcc-plugin-sdk/server';
-import { registerGitGraphCliAndTools } from './src/server/cli-and-tools.js';
+import { registerGitTreeCliAndTools } from './src/server/cli-and-tools.js';
 import { buildPullRequestUrl, executeGitAction, getTagDetails } from './src/server/git-actions.js';
 import { compareCommits, loadCommitDetails, loadFileContent, loadFileDiff } from './src/server/git-details-diff.js';
 import { createTempFileGitRunner, type GitRunner } from './src/server/git-exec.js';
@@ -23,12 +23,14 @@ import type {
   RepoSettings
 } from './src/server/types.js';
 
-export interface GitGraphPluginDeps {
+export interface GitTreePluginDeps {
   git?: GitRunner;
   fs?: ProjectFsDeps;
   now?: () => number;
 }
+export type GitGraphPluginDeps = GitTreePluginDeps;
 
+export const GIT_TREE_CHANGED_CHANNEL = 'git-tree:changed';
 export const GIT_GRAPH_CHANGED_CHANNEL = 'git-graph:changed';
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -42,9 +44,9 @@ function asString(record: Record<string, unknown>, key: string): string {
   return typeof val === 'string' ? val.trim() : '';
 }
 
-export default async function createGitGraphPlugin(
+export default async function createGitTreePlugin(
   zcc: ZccPluginApi,
-  deps: GitGraphPluginDeps = {}
+  deps: GitTreePluginDeps = {}
 ): Promise<void> {
   const git = deps.git ?? createTempFileGitRunner();
   const fs = deps.fs ?? createNodeFsDeps();
@@ -232,7 +234,7 @@ export default async function createGitGraphPlugin(
 
   // Register Project Tab availability check
   zcc.ui.registerProjectTabAvailability({
-    tabId: 'git-graph',
+    tabId: 'git-tree',
     async evaluate({ projectId }) {
       try {
         await resolveConfinedRepoPath({
@@ -514,11 +516,13 @@ export default async function createGitGraphPlugin(
       signTags: globalSettings.signTags
     });
     if (outcome.ok) {
-      zcc.realtime.publish(GIT_GRAPH_CHANGED_CHANNEL, {
+      const payload = {
         projectId,
         subRepoRelPath: confined.subRepoRelPath,
         action
-      });
+      };
+      zcc.realtime.publish(GIT_TREE_CHANGED_CHANNEL, payload);
+      zcc.realtime.publish(GIT_GRAPH_CHANGED_CHANNEL, payload);
     } else if (outcome.error) {
       throw new Error(outcome.error);
     }
@@ -626,11 +630,13 @@ export default async function createGitGraphPlugin(
       fs
     });
     const updated = await storage.saveRepoSettings(projectId, confined.subRepoRelPath, patch);
-    zcc.realtime.publish(GIT_GRAPH_CHANGED_CHANNEL, {
+    const repoPayload = {
       projectId,
       subRepoRelPath: confined.subRepoRelPath,
       action: 'updateRepoSettings'
-    });
+    };
+    zcc.realtime.publish(GIT_TREE_CHANGED_CHANNEL, repoPayload);
+    zcc.realtime.publish(GIT_GRAPH_CHANGED_CHANNEL, repoPayload);
     return updated;
   });
 
@@ -640,6 +646,7 @@ export default async function createGitGraphPlugin(
     const current = (await zcc.storage.kv.get<Partial<GitGraphGlobalSettings>>('global-settings-override')) ?? {};
     await zcc.storage.kv.set('global-settings-override', { ...current, ...patch });
     const next = await readGlobalSettings();
+    zcc.realtime.publish(GIT_TREE_CHANGED_CHANNEL, { action: 'updateGlobalSettings' });
     zcc.realtime.publish(GIT_GRAPH_CHANGED_CHANNEL, { action: 'updateGlobalSettings' });
     return next;
   });
@@ -727,7 +734,7 @@ export default async function createGitGraphPlugin(
     }
 
     const fullPrompt = `${userPrompt}\n\n---\n${contextSummary}`;
-    const title = `Git Graph: ${filePath ? filePath : commitHash.slice(0, 8)}`;
+    const title = `Git Tree: ${filePath ? filePath : commitHash.slice(0, 8)}`;
 
     const spawned = await zcc.sdk.threads.spawn({
       projectId,
@@ -738,7 +745,7 @@ export default async function createGitGraphPlugin(
     return { ok: true, threadId: spawned.id, title };
   });
 
-  registerGitGraphCliAndTools({
+  registerGitTreeCliAndTools({
     zcc,
     git,
     fs,
@@ -746,5 +753,5 @@ export default async function createGitGraphPlugin(
     readGlobalSettings
   });
 
-  zcc.log.info('git-graph plugin initialized');
+  zcc.log.info('git-tree plugin initialized');
 }

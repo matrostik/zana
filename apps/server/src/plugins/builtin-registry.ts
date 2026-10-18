@@ -272,8 +272,8 @@ export const OFFICIAL_PLUGINS: BundledPluginDefinition[] = [
     category: 'Host access'
   },
   {
-    name: 'git-graph',
-    pluginId: 'git-graph',
+    name: 'git-tree',
+    pluginId: 'git-tree',
     autoInstall: false,
     defaultEnabled: true,
     category: 'Developer tools'

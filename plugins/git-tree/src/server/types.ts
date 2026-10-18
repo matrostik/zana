@@ -181,6 +181,14 @@ export interface GitGraphGlobalSettings {
   signTags: boolean;
   useMailmap: boolean;
   graphColors: string[];
+  columnWidths?: GitGraphColumnWidths;
+}
+
+export interface GitGraphColumnWidths {
+  description?: number;
+  date: number;
+  author: number;
+  commit: number;
 }
 
 export interface CodeReviewRecord {

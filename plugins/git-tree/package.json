@@ -1,9 +1,9 @@
 {
-  "name": "@zcc-ext/git-graph",
+  "name": "@zcc-ext/git-tree",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "View a Git Graph of your project repository, inspect commits and diffs, compare branches, track code reviews, and run Git actions directly from the graph.",
+  "description": "View a Git Tree of your project repository, inspect commits and diffs, compare branches, track code reviews, and run Git actions directly from the tree.",
   "engines": {
     "zcc": ">=1.0.0",
     "zccPluginSdk": ">=0.1.0"
@@ -13,15 +13,15 @@
     "package": "node --import tsx scripts/build-app.mjs"
   },
   "zcc": {
-    "name": "Git Graph",
-    "description": "Interactive Git Graph for each project: commit DAG visualization, branch/tag/stash actions, commit details & diff viewer, two-commit comparisons, code reviews, and agent tools.",
+    "name": "Git Tree",
+    "description": "Interactive Git Tree for each project: commit DAG visualization, branch/tag/stash actions, commit details & diff viewer, two-commit comparisons, code reviews, and agent tools.",
     "branding": {
       "icon": "GitBranch"
     },
     "server": "./server.mjs",
     "app": "./app.js",
     "projectTab": {
-      "label": "Git Graph",
+      "label": "Git Tree",
       "icon": "GitBranch",
       "global": false
     },

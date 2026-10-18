@@ -1398,7 +1398,7 @@ importers:
         specifier: ^19.2.4
         version: 19.3.0(react@19.3.0)
 
-  plugins/git-graph:
+  plugins/git-tree:
     dependencies:
       '@zana-ai/zcc-ui':
         specifier: workspace:*

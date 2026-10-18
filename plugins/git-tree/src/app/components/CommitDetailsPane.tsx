@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import type {
   CodeReviewRecord,
   DiffViewMode,
@@ -17,6 +17,54 @@ import {
   tokenizeCommitMessage,
   type FileTreeNode
 } from '../graph-layout.js';
+
+const STORAGE_FILES_WIDTH_KEY = 'zcc.gitTree.commitDetailsFilesWidth';
+const STORAGE_FILES_HEIGHT_KEY = 'zcc.gitTree.commitDetailsFilesHeight';
+const STORAGE_PANE_HEIGHT_KEY = 'zcc.gitTree.commitDetailsHeight';
+const STORAGE_PANE_WIDTH_KEY = 'zcc.gitTree.commitDetailsWidth';
+const MIN_FILES_WIDTH = 200;
+const MIN_FILES_HEIGHT = 100;
+const MIN_PANE_HEIGHT = 260;
+const MIN_PANE_WIDTH = 320;
+
+function loadStoredNumber(key: string): number | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const val = Number(localStorage.getItem(key));
+    return Number.isFinite(val) && val > 0 ? val : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredNumber(key: string, val: number | null): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (val === null) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, String(val));
+    }
+  } catch {
+    // best-effort
+  }
+}
+
+function computeDefaultFilesWidth(
+  fileChanges: GitFileChange[],
+  fileViewType: FileViewType
+): number {
+  if (!fileChanges.length) return 290;
+  let maxLen = 0;
+  for (const c of fileChanges) {
+    const text =
+      fileViewType === 'list'
+        ? (c.oldPath !== c.newPath ? `${c.oldPath} → ${c.newPath}` : c.newPath)
+        : (c.newPath.split('/').pop() || c.newPath);
+    if (text.length > maxLen) maxLen = text.length;
+  }
+  return Math.max(260, Math.min(650, Math.round(maxLen * 7.8 + 120)));
+}
 
 export interface CommitDetailsPaneProps {
   mode: 'single' | 'comparison';
@@ -82,17 +130,364 @@ export function CommitDetailsPane({
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<'diff' | 'source'>('diff');
   const diffViewerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const columnsRef = useRef<HTMLDivElement | null>(null);
+  const fileListRef = useRef<HTMLDivElement | null>(null);
+
+  const fileChanges: GitFileChange[] = useMemo(() => {
+    if (mode === 'comparison') return comparison?.fileChanges ?? [];
+    return details?.fileChanges ?? [];
+  }, [mode, details, comparison]);
+
+  const commitKey =
+    mode === 'comparison'
+      ? `${comparison?.fromHash ?? ''}..${comparison?.toHash ?? ''}`
+      : (details?.hash ?? '');
+
+  const [paneHeight, setPaneHeight] = useState<number | null>(() => {
+    return loadStoredNumber(STORAGE_PANE_HEIGHT_KEY);
+  });
+
+  const [paneWidth, setPaneWidth] = useState<number | null>(() => {
+    return loadStoredNumber(STORAGE_PANE_WIDTH_KEY);
+  });
+
+  const [isStacked, setIsStacked] = useState<boolean>(false);
+  const [isManualWidth, setIsManualWidth] = useState<boolean>(false);
+
+  const [filesWidth, setFilesWidth] = useState<number>(() => {
+    return computeDefaultFilesWidth(fileChanges, fileViewType);
+  });
+
+  const [isManualHeight, setIsManualHeight] = useState<boolean>(false);
+
+  const [filesHeight, setFilesHeight] = useState<number>(() => {
+    const est = fileChanges.length * 28 + 48;
+    return Math.min(260, Math.max(MIN_FILES_HEIGHT, est));
+  });
+
+  const prevCommitKeyRef = useRef(commitKey);
+  useEffect(() => {
+    if (prevCommitKeyRef.current !== commitKey) {
+      prevCommitKeyRef.current = commitKey;
+      setIsManualWidth(false);
+      setIsManualHeight(false);
+    }
+  }, [commitKey]);
+
+  const colDragCleanupRef = useRef<(() => void) | null>(null);
+  const rowDragCleanupRef = useRef<(() => void) | null>(null);
+  const heightDragCleanupRef = useRef<(() => void) | null>(null);
+  const widthDragCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      colDragCleanupRef.current?.();
+      rowDragCleanupRef.current?.();
+      heightDragCleanupRef.current?.();
+      widthDragCleanupRef.current?.();
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
+  useEffect(() => {
+    const colEl = columnsRef.current;
+    if (!colEl) return;
+    const checkStacked = () => {
+      if (colEl && colEl.clientWidth > 0) {
+        setIsStacked(colEl.clientWidth <= 640);
+      }
+    };
+    checkStacked();
+    window.addEventListener('resize', checkStacked);
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(checkStacked);
+      ro.observe(colEl);
+      return () => {
+        window.removeEventListener('resize', checkStacked);
+        ro.disconnect();
+      };
+    }
+    return () => window.removeEventListener('resize', checkStacked);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (fileChanges.length === 0) return;
+
+    const measure = () => {
+      const listEl = fileListRef.current;
+      const colEl = columnsRef.current;
+      if (!listEl || !colEl) return;
+
+      if (isStacked) {
+        if (isManualHeight) return;
+        const totalHeight = colEl.clientHeight > 0 ? colEl.clientHeight : 500;
+        const halfHeight = Math.floor(totalHeight * 0.5);
+
+        let actualItemsHeight = 0;
+        const items = listEl.querySelectorAll<HTMLElement>('.gg-file-row, .gg-folder-row');
+        if (items.length > 0) {
+          items.forEach((it) => {
+            actualItemsHeight += (it.offsetHeight || 26) + 2;
+          });
+          actualItemsHeight += 8;
+        } else {
+          actualItemsHeight = fileChanges.length * 26 + 8;
+        }
+
+        const neededHeight = Math.max(listEl.scrollHeight + 48, actualItemsHeight + 48);
+        const targetHeight =
+          neededHeight > halfHeight
+            ? halfHeight
+            : Math.max(MIN_FILES_HEIGHT, neededHeight);
+        const clamped = Math.max(
+          MIN_FILES_HEIGHT,
+          Math.min(Math.floor(totalHeight * 0.8), targetHeight)
+        );
+        setFilesHeight(clamped);
+      } else {
+        if (isManualWidth) return;
+        let maxRowNeeded = 0;
+        const rows = listEl.querySelectorAll<HTMLElement>('.gg-file-row, .gg-folder-row');
+        rows.forEach((row) => {
+          const pathEl = row.querySelector<HTMLElement>('.gg-file-path');
+          if (pathEl) {
+            const pathDiff = Math.max(0, pathEl.scrollWidth - pathEl.clientWidth);
+            const needed = row.offsetWidth + pathDiff;
+            if (needed > maxRowNeeded) maxRowNeeded = needed;
+          } else {
+            if (row.scrollWidth > maxRowNeeded) maxRowNeeded = row.scrollWidth;
+          }
+        });
+
+        let calculated = maxRowNeeded > 0 ? maxRowNeeded + 24 : 0;
+        if (calculated <= 0) {
+          calculated = computeDefaultFilesWidth(fileChanges, fileViewType);
+        }
+
+        const maxAllowed = colEl.clientWidth > 0 ? Math.floor(colEl.clientWidth * 0.6) : 650;
+        const target = Math.max(
+          MIN_FILES_WIDTH,
+          Math.min(Math.max(MIN_FILES_WIDTH, maxAllowed), calculated)
+        );
+        setFilesWidth(target);
+      }
+    };
+
+    measure();
+    const rafId = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(rafId);
+  }, [fileChanges, fileViewType, compactFolders, isManualWidth, isManualHeight, isStacked]);
+
+  const handleRowResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    const startY = e.clientY;
+    const startHeight = filesHeight;
+    let latestHeight = startHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const deltaY = ev.clientY - startY;
+      const colEl = columnsRef.current;
+      const totalH = colEl && colEl.clientHeight > 0 ? colEl.clientHeight : 600;
+      const maxAllowed = Math.floor(totalH * 0.8);
+      latestHeight = Math.max(MIN_FILES_HEIGHT, Math.min(maxAllowed, Math.round(startHeight + deltaY)));
+      setFilesHeight(latestHeight);
+      setIsManualHeight(true);
+    };
+
+    const cleanup = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      rowDragCleanupRef.current = null;
+    };
+
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_FILES_HEIGHT_KEY, latestHeight);
+    };
+
+    rowDragCleanupRef.current = cleanup;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleRowResizeDoubleClick = () => {
+    setIsManualHeight(false);
+    saveStoredNumber(STORAGE_FILES_HEIGHT_KEY, null);
+  };
+
+  const handleColResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const startX = e.clientX;
+    const startWidth = filesWidth;
+    let latestWidth = startWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const deltaX = ev.clientX - startX;
+      const colEl = columnsRef.current;
+      const maxAllowed = colEl && colEl.clientWidth > 0 ? Math.floor(colEl.clientWidth * 0.75) : 800;
+      latestWidth = Math.max(MIN_FILES_WIDTH, Math.min(maxAllowed, Math.round(startWidth + deltaX)));
+      setFilesWidth(latestWidth);
+      setIsManualWidth(true);
+    };
+
+    const cleanup = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      colDragCleanupRef.current = null;
+    };
+
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_FILES_WIDTH_KEY, latestWidth);
+    };
+
+    colDragCleanupRef.current = cleanup;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleColResizeDoubleClick = () => {
+    setIsManualWidth(false);
+    saveStoredNumber(STORAGE_FILES_WIDTH_KEY, null);
+  };
+
+  const handleTopResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    const startY = e.clientY;
+    const currentHeight = containerRef.current?.offsetHeight ?? (paneHeight || 480);
+    let latestHeight = currentHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const deltaY = startY - ev.clientY;
+      const maxHeight = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.88) : 900;
+      latestHeight = Math.max(MIN_PANE_HEIGHT, Math.min(maxHeight, Math.round(currentHeight + deltaY)));
+      setPaneHeight(latestHeight);
+    };
+
+    const cleanup = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      heightDragCleanupRef.current = null;
+    };
+
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_PANE_HEIGHT_KEY, latestHeight);
+    };
+
+    heightDragCleanupRef.current = cleanup;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleBottomResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    const startY = e.clientY;
+    const currentHeight = containerRef.current?.offsetHeight ?? (paneHeight || 480);
+    let latestHeight = currentHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const deltaY = ev.clientY - startY;
+      const maxHeight = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.88) : 900;
+      latestHeight = Math.max(MIN_PANE_HEIGHT, Math.min(maxHeight, Math.round(currentHeight + deltaY)));
+      setPaneHeight(latestHeight);
+    };
+
+    const cleanup = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      heightDragCleanupRef.current = null;
+    };
+
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_PANE_HEIGHT_KEY, latestHeight);
+    };
+
+    heightDragCleanupRef.current = cleanup;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleHeightResizeDoubleClick = () => {
+    setPaneHeight(null);
+    saveStoredNumber(STORAGE_PANE_HEIGHT_KEY, null);
+  };
+
+  const handleLeftResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const startX = e.clientX;
+    const currentWidth = containerRef.current?.offsetWidth ?? (paneWidth || 500);
+    let latestWidth = currentWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const deltaX = startX - ev.clientX;
+      const maxWidth = typeof window !== 'undefined' ? Math.round(window.innerWidth * 0.8) : 1000;
+      latestWidth = Math.max(MIN_PANE_WIDTH, Math.min(maxWidth, Math.round(currentWidth + deltaX)));
+      setPaneWidth(latestWidth);
+    };
+
+    const cleanup = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      widthDragCleanupRef.current = null;
+    };
+
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_PANE_WIDTH_KEY, latestWidth);
+    };
+
+    widthDragCleanupRef.current = cleanup;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleLeftResizeDoubleClick = () => {
+    setPaneWidth(null);
+    saveStoredNumber(STORAGE_PANE_WIDTH_KEY, null);
+  };
+
+  const containerStyle = useMemo<React.CSSProperties | undefined>(() => {
+    const style: React.CSSProperties = {};
+    if (paneHeight) {
+      style.height = `${paneHeight}px`;
+      style.maxHeight = '88vh';
+    }
+    if (!inline && paneWidth) {
+      style.width = `${paneWidth}px`;
+      style.maxWidth = '80%';
+    }
+    return Object.keys(style).length > 0 ? style : undefined;
+  }, [inline, paneHeight, paneWidth]);
 
   useEffect(() => {
     if (selectedFilePath && diffViewerRef.current) {
       diffViewerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
     }
   }, [selectedFilePath]);
-
-  const fileChanges: GitFileChange[] = useMemo(() => {
-    if (mode === 'comparison') return comparison?.fileChanges ?? [];
-    return details?.fileChanges ?? [];
-  }, [mode, details, comparison]);
 
   const fileTree = useMemo(
     () => buildFileTree(fileChanges, compactFolders),
@@ -224,9 +619,36 @@ export function CommitDetailsPane({
 
   return (
     <div
+      ref={containerRef}
       className={`gg-details-pane ${inline ? 'gg-details-inline inline' : ''}`}
+      style={containerStyle}
       data-testid="gg-details-pane"
     >
+      <div
+        className="gg-details-top-resizer"
+        onMouseDown={handleTopResizeMouseDown}
+        onDoubleClick={handleHeightResizeDoubleClick}
+        title="Drag to resize height · Double-click to reset"
+        data-testid="gg-details-top-resizer"
+      />
+      {inline && (
+        <div
+          className="gg-details-bottom-resizer"
+          onMouseDown={handleBottomResizeMouseDown}
+          onDoubleClick={handleHeightResizeDoubleClick}
+          title="Drag to resize height · Double-click to reset"
+          data-testid="gg-details-bottom-resizer"
+        />
+      )}
+      {!inline && (
+        <div
+          className="gg-details-left-resizer"
+          onMouseDown={handleLeftResizeMouseDown}
+          onDoubleClick={handleLeftResizeDoubleClick}
+          title="Drag to resize pane width · Double-click to reset"
+          data-testid="gg-details-left-resizer"
+        />
+      )}
       <div className="gg-details-header">
         <div className="gg-details-header-title">
           {mode === 'comparison' && comparison ? (
@@ -354,8 +776,26 @@ export function CommitDetailsPane({
             </div>
           )}
 
-          <div className="gg-details-columns" data-testid="gg-details-columns">
-            <div className="gg-details-col-files">
+          <div
+            ref={columnsRef}
+            className={`gg-details-columns ${isStacked ? 'stacked' : 'side-by-side'}`}
+            data-testid="gg-details-columns"
+          >
+            <div
+              className="gg-details-col-files"
+              style={
+                isStacked
+                  ? {
+                      height: `${filesHeight}px`,
+                      flexBasis: `${filesHeight}px`,
+                      width: '100%'
+                    }
+                  : {
+                      width: `${filesWidth}px`,
+                      flexBasis: `${filesWidth}px`
+                    }
+              }
+            >
               <div className="gg-files-toolbar">
                 <span>
                   Changed Files ({fileChanges.length})
@@ -396,7 +836,11 @@ export function CommitDetailsPane({
                 </div>
               </div>
 
-              <div className="gg-file-list" data-testid="gg-file-list">
+              <div
+                ref={fileListRef}
+                className="gg-file-list"
+                data-testid="gg-file-list"
+              >
                 {fileChanges.length === 0 ? (
                   <div className="gg-empty" style={{ padding: '12px' }}>
                     No file changes in this commit.
@@ -416,6 +860,24 @@ export function CommitDetailsPane({
                 )}
               </div>
             </div>
+
+            {isStacked ? (
+              <div
+                className="gg-details-row-resizer"
+                onMouseDown={handleRowResizeMouseDown}
+                onDoubleClick={handleRowResizeDoubleClick}
+                title="Drag to resize · Double-click to auto-split"
+                data-testid="gg-details-row-resizer"
+              />
+            ) : (
+              <div
+                className="gg-details-col-resizer"
+                onMouseDown={handleColResizeMouseDown}
+                onDoubleClick={handleColResizeDoubleClick}
+                title="Drag to resize column · Double-click to auto-fit"
+                data-testid="gg-details-col-resizer"
+              />
+            )}
 
             <div className="gg-details-col-diff">
               {selectedFilePath ? (

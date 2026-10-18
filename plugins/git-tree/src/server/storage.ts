@@ -1,11 +1,18 @@
 import type { PluginKvStorage } from '@zana-ai/zcc-plugin-sdk/server';
 import type {
   CodeReviewRecord,
+  GitGraphColumnWidths,
   GitGraphGlobalSettings,
   RepoSettings
 } from './types.js';
 
 export const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+
+export const DEFAULT_COLUMN_WIDTHS: GitGraphColumnWidths = {
+  date: 125,
+  author: 130,
+  commit: 74
+};
 
 export const DEFAULT_GRAPH_COLORS = [
   '#0085d9',
@@ -40,7 +47,8 @@ export const DEFAULT_GLOBAL_SETTINGS: GitGraphGlobalSettings = {
   signCommits: false,
   signTags: false,
   useMailmap: true,
-  graphColors: DEFAULT_GRAPH_COLORS
+  graphColors: DEFAULT_GRAPH_COLORS,
+  columnWidths: DEFAULT_COLUMN_WIDTHS
 };
 
 export const DEFAULT_REPO_SETTINGS: RepoSettings = {

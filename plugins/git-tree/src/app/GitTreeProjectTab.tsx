@@ -19,6 +19,7 @@ import type {
   GitFileChange,
   GitFileContent,
   GitFileDiff,
+  GitGraphColumnWidths,
   GitGraphGlobalSettings,
   GitRefBadge,
   GitTagDetails,
@@ -44,17 +45,24 @@ import {
 } from './components/ContextMenuAndDialogs.js';
 import { RepoSettingsWidget } from './components/RepoSettingsWidget.js';
 
+const DEFAULT_COLUMN_WIDTHS: GitGraphColumnWidths = {
+  date: 125,
+  author: 130,
+  commit: 74
+};
+
 const ROW_HEIGHT = 28;
 const LANE_WIDTH = 14;
 const PAD_X = 14;
 
-export interface GitGraphProjectTabProps {
+export interface GitTreeProjectTabProps {
   pluginId: string;
   projectId?: string;
   headerActions?: React.ReactNode;
 }
+export type GitGraphProjectTabProps = GitTreeProjectTabProps;
 
-export function GitGraphDetachedPlaceholder({
+export function GitTreeDetachedPlaceholder({
   focusWindow,
   bringBack
 }: PluginDetachedTabProps) {
@@ -62,7 +70,7 @@ export function GitGraphDetachedPlaceholder({
     <div className="gg-root" data-testid="gg-detached-placeholder">
       <div className="gg-empty" style={{ gap: '12px' }}>
         <div style={{ fontSize: '14px', fontWeight: 600 }}>
-          Git Graph is open in its own window
+          Git Tree is open in its own window
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button type="button" className="gg-btn gg-btn-primary" onClick={focusWindow}>
@@ -76,11 +84,12 @@ export function GitGraphDetachedPlaceholder({
     </div>
   );
 }
+export const GitGraphDetachedPlaceholder = GitTreeDetachedPlaceholder;
 
-export function GitGraphProjectTab({
+export function GitTreeProjectTab({
   projectId: propProjectId,
   headerActions
-}: GitGraphProjectTabProps) {
+}: GitTreeProjectTabProps) {
   const rpc = useRpc();
   let zccCtx: { projectId: string | null } = { projectId: null };
   try {
@@ -209,12 +218,14 @@ export function GitGraphProjectTab({
     void loadReposAndGraph();
   }, [projectId]);
 
-  useRealtime('git-graph:changed', (payload) => {
+  const onDataChanged = (payload: unknown) => {
     const evt = payload as { projectId?: string; subRepoRelPath?: string } | null;
     if (!evt?.projectId || evt.projectId === projectId) {
       void loadReposAndGraph(selectedRepoRelPath, maxCommits);
     }
-  });
+  };
+  useRealtime('git-tree:changed', onDataChanged);
+  useRealtime('git-graph:changed', onDataChanged);
 
   // Load commit details or 2-commit comparison when selection changes
   useEffect(() => {
@@ -376,7 +387,8 @@ export function GitGraphProjectTab({
     signCommits: false,
     signTags: false,
     useMailmap: true,
-    graphColors: []
+    graphColors: [],
+    columnWidths: DEFAULT_COLUMN_WIDTHS
   };
   const repoSettings: RepoSettings = graphData?.repoSettings ?? {
     selectedBranches: [],
@@ -523,6 +535,107 @@ export function GitGraphProjectTab({
       }
     },
     [rpc]
+  );
+
+  const [colWidths, setColWidths] = useState<GitGraphColumnWidths>(() => ({
+    description: globalSettings.columnWidths?.description,
+    date: globalSettings.columnWidths?.date ?? DEFAULT_COLUMN_WIDTHS.date,
+    author: globalSettings.columnWidths?.author ?? DEFAULT_COLUMN_WIDTHS.author,
+    commit: globalSettings.columnWidths?.commit ?? DEFAULT_COLUMN_WIDTHS.commit
+  }));
+  const [activeResizeCol, setActiveResizeCol] = useState<'description' | 'date' | 'author' | 'commit' | null>(null);
+  const colWidthsRef = useRef(colWidths);
+  colWidthsRef.current = colWidths;
+  const isResizingRef = useRef(false);
+  const descHeaderRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isResizingRef.current && globalSettings.columnWidths) {
+      setColWidths({
+        description: globalSettings.columnWidths.description,
+        date: globalSettings.columnWidths.date ?? DEFAULT_COLUMN_WIDTHS.date,
+        author: globalSettings.columnWidths.author ?? DEFAULT_COLUMN_WIDTHS.author,
+        commit: globalSettings.columnWidths.commit ?? DEFAULT_COLUMN_WIDTHS.commit
+      });
+    }
+  }, [globalSettings.columnWidths]);
+
+  const startResize = useCallback(
+    (e: React.MouseEvent, column: 'description' | 'date' | 'author' | 'commit') => {
+      e.preventDefault();
+      e.stopPropagation();
+      isResizingRef.current = true;
+      setActiveResizeCol(column);
+      const startX = e.clientX;
+      const startWidth =
+        column === 'description'
+          ? (colWidthsRef.current.description ?? descHeaderRef.current?.getBoundingClientRect().width ?? 260)
+          : colWidthsRef.current[column];
+      let latestWidth = startWidth;
+
+      const prevUserSelect = document.body.style.userSelect;
+      const prevCursor = document.body.style.cursor;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+
+      const minWidth = column === 'commit' ? 50 : column === 'description' ? 150 : 60;
+      const maxWidth = column === 'description' ? 1200 : 500;
+
+      const onPointerMove = (moveEvt: MouseEvent) => {
+        const deltaX = moveEvt.clientX - startX;
+        // Resizer is on the right edge of the column: dragging right expands column, dragging left shrinks column
+        const nextWidth = Math.max(minWidth, Math.min(maxWidth, Math.round(startWidth + deltaX)));
+        latestWidth = nextWidth;
+        setColWidths((prev) => ({
+          ...prev,
+          [column]: nextWidth
+        }));
+      };
+
+      const onPointerUp = () => {
+        window.removeEventListener('mousemove', onPointerMove);
+        window.removeEventListener('mouseup', onPointerUp);
+        document.body.style.userSelect = prevUserSelect;
+        document.body.style.cursor = prevCursor;
+        isResizingRef.current = false;
+        setActiveResizeCol(null);
+        const nextAll = {
+          ...colWidthsRef.current,
+          [column]: latestWidth
+        };
+        void handleUpdateGlobalSettings({
+          columnWidths: nextAll
+        });
+      };
+
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
+    },
+    [handleUpdateGlobalSettings]
+  );
+
+  const resetColumnWidth = useCallback(
+    (column: 'description' | 'date' | 'author' | 'commit') => {
+      if (column === 'description') {
+        const nextAll = { ...colWidthsRef.current };
+        delete nextAll.description;
+        setColWidths(nextAll);
+        void handleUpdateGlobalSettings({
+          columnWidths: nextAll
+        });
+        return;
+      }
+      const nextWidth = DEFAULT_COLUMN_WIDTHS[column];
+      const nextAll = {
+        ...colWidthsRef.current,
+        [column]: nextWidth
+      };
+      setColWidths(nextAll);
+      void handleUpdateGlobalSettings({
+        columnWidths: nextAll
+      });
+    },
+    [handleUpdateGlobalSettings]
   );
 
   const handleCopyText = useCallback((text: string, label: string) => {
@@ -1043,29 +1156,113 @@ export function GitGraphProjectTab({
         )}
 
         <div className="gg-table-container">
-          <div className="gg-table-header" ref={headerScrollRef} style={{ overflow: 'hidden' }}>
-            <div style={{ width: `${graphColumnWidth}px`, flexShrink: 0, paddingLeft: '8px', boxSizing: 'border-box' }}>
-              Graph
-            </div>
-            <div style={{ flex: '1 1 auto', minWidth: '260px', padding: '0 8px', boxSizing: 'border-box' }}>
-              Description
-            </div>
-            <div style={{ width: '125px', flexShrink: 0, padding: '0 6px', boxSizing: 'border-box' }}>
-              Date
-            </div>
-            <div style={{ width: '130px', flexShrink: 0, padding: '0 6px', boxSizing: 'border-box' }}>
-              Author
-            </div>
-            <div style={{ width: '74px', flexShrink: 0, textAlign: 'right', paddingRight: '8px', boxSizing: 'border-box' }}>
-              Commit
+          <div className="gg-table-header-scroll" ref={headerScrollRef}>
+            <div className="gg-table-header">
+              <div
+                style={{
+                  width: `${graphColumnWidth}px`,
+                  minWidth: `${graphColumnWidth}px`,
+                  maxWidth: `${graphColumnWidth}px`,
+                  flex: `0 0 ${graphColumnWidth}px`,
+                  paddingLeft: '8px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                Graph
+              </div>
+              <div
+                ref={descHeaderRef}
+                style={{
+                  ...(colWidths.description !== undefined
+                    ? {
+                        width: `${colWidths.description}px`,
+                        minWidth: `${colWidths.description}px`,
+                        maxWidth: `${colWidths.description}px`,
+                        flex: `0 0 ${colWidths.description}px`
+                      }
+                    : {
+                        flex: '1 1 0px',
+                        minWidth: '150px'
+                      }),
+                  padding: '0 8px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                Description
+              </div>
+              <div
+                className={`gg-col-resizer ${activeResizeCol === 'description' ? 'active' : ''}`}
+                title="Resize Description · Double-click to auto-fit"
+                data-testid="gg-col-resizer-description"
+                onMouseDown={(e) => startResize(e, 'description')}
+                onDoubleClick={() => resetColumnWidth('description')}
+              />
+              <div
+                style={{
+                  width: `${colWidths.date}px`,
+                  minWidth: `${colWidths.date}px`,
+                  maxWidth: `${colWidths.date}px`,
+                  flex: `0 0 ${colWidths.date}px`,
+                  padding: '0 6px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                Date
+              </div>
+              <div
+                className={`gg-col-resizer ${activeResizeCol === 'date' ? 'active' : ''}`}
+                title="Resize Date · Double-click to reset"
+                data-testid="gg-col-resizer-date"
+                onMouseDown={(e) => startResize(e, 'date')}
+                onDoubleClick={() => resetColumnWidth('date')}
+              />
+              <div
+                style={{
+                  width: `${colWidths.author}px`,
+                  minWidth: `${colWidths.author}px`,
+                  maxWidth: `${colWidths.author}px`,
+                  flex: `0 0 ${colWidths.author}px`,
+                  padding: '0 6px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                Author
+              </div>
+              <div
+                className={`gg-col-resizer ${activeResizeCol === 'author' ? 'active' : ''}`}
+                title="Resize Author · Double-click to reset"
+                data-testid="gg-col-resizer-author"
+                onMouseDown={(e) => startResize(e, 'author')}
+                onDoubleClick={() => resetColumnWidth('author')}
+              />
+              <div
+                style={{
+                  width: `${colWidths.commit}px`,
+                  minWidth: `${colWidths.commit}px`,
+                  maxWidth: `${colWidths.commit}px`,
+                  flex: `0 0 ${colWidths.commit}px`,
+                  textAlign: 'right',
+                  padding: '0 6px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                Commit
+              </div>
+              <div
+                className={`gg-col-resizer ${activeResizeCol === 'commit' ? 'active' : ''}`}
+                title="Resize Commit · Double-click to reset"
+                data-testid="gg-col-resizer-commit"
+                onMouseDown={(e) => startResize(e, 'commit')}
+                onDoubleClick={() => resetColumnWidth('commit')}
+              />
             </div>
           </div>
 
           {loading && !graphData ? (
-            <div className="gg-empty">Loading Git Graph…</div>
+            <div className="gg-empty">Loading Git Tree…</div>
           ) : errorMessage ? (
             <div className="gg-empty">
-              <div>Failed to load Git Graph: {errorMessage}</div>
+              <div>Failed to load Git Tree: {errorMessage}</div>
               <button
                 type="button"
                 className="gg-btn"
@@ -1270,23 +1467,80 @@ export function GitGraphProjectTab({
                       >
                         <div
                           className="gg-graph-spacer"
-                          style={{ width: `${graphColumnWidth}px` }}
+                          style={{
+                            width: `${graphColumnWidth}px`,
+                            minWidth: `${graphColumnWidth}px`,
+                            maxWidth: `${graphColumnWidth}px`,
+                            flex: `0 0 ${graphColumnWidth}px`,
+                            boxSizing: 'border-box'
+                          }}
                         />
-                        <div className="gg-commit-desc">
+                        <div
+                          className="gg-commit-desc"
+                          style={{
+                            ...(colWidths.description !== undefined
+                              ? {
+                                  width: `${colWidths.description}px`,
+                                  minWidth: `${colWidths.description}px`,
+                                  maxWidth: `${colWidths.description}px`,
+                                  flex: `0 0 ${colWidths.description}px`
+                                }
+                              : {
+                                  flex: '1 1 0px',
+                                  minWidth: '150px'
+                                }),
+                            padding: '0 8px',
+                            boxSizing: 'border-box'
+                          }}
+                        >
                           {commit.refs.map((ref, rIdx) => renderRefBadge(commit, ref, rIdx))}
                           <span className="gg-commit-subject">
                             {renderCommitSubject(commit.subject)}
                           </span>
                         </div>
-                        <div className="gg-commit-date">
+                        <div
+                          className="gg-commit-date"
+                          style={{
+                            width: `${colWidths.date}px`,
+                            minWidth: `${colWidths.date}px`,
+                            maxWidth: `${colWidths.date}px`,
+                            flex: `0 0 ${colWidths.date}px`,
+                            padding: '0 6px',
+                            boxSizing: 'border-box'
+                          }}
+                        >
                           {commit.isUncommitted
                             ? 'Working Tree'
                             : formatCommitTimestamp(displayDate, globalSettings.dateFormat)}
                         </div>
-                        <div className="gg-commit-author" title={commit.authorEmail}>
+                        <div
+                          className="gg-commit-author"
+                          style={{
+                            width: `${colWidths.author}px`,
+                            minWidth: `${colWidths.author}px`,
+                            maxWidth: `${colWidths.author}px`,
+                            flex: `0 0 ${colWidths.author}px`,
+                            padding: '0 6px',
+                            boxSizing: 'border-box'
+                          }}
+                          title={commit.authorEmail}
+                        >
                           {commit.authorName}
                         </div>
-                        <div className="gg-commit-hash">{commit.abbreviatedHash}</div>
+                        <div
+                          className="gg-commit-hash"
+                          style={{
+                            width: `${colWidths.commit}px`,
+                            minWidth: `${colWidths.commit}px`,
+                            maxWidth: `${colWidths.commit}px`,
+                            flex: `0 0 ${colWidths.commit}px`,
+                            textAlign: 'right',
+                            padding: '0 6px',
+                            boxSizing: 'border-box'
+                          }}
+                        >
+                          {commit.abbreviatedHash}
+                        </div>
                       </div>
 
                       {isInlineDetails &&
@@ -1493,3 +1747,5 @@ export function GitGraphProjectTab({
     </div>
   );
 }
+
+export const GitGraphProjectTab = GitTreeProjectTab;
