@@ -8,6 +8,7 @@ import type { PromptInput } from '@zana-ai/zcc-domain/thread-runtime';
 import { ThreadCommandComposer, type ThreadCommandComposerProps } from './ThreadCommandComposer.js';
 import { bootstrapOutcome, composerBootstrapErrorMessage } from './composer-host-status.js';
 import { consumeVoiceDraft, voiceDraft } from './thread/voice/voice-drafts.js';
+import { resetComposerSessions } from './composer/composer-session.js';
 
 const h = vi.hoisted(() => {
   const provider = { id: 'codex', displayName: 'Codex', permissionModes: ['full'], composerActions: ['plan'] };
@@ -78,6 +79,10 @@ vi.mock('./composer/use-composer-prompt-field.js', () => ({
     h.fieldArgs = args;
     return { editor: h.editor, text: h.text, images: h.images, restoredAttachments: h.attachments,
       serialize: () => ({ text: h.text, mentions: [] }), clear: h.clear, insertText: h.insertText,
+      captureRevision: () => JSON.stringify([h.text, h.images, h.attachments]),
+      clearIfRevision: (revision: string) => {
+        if (revision === JSON.stringify([h.text, h.images, h.attachments])) h.clear();
+      },
       removeRestoredAttachment: h.removeAttachment, setText: vi.fn(), replacePrompt: vi.fn(), focus: vi.fn(),
       markRestoreFocus: vi.fn(), handleChromeKeyDown: vi.fn(), dropHandlers: {},
       suggestions: [], typeaheadOpen: false, canAttach: false };
@@ -108,6 +113,7 @@ vi.mock('./thread/pickers/ReasoningEffortPicker.js', () => ({ ReasoningEffortPic
 vi.mock('./thread/pickers/ComposerSendModePicker.js', () => ({ ComposerSendModePicker: () => null }));
 
 beforeEach(() => {
+  resetComposerSessions();
   vi.clearAllMocks();
   h.text = 'Draft'; h.images = []; h.attachments = []; h.editor.isDestroyed = false;
   h.voice.state = 'idle'; h.voice.canRetry = false; h.frozenSend = null;
@@ -132,6 +138,14 @@ async function transcribeAndSend(text = 'Spoken words') {
 }
 
 describe('Modern composer submission contracts', () => {
+  it('keeps a failed submission intact and reports its error', async () => {
+    h.send.mockRejectedValueOnce(new Error('Send rejected'));
+    render(composer());
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByTestId('thread-command-error').textContent).toBe('Send rejected'));
+    expect(h.clear).not.toHaveBeenCalled();
+    expect(h.text).toBe('Draft');
+  });
   it.each([undefined, 'default', 'priority', 'unsupported'])('normalizes service tier %s against the live provider and sends restored attachments', async tier => {
     h.text = '';
     h.attachments = [{ type: 'localImage', path: '/tmp/restored.png' }];
@@ -262,7 +276,7 @@ describe('Modern composer voice submission', () => {
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe(expected));
   });
 
-  it('does not clear or navigate a different thread after a delayed recording submission', async () => {
+  it('clears the submitted session after navigation without navigating its replacement', async () => {
     h.voice.state = 'recording';
     const onCreated = vi.fn();
     const view = render(composer({ threadId: undefined, onCreated }));
@@ -272,7 +286,7 @@ describe('Modern composer voice submission', () => {
     await act(async () => { await frozen('Spoken words'); });
     expect(h.upsert).toHaveBeenCalledWith({ id: 'created' });
     expect(onCreated).not.toHaveBeenCalled();
-    expect(h.clear).not.toHaveBeenCalled();
+    expect(h.clear).toHaveBeenCalledOnce();
   });
 
   it('keeps a failed voice submission retryable without inserting a duplicate transcript', async () => {

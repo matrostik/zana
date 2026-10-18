@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { act, cleanup, render, renderHook, waitFor } from '@testing-library/react';
 import { useThreadComposerOptions } from './useThreadComposerOptions.js';
 import { resetThreadModelCatalog } from './thread-model-catalog.js';
+import { ComposerSession } from '../../composer/composer-session.js';
 
 // `new URL('./x', import.meta.url)` resolves against the happy-dom-emulated
 // `location` (not the given base) once this file's environment is happy-dom,
@@ -72,7 +73,7 @@ describe('useThreadComposerOptions', () => {
     expect(source).toContain('nextAcpModeSelection');
     expect(source).toContain('selected: acpMode');
     expect(source).toContain('options: acpModeOptions');
-    expect(source).toContain('if (next !== undefined && next !== acpMode) setAcpMode(next)');
+    expect(source).toContain('if (next !== undefined && next !== acpMode) setAcpModeState(next)');
     expect(source).toContain('initialAcpMode');
     expect(source).toContain('requestedValid');
     expect(source).toContain('appliedRequestedAcpModeRef');
@@ -95,9 +96,9 @@ describe('useThreadComposerOptions', () => {
     // it once the async thread fetch resolves.
     const source = readFileSync(HOOK_SOURCE_PATH, 'utf8');
     expect(source).toContain('initialAcpMode?: string | null');
-    expect(source).toContain('useState<string | undefined>(() => input.initialAcpMode ?? undefined)');
-    expect(source).toContain('setAcpMode(input.initialAcpMode ?? undefined);');
-    expect(source).toContain('}, [input.initialAcpMode]);');
+    expect(source).toContain('hasAcpMode ? savedAcpMode : input.initialAcpMode ?? undefined');
+    expect(source).toContain('if (!hasAcpMode) setAcpModeState(input.initialAcpMode ?? undefined);');
+    expect(source).toContain('}, [input.initialAcpMode, hasAcpMode]);');
   });
 });
 
@@ -126,6 +127,40 @@ describe('useThreadComposerOptions acpMode rehydration (rendered)', () => {
 
 describe('composer host cache subscriptions', () => {
   afterEach(() => { cleanup(); resetThreadModelCatalog(); });
+
+  it('restores explicit model, reasoning and role instead of late thread defaults', async () => {
+    resetThreadModelCatalog(async () => ({ providers: [], models: [], selectedOnlyModels: [], modelLoadError: null }) as never);
+    const session = new ComposerSession();
+    const view = renderHook(() => useThreadComposerOptions({ session, threadId: 'a', lockedProviderId: 'codex', initialModel: 'baseline', initialReasoningLevel: 'medium', initialAcpMode: 'agent' }));
+    act(() => {
+      view.result.current.setModel('chosen-model');
+      view.result.current.setReasoningLevel('high');
+      view.result.current.setAcpMode('reviewer');
+    });
+    view.unmount();
+    const restored = renderHook(({ model }) => useThreadComposerOptions({ session, threadId: 'a', lockedProviderId: 'codex', initialModel: model, initialReasoningLevel: 'low', initialAcpMode: null }), { initialProps: { model: 'old-model' } });
+    await act(async () => {});
+    expect(restored.result.current.model).toBe('chosen-model');
+    expect(restored.result.current.reasoningLevel).toBe('high');
+    expect(restored.result.current.acpMode).toBe('reviewer');
+    restored.rerender({ model: 'late-model' });
+    expect(restored.result.current.model).toBe('chosen-model');
+    expect(restored.result.current.reasoningLevel).toBe('high');
+  });
+
+  it('reports unavailable saved models and roles rather than silently replacing them', async () => {
+    resetThreadModelCatalog(async () => ({ providers: [{ id: 'codex', displayName: 'Codex', capabilities: { permissionModes: ['auto'] } }], models: [{ model: 'available', displayName: 'Available', supportedReasoningEfforts: [], defaultReasoningEffort: 'medium' }], selectedOnlyModels: [], acpMode: { options: [{ value: 'agent', label: 'Agent' }] }, modelLoadError: null }) as never);
+    const session = new ComposerSession();
+    session.setSetting('modern.model', 'missing');
+    const view = renderHook(() => useThreadComposerOptions({ session, lockedProviderId: 'codex' }));
+    await waitFor(() => expect(view.result.current.selectionError).toMatch(/saved model/));
+    expect(view.result.current.model).toBe('missing');
+    act(() => {
+      view.result.current.setModel('available');
+      view.result.current.setAcpMode('missing-role');
+    });
+    await waitFor(() => expect(view.result.current.selectionError).toMatch(/saved role/));
+  });
 
   it('keeps simultaneous composers on different hosts isolated and reuses local models on return', async () => {
     const fetcher = vi.fn(async (query?: { hostId?: string; providerId?: string }) => ({

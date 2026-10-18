@@ -1,7 +1,7 @@
 import { nativeCapabilities } from '../../lib/native-capabilities.js';
 import { promptEditorDocument } from './restore-prompt-editor.js';
 import { promptInputSchema, type PromptInput } from '@zana-ai/zcc-domain/thread-runtime';
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as ReactDragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type DragEvent as ReactDragEvent, type SetStateAction } from 'react';
 import { useEditor } from '@tiptap/react';
 import type { Project } from '@zana-ai/zcc-domain/product';
 import { apiJson } from '../../lib/fetch-with-app-surface.js';
@@ -44,7 +44,8 @@ import { nextSuggestionIndex, typeaheadKeyAction } from './typeahead-keyboard.js
 import { composerTriggersForMentionProviders } from './composer-mention-triggers.js';
 import { type ActiveTrigger, type TypeaheadSuggestion } from './types.js';
 import { useComposerSuggestions, useMentionProviderRows } from './use-composer-suggestions.js';
-import { useComposerDraft } from './ComposerDraft.js';
+import { useComposerSession } from './ComposerDraft.js';
+import { MAX_COMPOSER_IMAGE_BYTES, retainedComposerImageBytes } from './composer-session.js';
 
 export type ComposerSlashKind = 'thread' | 'cli';
 
@@ -106,8 +107,12 @@ export function useComposerPromptField({
   interceptKeyDown,
   onError
 }: UseComposerPromptFieldArgs) {
-  const draft = useComposerDraft();
-  const [restoredAttachments, setRestoredAttachments] = useState<PromptInput[]>([]);
+  const draft = useComposerSession(threadId ? JSON.stringify(['thread', threadId]) : undefined);
+  const snapshot = useSyncExternalStore(draft.subscribe, draft.getSnapshot, draft.getSnapshot);
+  const restoredAttachments = snapshot.attachments;
+  const setRestoredAttachments = useCallback((next: SetStateAction<PromptInput[]>) => {
+    draft.setContent({ attachments: typeof next === 'function' ? next(draft.getSnapshot().attachments) : next });
+  }, [draft]);
   const [markdownInPrompt] = useBooleanPreference(
     MARKDOWN_IN_PROMPT_KEY,
     MARKDOWN_IN_PROMPT_DEFAULT
@@ -144,13 +149,16 @@ export function useComposerPromptField({
   const [, setEditorRevision] = useState(0);
   const dropOverRef = useRef(false);
   dropOverRef.current = dropOver;
-  const [images, setImages] = useState<ComposerImageAttachment[]>([]);
+  const images = snapshot.images;
+  const setImages = useCallback((next: SetStateAction<ComposerImageAttachment[]>) => {
+    draft.setContent({ images: typeof next === 'function' ? next(draft.getSnapshot().images) : next });
+  }, [draft]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const imagesRef = useRef(images);
   imagesRef.current = images;
-  useEffect(() => () => {
-    for (const image of imagesRef.current) URL.revokeObjectURL(image.previewSrc);
-  }, []);
+  useEffect(() => {
+    if (draft.retentionError) onErrorRef.current?.(draft.retentionError);
+  }, [draft]);
 
   const syncTrigger = useCallback((editor: Parameters<typeof findActiveTrigger>[0]) => {
     const next = findActiveTrigger(editor, composerTriggersRef.current);
@@ -241,7 +249,7 @@ export function useComposerPromptField({
 
   const editor = useEditor({
     immediatelyRender: false,
-    content: draft?.current,
+    content: snapshot.document,
     extensions: composerPromptExtensions(markdownInPrompt, placeholder),
     editorProps: {
       attributes: {
@@ -321,14 +329,40 @@ export function useComposerPromptField({
       }
     },
     onUpdate: ({ editor: next }) => {
-      if (draft) draft.current = next.getJSON();
+      draft.setContent({ document: next.getJSON() });
       syncTrigger(next);
       setEditorRevision((current) => current + 1);
     },
-    onSelectionUpdate: ({ editor: next }) => syncTrigger(next)
-  }, [ariaLabel, markdownInPrompt, placeholder, testId]);
+    onSelectionUpdate: ({ editor: next }) => {
+      draft.setSelection({ from: next.state.selection.from, to: next.state.selection.to });
+      syncTrigger(next);
+    }
+  }, [ariaLabel, markdownInPrompt, placeholder, testId, draft]);
 
-  const seededInitialText = useRef(draft?.current !== undefined);
+  // Other mounted panes and late send completions can update this same session.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (snapshot.document && JSON.stringify(editor.getJSON()) !== JSON.stringify(snapshot.document)) {
+      editor.commands.setContent(snapshot.document, { emitUpdate: false });
+      syncTrigger(editor);
+      setEditorRevision(current => current + 1);
+    }
+  }, [editor, snapshot.document, syncTrigger]);
+  useEffect(() => {
+    if (!editor || draft.getSnapshot().document !== undefined) return;
+    // Even an untouched empty composer is initialized; a later seed must not
+    // overwrite it after navigation. Initial text is inserted below on mount.
+    if (!initialText) draft.setContent({ document: editor.getJSON() });
+  }, [draft, editor, initialText]);
+  const selectionRestored = useRef(false);
+  useEffect(() => {
+    if (!editor || selectionRestored.current) return;
+    selectionRestored.current = true;
+    const selection = draft.getSnapshot().selection;
+    if (selection) editor.commands.setTextSelection({ from: Math.min(selection.from, editor.state.doc.content.size), to: Math.min(selection.to, editor.state.doc.content.size) });
+  }, [draft, editor]);
+
+  const seededInitialText = useRef(snapshot.document !== undefined);
   useEffect(() => {
     if (!editor || seededInitialText.current || !initialText) return;
     seededInitialText.current = true;
@@ -369,6 +403,11 @@ export function useComposerPromptField({
         firstReason ??= `You can attach up to ${COMPOSER_IMAGE_MAX_COUNT} images.`;
         break;
       }
+      const addedBytes = next.slice(current.length).reduce((sum, image) => sum + image.sizeBytes, 0);
+      if (retainedComposerImageBytes() + addedBytes + file.size > MAX_COMPOSER_IMAGE_BYTES) {
+        firstReason ??= 'Draft attachment storage is full. Remove or send existing attachments first.';
+        break;
+      }
       let path = '';
       try {
         path = product.files.pathForFile(file);
@@ -390,16 +429,14 @@ export function useComposerPromptField({
     setImages(next);
     if (firstReason) onErrorRef.current?.(firstReason);
     return next.length > current.length || Boolean(firstReason);
-  }, []);
+  }, [setImages]);
   attachImagesRef.current = addImageFiles;
 
   const removeImage = useCallback((id: string) => {
     setImages((current) => {
-      const found = current.find((row) => row.id === id);
-      if (found) URL.revokeObjectURL(found.previewSrc);
       return current.filter((row) => row.id !== id);
     });
-  }, []);
+  }, [setImages]);
 
   const insertDroppedMentions = useCallback((event: DragEvent, atDropPoint: boolean): boolean => {
     const data = event.dataTransfer;
@@ -544,11 +581,12 @@ export function useComposerPromptField({
   }, [editor]);
 
   const clear = useCallback(() => {
-    editor?.commands.clearContent();
-    for (const image of imagesRef.current) URL.revokeObjectURL(image.previewSrc);
-    setImages([]);
-    setRestoredAttachments([]);
-  }, [editor]);
+    draft.clearIfRevision(draft.getSnapshot().revision);
+    if (editor && !editor.isDestroyed) editor.commands.clearContent(false);
+  }, [draft, editor]);
+
+  const captureRevision = useCallback(() => draft.getSnapshot().revision, [draft]);
+  const clearIfRevision = useCallback((revision: number) => draft.clearIfRevision(revision), [draft]);
 
   const setText = useCallback((next: string) => {
     editor?.commands.setContent(next);
@@ -556,10 +594,10 @@ export function useComposerPromptField({
 
   const replacePrompt = useCallback((input: readonly PromptInput[]) => {
     const parts = input.map(part => promptInputSchema.parse(part));
-    clear();
-    editor?.commands.setContent(promptEditorDocument(parts));
-    setRestoredAttachments(parts.filter(part => part.type !== 'text'));
-  }, [clear, editor]);
+    const document = promptEditorDocument(parts);
+    draft.setContent({ document, images: [], attachments: parts.filter(part => part.type !== 'text') });
+    if (editor && !editor.isDestroyed) editor.commands.setContent(document, { emitUpdate: false });
+  }, [draft, editor]);
 
   const focus = useCallback(() => {
     editor?.commands.focus();
@@ -617,6 +655,8 @@ export function useComposerPromptField({
     insertText,
     serialize,
     clear,
+    captureRevision,
+    clearIfRevision,
     setText,
     focus,
     text,

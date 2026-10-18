@@ -74,6 +74,7 @@ import { ComposerPromptField } from './composer/ComposerPromptField.js';
 import { ThreadComposerToolbar } from './composer/ThreadComposerToolbar.js';
 import { focusComposerControl } from './composer/focus-composer-control.js';
 import { useComposerPromptField } from './composer/use-composer-prompt-field.js';
+import { ComposerDraftProvider, useComposerDraft, useComposerSession, useComposerSetting } from './composer/ComposerDraft.js';
 import { ProviderCliBanner } from './composer/ProviderCliBanner.js';
 import { useComposerProviderCli } from './composer/use-composer-provider-cli.js';
 import { useCompactLayout } from '../hooks/useCompactLayout.js';
@@ -120,7 +121,14 @@ export interface ThreadCommandComposerProps extends ComposerProjectSelectionProp
   onPlanActionHandled?: () => void;
 }
 
-export function ThreadCommandComposer({
+export function ThreadCommandComposer(props: ThreadCommandComposerProps) {
+  const parent = useComposerDraft();
+  if (parent && !props.threadId) return <ThreadComposerContent {...props} />;
+  const sessionKey = props.threadId ? JSON.stringify(['thread', props.threadId]) : undefined;
+  return <ComposerDraftProvider sessionKey={sessionKey}><ThreadComposerContent key={sessionKey} {...props} /></ComposerDraftProvider>;
+}
+
+function ThreadComposerContent({
   project: pinnedProject,
   composerProjectId,
   onComposerProjectIdChange,
@@ -147,6 +155,7 @@ export function ThreadCommandComposer({
   onPlanActionPending,
   onPlanActionHandled
 }: ThreadCommandComposerProps) {
+  const session = useComposerSession(threadId ? JSON.stringify(['thread', threadId]) : undefined);
   const compact = useCompactLayout();
   const navigate = useNavigate();
   const route = useRouteState();
@@ -155,10 +164,9 @@ export function ThreadCommandComposer({
   const lastProjectId = useData((s) => s.lastProjectId);
   const selectedProjectId = useUi((s) => s.selectedProjectId);
   const upsertThread = useThreads((s) => s.upsert);
-  const [chosenServiceTier, setChosenServiceTier] = useState<string | undefined>(undefined);
+  const [chosenServiceTier, setChosenServiceTier] = useComposerSetting<string | undefined>(session, 'modern.serviceTier', undefined);
   const serviceTier = chosenServiceTier ?? initialServiceTier ?? undefined;
-  useEffect(() => setChosenServiceTier(undefined), [threadId, lockedProviderId]);
-  const [internalProjectId, setInternalProjectId] = useState(
+  const [internalProjectId, setInternalProjectId] = useComposerSetting(session, 'projectId',
     pinnedProject?.id ?? composerProjectId ?? ''
   );
   const projectId = pinnedProject?.id
@@ -177,7 +185,7 @@ export function ThreadCommandComposer({
   const hosts = useHosts();
   const threads = useThreads((s) => s.threads);
   const currentThread = threadId ? threads.find((row) => row.id === threadId) : undefined;
-  const [hostId, setHostId] = useState(() => defaultHostId(hosts, pinnedProject));
+  const [hostId, setHostId] = useComposerSetting(session, 'modern.hostId', () => defaultHostId(hosts, pinnedProject));
   // A thread's catalogue scope (project + host + environment) must come from one record;
   // the composer project can still be the preferred fallback while the thread view loads.
   const scopeProject = currentThread?.projectId
@@ -186,6 +194,7 @@ export function ThreadCommandComposer({
   const catalogHostId = currentThread?.hostId ?? (selectedProject?.remote ? selectedProject.hostId : hostId ?? selectedProject?.hostId);
   const catalogHostConnected = hosts.find((row) => row.id === catalogHostId)?.status === 'connected';
   const options = useThreadComposerOptions({
+    session,
     threadId,
     lockedProviderId,
     initialModel,
@@ -206,16 +215,22 @@ export function ThreadCommandComposer({
     const tiers = options.serviceTierOptions;
     if (tiers && serviceTier && serviceTier !== 'default' && !tiers.some(tier => tier.id === serviceTier)) setChosenServiceTier('default');
   }, [options.rosterReady, options.serviceTierOptions, serviceTier]);
-  const { permissionMode, setPermissionMode } = useThreadPermissionMode({
+  const { permissionMode, setPermissionMode, selectionError: permissionSelectionError } = useThreadPermissionMode({
+    session,
+    settingKey: 'modern.permissionMode',
     threadId,
     initialPermissionMode,
     supportedModes: options.provider?.permissionModes
   });
-  const [composerMode, setComposerMode] = useState('agent');
+  const [savedComposerMode, setComposerMode, hasComposerMode] = useComposerSetting(session, 'modern.composerMode', 'agent');
+  const [defaultComposerMode, setDefaultComposerMode] = useState('agent');
+  const composerMode = hasComposerMode ? savedComposerMode : defaultComposerMode;
   const nativeAgentDiscoveryEnabled = useData((s) => s.nativeAgentDiscoveryEnabled);
   const hydratedRequestedRef = useRef<string | null>(null);
-  const composerSendMode = useData((s) => s.composerSendMode);
-  const setComposerSendMode = useData((s) => s.setComposerSendMode);
+  const defaultComposerSendMode = useData((s) => s.composerSendMode);
+  const rememberComposerSendMode = useData((s) => s.setComposerSendMode);
+  const [composerSendMode, saveComposerSendMode] = useComposerSetting(session, 'modern.sendMode', defaultComposerSendMode);
+  const setComposerSendMode = (value: typeof composerSendMode) => { saveComposerSendMode(value); rememberComposerSendMode(value); };
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [navigateOnCreatePreference] = useBooleanPreference(
     NAVIGATE_TO_THREAD_ON_CREATE_KEY,
@@ -227,7 +242,7 @@ export function ThreadCommandComposer({
   const expandedTitleId = useId();
   const mobileExpanded = compact && expanded;
   useMobileComposerExpansion(composerRoot, mobileExpanded, () => setExpanded(false));
-  const [workspace, setWorkspace] = useState<WorkspacePickerValue>(() => defaultWorkspaceChoice(false));
+  const [workspace, setWorkspace] = useComposerSetting<WorkspacePickerValue>(session, `modern.workspace.${projectId}`, () => defaultWorkspaceChoice(false));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitRef = useRef<(opts?: { modifierEnter?: boolean }) => void>(() => undefined);
@@ -346,13 +361,17 @@ export function ThreadCommandComposer({
   );
   const selectedComposerMode = composerModeEntriesForProvider.find((entry) => entry.id === composerMode)
     ?? composerModeEntriesForProvider[0];
+  const composerModeError = hasComposerMode && !options.modelIsLoading && options.acpModeOptions.length > 0
+    && !composerModeEntriesForProvider.some(entry => entry.id === composerMode)
+    ? 'The saved composer mode is unavailable. Choose an available mode before sending.'
+    : null;
 
   useEffect(() => {
     hydratedRequestedRef.current = null;
   }, [threadId]);
 
   useEffect(() => {
-    if (!threadId) return;
+    if (!threadId || hasComposerMode) return;
     const next = options.acpMode ?? executionModeRequested ?? 'agent';
     const matched = composerModeEntriesForProvider.find((entry) => (
       entry.id === next || entry.nativeValue === next
@@ -360,18 +379,21 @@ export function ThreadCommandComposer({
     if (!matched) return;
     if (hydratedRequestedRef.current === next) return;
     hydratedRequestedRef.current = next;
-    setComposerMode(matched.id);
+    setDefaultComposerMode(matched.id);
   }, [
     composerModeEntriesForProvider,
+    hasComposerMode,
     executionModeRequested,
     options.acpMode,
+    options.selectionError,
     threadId,
   ]);
 
   useEffect(() => {
+    if (hasComposerMode) return;
     if (composerModeEntriesForProvider.some((entry) => entry.id === composerMode)) return;
-    setComposerMode('agent');
-  }, [composerMode, composerModeEntriesForProvider]);
+    setDefaultComposerMode('agent');
+  }, [hasComposerMode, composerMode, composerModeEntriesForProvider]);
 
   const setComposerWorkMode = useCallback((next: string | undefined) => {
     if (!next) return;
@@ -559,9 +581,17 @@ export function ThreadCommandComposer({
     void runPeerDaemon('fix', hostAction.hostId);
   }, [hostAction, hostBusy, hosts, runPeerDaemon]);
 
-  const currentVoiceOwner = useRef(voiceOwner);
+  const currentVoiceOwner = useRef<string | null>(voiceOwner);
   currentVoiceOwner.current = voiceOwner;
+  useEffect(() => {
+    currentVoiceOwner.current = voiceOwner;
+    return () => { currentVoiceOwner.current = null; };
+  }, [voiceOwner]);
   const sendRecording = () => {
+    if (composerModeError) { setError(composerModeError); return; }
+    if (permissionSelectionError) { setError(permissionSelectionError); return; }
+    if (options.selectionError) { setError(options.selectionError); return; }
+    const revision = field.captureRevision();
     const snapshot = field.serialize();
     const images = [...field.images];
     const attachments = [...field.restoredAttachments];
@@ -592,7 +622,7 @@ export function ThreadCommandComposer({
             if (navigateOnCreate) navigate(getThreadRoutePath(created.value.id, route.isProjectFocused ? route.focusedProjectId : undefined));
           }
         }
-        if (currentVoiceOwner.current === voiceOwner && !field.editor?.isDestroyed && field.serialize().text === snapshot.text) field.clear();
+        field.clearIfRevision(revision);
       } catch (error) {
         // The capture retains audio and the frozen submission for Retry.
         // Inserting text here would send the transcript twice on retry.
@@ -603,14 +633,18 @@ export function ThreadCommandComposer({
 
   const submit = useCallback(async (opts?: { modifierEnter?: boolean }) => {
     if (busy) return;
+    if (composerModeError) { setError(composerModeError); return; }
+    if (permissionSelectionError) { setError(permissionSelectionError); return; }
+    if (options.selectionError) { setError(options.selectionError); return; }
     if (field.typeaheadOpen && field.suggestions.length > 0) return;
     const serialized = field.serialize();
+    const revision = field.captureRevision();
     if (parseComposerTerminalCommand(serialized.text)) {
       setBusy(true);
       setError(null);
       try {
         await submitComposerTerminalCommand({ text: serialized.text, imageCount: field.images.length, runTerminal: onRunTerminal });
-        field.clear();
+        field.clearIfRevision(revision);
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Could not open terminal');
       } finally {
@@ -691,7 +725,7 @@ export function ThreadCommandComposer({
             reasoningLevel: options.reasoningLevel,
             acpMode: selectedComposerMode?.usesSlashPlan ? undefined : selectedComposerMode?.nativeValue
           });
-          field.clear();
+          field.clearIfRevision(revision);
           dispatchThreadMessageSent(threadId);
         } catch (error) {
           dispatchOptimisticUserMessage(threadId, null);
@@ -718,7 +752,8 @@ export function ThreadCommandComposer({
         return;
       }
       upsertThread(created.value);
-      field.clear();
+      field.clearIfRevision(revision);
+      if (currentVoiceOwner.current !== voiceOwner) return;
       onCreated?.(created.value.id);
       if (navigateOnCreate) {
         navigate(getThreadRoutePath(
@@ -733,6 +768,8 @@ export function ThreadCommandComposer({
       setUploadProgress(null);
     }
   }, [
+    permissionSelectionError,
+    composerModeError,
     busy,
     sendBlocked,
     hostSendBlocked,
@@ -762,7 +799,8 @@ export function ThreadCommandComposer({
     upsertThread,
     workspace,
     hostId,
-    foreignHost
+    foreignHost,
+    voiceOwner
   ]);
 
   submitRef.current = (opts) => {
@@ -895,6 +933,9 @@ export function ThreadCommandComposer({
       {error ? (
         <p className="thread-command-error" data-testid="thread-command-error">{error}</p>
       ) : null}
+      {options.selectionError && !error ? <p className="thread-command-error" role="status">{options.selectionError}</p> : null}
+      {permissionSelectionError && !error ? <p className="thread-command-error" role="status">{permissionSelectionError}</p> : null}
+      {composerModeError && !error ? <p className="thread-command-error" role="status">{composerModeError}</p> : null}
       {providerCli.error ? (
         <p className="thread-command-error" data-testid="provider-cli-install-error">{providerCli.error}</p>
       ) : null}

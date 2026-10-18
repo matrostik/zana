@@ -72,6 +72,7 @@ vi.mock('./thread/pickers/composer-selection-preference.js', async importOrigina
 vi.mock('./thread/pickers/useThreadPermissionMode.js', () => ({ useThreadPermissionMode: () => ({ permissionMode: 'accept-edits', setPermissionMode: vi.fn() }) }));
 vi.mock('./composer/use-composer-prompt-field.js', () => ({ useComposerPromptField: () => ({
   text: 'Task', images: [], serialize: () => ({ text: 'Task', mentions: [] }), clear: h.clear,
+  captureRevision: () => 0, clearIfRevision: h.clear,
   insertText: vi.fn(), setText: vi.fn(), focus: vi.fn(), handleChromeKeyDown: vi.fn(),
   dropHandlers: {}, canAttach: false, suggestions: [], typeaheadOpen: false
 }) }));
