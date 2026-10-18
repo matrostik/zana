@@ -79,8 +79,8 @@ export function ControlBar(props: ControlBarProps) {
         <span className="git-graph-title">⑂ Git Tree</span>
 
         {projects && projects.length > 1 && (
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Project:</span>
+          <label className="gg-control-project-label">
+            <span className="gg-control-muted-label">Project:</span>
             <select
               aria-label="Select project"
               className="gg-select git-graph-select"
@@ -97,8 +97,8 @@ export function ControlBar(props: ControlBarProps) {
         )}
 
         {repos.length > 1 && (
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Repo:</span>
+          <label className="gg-control-project-label">
+            <span className="gg-control-muted-label">Repo:</span>
             <select
               aria-label="Select repository"
               className="gg-select git-graph-select"
@@ -136,22 +136,17 @@ export function ControlBar(props: ControlBarProps) {
           {branchMenuOpen && (
             <>
               <div
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  zIndex: 99
-                }}
+                className="gg-context-overlay-fixed"
                 onClick={() => setBranchMenuOpen(false)}
               />
               <div
                 className="gg-popover git-graph-popover"
-                style={{ zIndex: 100 }}
                 role="dialog"
                 aria-label="Branch filter"
                 data-testid="gg-branches-popover"
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: 12 }}>Filter Branches</strong>
+                <div className="gg-branch-filter-header">
+                  <strong className="gg-font-12">Filter Branches</strong>
                   <button
                     type="button"
                     className="gg-btn git-graph-btn"
@@ -208,7 +203,7 @@ export function ControlBar(props: ControlBarProps) {
                 <span>Only Follow First Parent</span>
               </label>
               <div className="git-graph-context-sep" />
-              <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="gg-branch-scroll-list">
                 {combinedBranches.map((branchName) => (
                   <label key={branchName} className="git-graph-checkbox-row">
                     <input
@@ -216,7 +211,7 @@ export function ControlBar(props: ControlBarProps) {
                       checked={selectedBranches.includes(branchName)}
                       onChange={() => toggleBranch(branchName)}
                     />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="gg-ellipsis">
                       {branchName}
                     </span>
                   </label>

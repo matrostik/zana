@@ -689,29 +689,56 @@ export function GitTreeProjectTab({
     [projectId, rpc, selectedRepoRelPath]
   );
 
-  const handleAskAgentSubmit = useCallback(
-    async (commitHash: string, filePath: string | undefined, userPrompt: string) => {
+  const handleAskAgent = useCallback(
+    async (target: { commitHash: string; fromHash?: string; filePath?: string }) => {
+      const { commitHash, fromHash, filePath } = target;
       try {
-        const res = (await rpc.call('askAgentAboutCommit', {
+        setBanner({
+          kind: 'info',
+          text: 'Preparing agent draft…'
+        });
+        const res = (await rpc.call('draftAgentAboutCommit', {
           projectId,
           subRepoRelPath: selectedRepoRelPath,
           commitHash,
-          filePath,
-          userPrompt
-        })) as { threadId: string; title: string };
-        setBanner({
-          kind: 'info',
-          text: `Spawned Agent thread: ${res.title}`
-        });
-        if (navigate) {
-          const openedInSidePanel = navigate.openPanelAgent?.({
-            threadId: res.threadId,
-            title: res.title
+          fromHash,
+          filePath
+        })) as { ok: boolean; prompt: string; title: string };
+
+        const targetTitle = res.title;
+        const targetView = filePath ? `${commitHash}:${filePath}` : commitHash;
+
+        if (navigate?.openPanelAgent) {
+          const opened = navigate.openPanelAgent({
+            draft: {
+              prompt: res.prompt,
+              view: targetView,
+              ...(projectId ? { projectId } : {})
+            },
+            title: targetTitle
           });
-          if (!openedInSidePanel) {
-            navigate.toThread(res.threadId);
+          if (opened) {
+            setBanner({
+              kind: 'info',
+              text: `Draft opened in side panel: ${targetTitle}`
+            });
+            return;
           }
         }
+
+        const fallback = (await rpc.call('askAgentAboutCommit', {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          commitHash,
+          fromHash,
+          filePath
+        })) as { threadId: string; title: string };
+
+        setBanner({
+          kind: 'info',
+          text: `Spawned Agent thread: ${fallback.title}`
+        });
+        navigate?.toThread?.(fallback.threadId);
       } catch (err) {
         setBanner({
           kind: 'error',
@@ -1599,13 +1626,15 @@ export function GitTreeProjectTab({
                                 const idx = commits.findIndex((c) => c.hash === hash);
                                 if (idx >= 0) scrollToRow(idx);
                               }}
-                              onAskAgent={(fp) =>
-                                setActiveDialog({
-                                  kind: 'ask-agent',
-                                  commitHash: compareWithHash ?? selectedHash ?? '*',
+                              onAskAgent={(fp) => {
+                                const fromHash = compareWithHash ? selectedHash : null;
+                                const toHash = compareWithHash ?? selectedHash ?? '*';
+                                void handleAskAgent({
+                                  commitHash: toHash,
+                                  fromHash: fromHash ?? undefined,
                                   filePath: fp
-                                })
-                              }
+                                });
+                              }}
                               onCopyText={handleCopyText}
                               onClose={() => {
                                 setSelectedHash(null);
@@ -1680,13 +1709,15 @@ export function GitTreeProjectTab({
               const idx = commits.findIndex((c) => c.hash === hash);
               if (idx >= 0) scrollToRow(idx);
             }}
-            onAskAgent={(fp) =>
-              setActiveDialog({
-                kind: 'ask-agent',
-                commitHash: compareWithHash ?? selectedHash ?? '*',
+            onAskAgent={(fp) => {
+              const fromHash = compareWithHash ? selectedHash : null;
+              const toHash = compareWithHash ?? selectedHash ?? '*';
+              void handleAskAgent({
+                commitHash: toHash,
+                fromHash: fromHash ?? undefined,
                 filePath: fp
-              })
-            }
+              });
+            }}
             onCopyText={handleCopyText}
             onClose={() => {
               setSelectedHash(null);
@@ -1699,22 +1730,24 @@ export function GitTreeProjectTab({
       <ContextMenuOverlay
         target={contextMenu}
         currentBranch={graphData?.currentBranch ?? null}
+        hasCommits={commits.some((c) => !c.isUncommitted)}
         onClose={() => setContextMenu(null)}
         onRunAction={(action) => void handleRunGitAction(action)}
         onOpenDialog={(dialog) => setActiveDialog(dialog)}
         onOpenPullRequest={(branch) => void handleOpenPullRequest(branch)}
         onViewTagDetails={(tag) => void handleViewTagDetails(tag)}
         onCopyText={handleCopyText}
+        onAskAgent={(commitHash, filePath) => {
+          void handleAskAgent({ commitHash, filePath });
+        }}
       />
 
       <GitActionDialogModal
         dialog={activeDialog}
         remotes={graphData?.remotes ?? []}
+        currentBranch={graphData?.currentBranch ?? null}
         onClose={() => setActiveDialog(null)}
         onRunAction={(action) => void handleRunGitAction(action)}
-        onAskAgentSubmit={(hash, fp, prompt) =>
-          void handleAskAgentSubmit(hash, fp, prompt)
-        }
       />
 
       <RepoSettingsWidget

@@ -91,7 +91,7 @@ export async function resolveConfinedRepoPath(args: {
   }
   if (!project.path || !project.path.trim()) {
     throw new ProjectConfinementError(
-      'Git Graph requires a local project checkout path.',
+      'Git Tree requires a local project checkout path.',
       'project_unavailable'
     );
   }

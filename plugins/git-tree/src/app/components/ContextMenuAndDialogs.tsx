@@ -31,29 +31,32 @@ export type ActiveGitDialog =
   | { kind: 'tag-details'; tagName: string; details: GitTagDetails | null }
   | { kind: 'stash-push' }
   | { kind: 'stash-branch'; selector: string }
-  | { kind: 'clean-untracked' }
-  | { kind: 'ask-agent'; commitHash: string; filePath?: string };
+  | { kind: 'clean-untracked' };
 
 export interface ContextMenuOverlayProps {
   target: ContextMenuTarget | null;
   currentBranch: string | null;
+  hasCommits?: boolean;
   onClose: () => void;
   onRunAction: (action: GitMutationAction) => void;
   onOpenDialog: (dialog: ActiveGitDialog) => void;
   onOpenPullRequest: (branchName: string) => void;
   onViewTagDetails: (tagName: string) => void;
   onCopyText: (text: string, label: string) => void;
+  onAskAgent?: (commitHash: string, filePath?: string) => void;
 }
 
 export function ContextMenuOverlay({
   target,
   currentBranch,
+  hasCommits = true,
   onClose,
   onRunAction,
   onOpenDialog,
   onOpenPullRequest,
   onViewTagDetails,
-  onCopyText
+  onCopyText,
+  onAskAgent
 }: ContextMenuOverlayProps) {
   if (!target) return null;
 
@@ -64,7 +67,7 @@ export function ContextMenuOverlay({
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+      className="gg-context-overlay-fixed"
       onClick={onClose}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -380,7 +383,14 @@ export function ContextMenuOverlay({
             <button
               type="button"
               className="gg-context-menu-item"
+              disabled={!hasCommits}
+              title={
+                !hasCommits
+                  ? 'Cannot stash: Git requires an initial commit before stashing'
+                  : undefined
+              }
               onClick={() => {
+                if (!hasCommits) return;
                 onClose();
                 onOpenDialog({ kind: 'stash-push' });
               }}
@@ -392,7 +402,7 @@ export function ContextMenuOverlay({
               className="gg-context-menu-item"
               onClick={() => {
                 onClose();
-                onOpenDialog({ kind: 'ask-agent', commitHash: '*' });
+                onAskAgent?.('*');
               }}
             >
               ✨ Ask Agent to Review Working Tree…
@@ -497,7 +507,14 @@ export function ContextMenuOverlay({
             <button
               type="button"
               className="gg-context-menu-item danger"
+              disabled={target.commit.parents.length === 0}
+              title={
+                target.commit.parents.length === 0
+                  ? 'Cannot drop the initial (root) commit'
+                  : undefined
+              }
               onClick={() => {
+                if (target.commit.parents.length === 0) return;
                 onClose();
                 onOpenDialog({ kind: 'drop-commit', commit: target.commit });
               }}
@@ -510,7 +527,7 @@ export function ContextMenuOverlay({
               className="gg-context-menu-item"
               onClick={() => {
                 onClose();
-                onOpenDialog({ kind: 'ask-agent', commitHash: target.commit.hash });
+                onAskAgent?.(target.commit.hash);
               }}
             >
               ✨ Ask Agent about Commit…
@@ -545,17 +562,17 @@ export function ContextMenuOverlay({
 export interface GitActionDialogModalProps {
   dialog: ActiveGitDialog | null;
   remotes: readonly GitRemoteInfo[];
+  currentBranch?: string | null;
   onClose: () => void;
   onRunAction: (action: GitMutationAction) => void;
-  onAskAgentSubmit: (commitHash: string, filePath: string | undefined, prompt: string) => void;
 }
 
 export function GitActionDialogModal({
   dialog,
   remotes,
+  currentBranch,
   onClose,
-  onRunAction,
-  onAskAgentSubmit
+  onRunAction
 }: GitActionDialogModalProps) {
   const defaultRemote = remotes[0]?.name ?? 'origin';
   const [textA, setTextA] = useState('');
@@ -1056,7 +1073,7 @@ export function GitActionDialogModal({
               </button>
             </div>
             <div className="gg-modal-body">
-              <p style={{ margin: 0, fontSize: '12px' }}>
+              <p className="gg-margin-0 gg-font-12">
                 This will rebase <code>HEAD</code> onto the parent of{' '}
                 <code>{dialog.commit.abbreviatedHash}</code>, removing this commit from the
                 current branch history.
@@ -1072,7 +1089,8 @@ export function GitActionDialogModal({
                 onClick={() => {
                   onRunAction({
                     kind: 'drop-commit',
-                    commitHash: dialog.commit.hash
+                    commitHash: dialog.commit.hash,
+                    branch: currentBranch ?? undefined
                   });
                   onClose();
                 }}
@@ -1331,57 +1349,6 @@ export function GitActionDialogModal({
                 }}
               >
                 Clean Files
-              </button>
-            </div>
-          </>
-        )}
-
-        {dialog.kind === 'ask-agent' && (
-          <>
-            <div className="gg-modal-header">
-              <span>
-                ✨ Ask Zana Agent about{' '}
-                {dialog.commitHash === '*'
-                  ? 'Uncommitted Changes'
-                  : `Commit ${dialog.commitHash.slice(0, 8)}`}
-              </span>
-              <button type="button" className="gg-btn gg-btn-icon" onClick={onClose}>
-                ✕
-              </button>
-            </div>
-            <div className="gg-modal-body">
-              <div className="gg-field">
-                <label className="gg-field-label">
-                  Instruction / Question for the Agent
-                </label>
-                <input
-                  type="text"
-                  className="gg-input"
-                  placeholder="Review this commit for regressions or explain the changes…"
-                  value={textA}
-                  onChange={(e) => setTextA(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              {dialog.filePath && (
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  Focused file: <code>{dialog.filePath}</code>
-                </div>
-              )}
-            </div>
-            <div className="gg-modal-footer">
-              <button type="button" className="gg-btn" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="gg-btn gg-btn-primary"
-                onClick={() => {
-                  onAskAgentSubmit(dialog.commitHash, dialog.filePath, textA.trim());
-                  onClose();
-                }}
-              >
-                Spawn Agent Thread
               </button>
             </div>
           </>

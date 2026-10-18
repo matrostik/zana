@@ -1,6 +1,7 @@
 {
   "name": "@zcc-ext/git-tree",
   "version": "0.1.0",
+  "author": "Ros Haitovich <rhaitovich@salesforce.com>",
   "private": true,
   "type": "module",
   "description": "View a Git Tree of your project repository, inspect commits and diffs, compare branches, track code reviews, and run Git actions directly from the tree.",

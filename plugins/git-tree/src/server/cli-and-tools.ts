@@ -2,7 +2,7 @@ import type { ZccPluginApi } from '@zana-ai/zcc-plugin-sdk/server';
 import type { GitRunner } from './git-exec.js';
 import { compareCommits, loadCommitDetails, loadFileDiff } from './git-details-diff.js';
 import { loadRepositoryGraph, parseGitRemotesOutput } from './git-log-parser.js';
-import { discoverProjectRepos, resolveConfinedRepoPath, type ProjectFsDeps } from './project-repos.js';
+import { discoverProjectRepos, isPathConfinedToRoot, resolveConfinedRepoPath, type ProjectFsDeps } from './project-repos.js';
 import type { GitGraphStorage } from './storage.js';
 import type { GitGraphGlobalSettings } from './types.js';
 
@@ -67,13 +67,34 @@ export function registerGitTreeCliAndTools(args: {
             'Usage: zcc git-tree <repos|log|details|compare|diff|remotes> [--project <id>]\n'
         };
       }
-      const projectId = readFlag(argv, '--project') ?? ctx.projectId ?? '';
+      let projectId = readFlag(argv, '--project') ?? ctx.projectId ?? '';
       const subRepoRelPath = readFlag(argv, '--repo') ?? '';
+
+      if (!projectId && ctx.cwd) {
+        try {
+          const allProjects = await zcc.sdk.projects.list();
+          const canonicalCwd = fs.realpath(ctx.cwd);
+          const matched = allProjects.find((p) => {
+            try {
+              if (!p.path) return false;
+              const canonicalProj = fs.realpath(p.path);
+              return isPathConfinedToRoot(canonicalProj, canonicalCwd);
+            } catch {
+              return false;
+            }
+          });
+          if (matched) {
+            projectId = matched.id;
+          }
+        } catch {
+          // Ignore and fall through to missing projectId check
+        }
+      }
 
       if (!projectId) {
         return {
           exitCode: 1,
-          stderr: 'Missing --project <projectId>. Pass --project <id> or run inside a project session.\n'
+          stderr: 'Missing --project <projectId>. Pass --project <id> or run inside a project directory.\n'
         };
       }
 

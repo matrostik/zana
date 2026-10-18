@@ -566,7 +566,7 @@ export function CommitDetailsPane({
         >
           {label}
           {change.staged !== undefined && (
-            <span style={{ opacity: 0.6, marginLeft: '6px', fontSize: '10px' }}>
+            <span className="gg-file-badge">
               ({change.staged ? 'staged' : 'unstaged'})
             </span>
           )}
@@ -581,8 +581,7 @@ export function CommitDetailsPane({
         </span>
         <button
           type="button"
-          className="gg-btn gg-btn-icon"
-          style={{ padding: '1px 4px', fontSize: '10px' }}
+          className="gg-btn gg-btn-icon gg-btn-compact-10"
           title="Copy File Path"
           onClick={(e) => {
             e.stopPropagation();
@@ -654,11 +653,11 @@ export function CommitDetailsPane({
           {mode === 'comparison' && comparison ? (
             <>
               <span>Comparing</span>
-              <span className="gg-commit-hash" style={{ width: 'auto' }}>
+              <span className="gg-commit-hash gg-commit-hash-auto">
                 {comparison.fromHash.slice(0, 7)}
               </span>
               <span>↔</span>
-              <span className="gg-commit-hash" style={{ width: 'auto' }}>
+              <span className="gg-commit-hash gg-commit-hash-auto">
                 {comparison.toHash.slice(0, 7)}
               </span>
             </>
@@ -680,7 +679,7 @@ export function CommitDetailsPane({
             <span>Commit Details</span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        <div className="gg-flex-row gg-gap-4 gg-flex-shrink-0">
           <button
             type="button"
             className="gg-btn gg-btn-primary"
@@ -735,8 +734,7 @@ export function CommitDetailsPane({
                   <code>{details.hash}</code>{' '}
                   <button
                     type="button"
-                    className="gg-btn gg-btn-icon"
-                    style={{ padding: '0 4px', fontSize: '10px' }}
+                    className="gg-btn gg-btn-icon gg-btn-compact-10"
                     onClick={() => onCopyText(details.hash, 'Commit hash')}
                   >
                     Copy
@@ -803,11 +801,10 @@ export function CommitDetailsPane({
                     ? ` • Reviewed ${reviewedSet.size}/${fileChanges.length}`
                     : ''}
                 </span>
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div className="gg-flex-row gg-gap-4">
                   <button
                     type="button"
-                    className={`gg-btn ${fileViewType === 'tree' ? 'gg-btn-active' : ''}`}
-                    style={{ padding: '2px 6px', fontSize: '11px' }}
+                    className={`gg-btn gg-btn-compact-11 ${fileViewType === 'tree' ? 'gg-btn-active' : ''}`}
                     onClick={() => onChangeFileViewType('tree')}
                     data-testid="gg-view-tree-btn"
                   >
@@ -815,8 +812,7 @@ export function CommitDetailsPane({
                   </button>
                   <button
                     type="button"
-                    className={`gg-btn ${fileViewType === 'list' ? 'gg-btn-active' : ''}`}
-                    style={{ padding: '2px 6px', fontSize: '11px' }}
+                    className={`gg-btn gg-btn-compact-11 ${fileViewType === 'list' ? 'gg-btn-active' : ''}`}
                     onClick={() => onChangeFileViewType('list')}
                     data-testid="gg-view-list-btn"
                   >
@@ -825,8 +821,7 @@ export function CommitDetailsPane({
                   {fileViewType === 'tree' && (
                     <button
                       type="button"
-                      className={`gg-btn ${compactFolders ? 'gg-btn-active' : ''}`}
-                      style={{ padding: '2px 6px', fontSize: '11px' }}
+                      className={`gg-btn gg-btn-compact-11 ${compactFolders ? 'gg-btn-active' : ''}`}
                       onClick={onToggleCompactFolders}
                       title="Compact single-child folders"
                     >
@@ -842,7 +837,7 @@ export function CommitDetailsPane({
                 data-testid="gg-file-list"
               >
                 {fileChanges.length === 0 ? (
-                  <div className="gg-empty" style={{ padding: '12px' }}>
+                  <div className="gg-empty gg-pad-12">
                     No file changes in this commit.
                   </div>
                 ) : fileViewType === 'tree' ? (
@@ -895,11 +890,10 @@ export function CommitDetailsPane({
                     >
                       {selectedFilePath}
                     </span>
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <div className="gg-flex-row gg-gap-4">
                       <button
                         type="button"
-                        className={`gg-btn ${viewMode === 'diff' ? 'gg-btn-active' : ''}`}
-                        style={{ padding: '2px 8px', fontSize: '11px' }}
+                        className={`gg-btn gg-btn-pad-8 ${viewMode === 'diff' ? 'gg-btn-active' : ''}`}
                         onClick={() => setViewMode('diff')}
                         data-testid="gg-view-diff-btn"
                         title="View diff changes"
@@ -908,8 +902,7 @@ export function CommitDetailsPane({
                       </button>
                       <button
                         type="button"
-                        className={`gg-btn ${viewMode === 'source' ? 'gg-btn-active' : ''}`}
-                        style={{ padding: '2px 8px', fontSize: '11px' }}
+                        className={`gg-btn gg-btn-pad-8 ${viewMode === 'source' ? 'gg-btn-active' : ''}`}
                         onClick={() => {
                           setViewMode('source');
                           if (selectedFilePath && !fileContent) {
@@ -926,8 +919,7 @@ export function CommitDetailsPane({
                         <>
                           <button
                             type="button"
-                            className={`gg-btn ${diffViewMode === 'unified' ? 'gg-btn-active' : ''}`}
-                            style={{ padding: '2px 6px', fontSize: '11px' }}
+                            className={`gg-btn gg-btn-compact-11 ${diffViewMode === 'unified' ? 'gg-btn-active' : ''}`}
                             onClick={() => onChangeDiffViewMode('unified')}
                             data-testid="gg-diff-unified-btn"
                           >
@@ -935,8 +927,7 @@ export function CommitDetailsPane({
                           </button>
                           <button
                             type="button"
-                            className={`gg-btn ${diffViewMode === 'split' ? 'gg-btn-active' : ''}`}
-                            style={{ padding: '2px 6px', fontSize: '11px' }}
+                            className={`gg-btn gg-btn-compact-11 ${diffViewMode === 'split' ? 'gg-btn-active' : ''}`}
                             onClick={() => onChangeDiffViewMode('split')}
                             data-testid="gg-diff-split-btn"
                           >
@@ -947,8 +938,7 @@ export function CommitDetailsPane({
 
                       <button
                         type="button"
-                        className="gg-btn gg-btn-icon"
-                        style={{ padding: '2px 6px', fontSize: '11px' }}
+                        className="gg-btn gg-btn-icon gg-btn-compact-11"
                         title={viewMode === 'source' ? 'Copy file content' : 'Copy diff'}
                         onClick={() =>
                           onCopyText(
@@ -967,15 +957,15 @@ export function CommitDetailsPane({
                   <div className="gg-diff-content-scroll">
                     {viewMode === 'source' ? (
                       loadingContent ? (
-                        <div className="gg-empty" style={{ padding: '16px' }}>
+                        <div className="gg-empty gg-pad-16">
                           Loading source code…
                         </div>
                       ) : !fileContent ? (
-                        <div className="gg-empty" style={{ padding: '16px' }}>
+                        <div className="gg-empty gg-pad-16">
                           No source code available for this file.
                         </div>
                       ) : fileContent.isBinary ? (
-                        <div className="gg-empty" style={{ padding: '16px' }}>
+                        <div className="gg-empty gg-pad-16">
                           Binary file — cannot display text content.
                         </div>
                       ) : (
@@ -991,19 +981,19 @@ export function CommitDetailsPane({
                         </table>
                       )
                     ) : loadingDiff ? (
-                      <div className="gg-empty" style={{ padding: '16px' }}>
+                      <div className="gg-empty gg-pad-16">
                         Loading diff…
                       </div>
                     ) : !fileDiff ? (
-                      <div className="gg-empty" style={{ padding: '16px' }}>
+                      <div className="gg-empty gg-pad-16">
                         Select a file to inspect its diff.
                       </div>
                     ) : fileDiff.isBinary ? (
-                      <div className="gg-empty" style={{ padding: '16px' }}>
+                      <div className="gg-empty gg-pad-16">
                         Binary file changed — inline text diff not available.
                       </div>
                     ) : fileDiff.hunks.length === 0 ? (
-                      <div className="gg-empty" style={{ padding: '16px' }}>
+                      <div className="gg-empty gg-pad-16">
                         No textual diff hunks (empty file or mode-only change).
                       </div>
                     ) : diffViewMode === 'unified' ? (
@@ -1068,10 +1058,9 @@ export function CommitDetailsPane({
                                       {row.leftLineNumber ?? ''}
                                     </td>
                                     <td
-                                      className={`gg-diff-code ${
+                                      className={`gg-diff-code gg-diff-half-width ${
                                         row.leftType === 'del' ? 'gg-diff-line-del' : ''
                                       }`}
-                                      style={{ width: '50%' }}
                                     >
                                       {row.leftContent}
                                     </td>
@@ -1083,10 +1072,9 @@ export function CommitDetailsPane({
                                       {row.rightLineNumber ?? ''}
                                     </td>
                                     <td
-                                      className={`gg-diff-code ${
+                                      className={`gg-diff-code gg-diff-half-width ${
                                         row.rightType === 'add' ? 'gg-diff-line-add' : ''
                                       }`}
-                                      style={{ width: '50%' }}
                                     >
                                       {row.rightContent}
                                     </td>

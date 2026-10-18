@@ -41,8 +41,7 @@ export function RepoSettingsWidget({
   return (
     <div className="gg-modal-backdrop" onClick={onClose}>
       <div
-        className="gg-modal"
-        style={{ width: '560px' }}
+        className="gg-modal gg-modal-width-settings"
         onClick={(e) => e.stopPropagation()}
         data-testid="gg-repo-settings-modal"
       >
@@ -53,40 +52,20 @@ export function RepoSettingsWidget({
           </button>
         </div>
 
-        <div className="gg-modal-body" style={{ gap: '16px' }}>
+        <div className="gg-modal-body gg-gap-16">
           {/* Remotes Management */}
           <div className="gg-field">
             <label className="gg-field-label">Git Remotes ({remotes.length})</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="gg-flex-col gg-gap-6">
               {remotes.map((r) => (
-                <div
-                  key={r.name}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '8px',
-                    padding: '6px 8px',
-                    background: 'var(--bg-secondary, #0f1318)',
-                    borderRadius: '4px',
-                    border: '1px solid var(--border-color, #252b35)'
-                  }}
-                >
-                  <div style={{ overflow: 'hidden' }}>
+                <div key={r.name} className="gg-remote-card">
+                  <div className="gg-overflow-hidden">
                     <strong>{r.name}</strong>
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        color: 'var(--text-secondary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
+                    <div className="gg-font-11 gg-text-secondary gg-ellipsis">
                       {r.fetchUrl}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                  <div className="gg-flex-row gg-gap-4 gg-flex-shrink-0">
                     <button
                       type="button"
                       className="gg-btn"
@@ -110,19 +89,17 @@ export function RepoSettingsWidget({
                   </div>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div className="gg-flex-row gg-gap-6">
                 <input
                   type="text"
-                  className="gg-input"
-                  style={{ width: '110px' }}
+                  className="gg-input gg-remote-name-width"
                   placeholder="upstream"
                   value={newRemoteName}
                   onChange={(e) => setNewRemoteName(e.target.value)}
                 />
                 <input
                   type="text"
-                  className="gg-input"
-                  style={{ flex: 1 }}
+                  className="gg-input gg-flex-1"
                   placeholder="https://github.com/org/repo.git"
                   value={newRemoteUrl}
                   onChange={(e) => setNewRemoteUrl(e.target.value)}
@@ -205,18 +182,9 @@ export function RepoSettingsWidget({
             <label className="gg-field-label">
               Issue Linking Rules ({repoSettings.issueLinkingRules.length})
             </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="gg-flex-col gg-gap-6">
               {repoSettings.issueLinkingRules.map((rule) => (
-                <div
-                  key={rule.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '8px',
-                    fontSize: '11px'
-                  }}
-                >
+                <div key={rule.id} className="gg-issue-rule-row">
                   <code>
                     /{rule.pattern}/ → {rule.urlTemplate}
                   </code>
@@ -235,19 +203,17 @@ export function RepoSettingsWidget({
                   </button>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div className="gg-flex-row gg-gap-6">
                 <input
                   type="text"
-                  className="gg-input"
-                  style={{ width: '150px' }}
+                  className="gg-input gg-issue-prefix-width"
                   placeholder="#(\d+)"
                   value={newIssuePattern}
                   onChange={(e) => setNewIssuePattern(e.target.value)}
                 />
                 <input
                   type="text"
-                  className="gg-input"
-                  style={{ flex: 1 }}
+                  className="gg-input gg-flex-1"
                   placeholder="https://github.com/org/repo/issues/$1"
                   value={newIssueUrl}
                   onChange={(e) => setNewIssueUrl(e.target.value)}
@@ -298,7 +264,7 @@ export function RepoSettingsWidget({
               />
               <span>Dim merge commits (commits with &gt;1 parent)</span>
             </label>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            <div className="gg-flex-row gg-gap-8 gg-margin-top-6">
               <select
                 className="gg-select"
                 value={globalSettings.dateFormat}
@@ -333,9 +299,9 @@ export function RepoSettingsWidget({
             type="button"
             className="gg-btn"
             onClick={onExportRepoConfig}
-            title="Write .git-graph.json into the repository root"
+            title="Write .git-tree.json into the repository root"
           >
-            Export .git-graph.json
+            Export .git-tree.json
           </button>
           <button type="button" className="gg-btn gg-btn-primary" onClick={onClose}>
             Done

@@ -224,7 +224,26 @@ export async function executeGitAction(args: {
 
     case 'dropCommit': {
       const commit = assertSafeGitToken(str('commit'), 'commit');
-      return runGitMutation(cwd, git, ['rebase', '--onto', `${commit}^`, commit]);
+      const branch = str('branch');
+      // Verify the commit has a parent; root commits cannot be dropped via rebase --onto
+      const revParseRes = await git({
+        cwd,
+        args: ['rev-parse', '--verify', '-q', `${commit}^`],
+        timeoutMs: 5_000
+      });
+      if (revParseRes.code !== 0) {
+        return {
+          ok: false,
+          stdout: '',
+          stderr: revParseRes.stderr,
+          error: `Cannot drop commit ${commit.slice(0, 7)}: root commits have no parent to rebase onto.`
+        };
+      }
+      const rebaseArgs = ['rebase', '--onto', `${commit}^`, commit];
+      if (branch) {
+        rebaseArgs.push(assertSafeGitToken(branch, 'branch'));
+      }
+      return runGitMutation(cwd, git, rebaseArgs);
     }
 
     // --- Tag Actions ---
@@ -278,7 +297,15 @@ export async function executeGitAction(args: {
       const cmd: string[] = ['stash', 'push'];
       if (includeUntracked) cmd.push('--include-untracked');
       if (message) cmd.push('-m', message);
-      return runGitMutation(cwd, git, cmd);
+      const res = await runGitMutation(cwd, git, cmd);
+      if (!res.ok && res.error && /you do not have the initial commit yet/i.test(res.error)) {
+        return {
+          ...res,
+          error:
+            'Cannot stash: Git requires at least one commit in the repository before stashing. Please create an initial commit first.'
+        };
+      }
+      return res;
     }
 
     case 'stashPop': {

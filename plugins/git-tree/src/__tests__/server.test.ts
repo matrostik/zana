@@ -302,6 +302,49 @@ describe('git-tree server unit & contract tests', () => {
         params: {}
       });
       expect(unknownRes.ok).toBe(false);
+
+      const stashNoCommitGit = async () => ({
+        code: 1,
+        stdout: '',
+        stderr: 'fatal: You do not have the initial commit yet\n'
+      });
+      const stashNoCommitRes = await executeGitAction({
+        cwd: '/repo',
+        git: stashNoCommitGit,
+        action: 'stashPush',
+        params: { message: 'wip', includeUntracked: false }
+      });
+      // Test dropCommit on root commit (parent does not exist)
+      const dropRootGit = async (req: GitExecRequest) => {
+        if (req.args[0] === 'rev-parse') return { code: 1, stdout: '', stderr: 'fatal' };
+        return { code: 0, stdout: 'ok', stderr: '' };
+      };
+      const dropRootRes = await executeGitAction({
+        cwd: '/repo',
+        git: dropRootGit,
+        action: 'dropCommit',
+        params: { commit: 'abc1234' }
+      });
+      expect(dropRootRes.ok).toBe(false);
+      expect(dropRootRes.error).toContain('Cannot drop commit abc1234: root commits have no parent to rebase onto.');
+
+      // Test dropCommit with branch
+      const dropBranchCalls: string[][] = [];
+      const dropBranchGit = async (req: GitExecRequest) => {
+        dropBranchCalls.push(req.args);
+        return { code: 0, stdout: 'ok', stderr: '' };
+      };
+      const dropBranchRes = await executeGitAction({
+        cwd: '/repo',
+        git: dropBranchGit,
+        action: 'dropCommit',
+        params: { commit: 'abc1234', branch: 'feat' }
+      });
+      expect(dropBranchRes.ok).toBe(true);
+      expect(dropBranchCalls).toEqual([
+        ['rev-parse', '--verify', '-q', 'abc1234^'],
+        ['rebase', '--onto', 'abc1234^', 'abc1234', 'feat']
+      ]);
     });
   });
 
@@ -575,9 +618,9 @@ describe('git-tree server unit & contract tests', () => {
       const exported = (await harness.callRpc('exportRepoConfig', {
         projectId: 'proj-1'
       })) as { filePath: string };
-      expect(exported.filePath).toContain('.git-graph.json');
+      expect(exported.filePath).toContain('.git-tree.json');
 
-      // Test uncommitted '*' details and diff now that .git-graph.json exists
+      // Test uncommitted '*' details and diff now that .git-tree.json exists
       const uncommDetails = await loadCommitDetails({
         cwd: tempDir,
         git: gitRunner,
@@ -589,9 +632,28 @@ describe('git-tree server unit & contract tests', () => {
         cwd: tempDir,
         git: gitRunner,
         commitHash: '*',
-        filePath: '.git-graph.json'
+        filePath: '.git-tree.json'
       });
       expect(uncommDiff.hunks.length).toBeGreaterThan(0);
+
+      const draftedFile = (await harness.callRpc('draftAgentAboutCommit', {
+        projectId: 'proj-1',
+        commitHash: headCommitHash,
+        filePath: 'src/hello.ts',
+        userPrompt: 'Explain this change'
+      })) as { ok: boolean; prompt: string; title: string };
+      expect(draftedFile.ok).toBe(true);
+      expect(draftedFile.prompt).toContain('Explain this change');
+      expect(draftedFile.prompt).toContain('src/hello.ts');
+      expect(draftedFile.title).toBe('Git Tree: src/hello.ts');
+
+      const draftedWorkingTree = (await harness.callRpc('draftAgentAboutCommit', {
+        projectId: 'proj-1',
+        commitHash: '*'
+      })) as { ok: boolean; prompt: string; title: string };
+      expect(draftedWorkingTree.ok).toBe(true);
+      expect(draftedWorkingTree.title).toBe('Git Tree: Working Tree');
+      expect(draftedWorkingTree.prompt).toContain('working tree changes');
 
       const asked = (await harness.callRpc('askAgentAboutCommit', {
         projectId: 'proj-1',

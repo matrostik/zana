@@ -1376,6 +1376,19 @@ export const GIT_GRAPH_STYLES = `
   color: #ffffff;
 }
 
+.gg-context-menu-item:disabled,
+.git-graph-context-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+
+.gg-context-menu-item:disabled:hover,
+.git-graph-context-item:disabled:hover {
+  background: transparent;
+  color: var(--gg-text-normal);
+}
+
 .gg-context-menu-item.danger,
 .git-graph-context-item--danger {
   color: #fca5a5;
@@ -1465,6 +1478,115 @@ export const GIT_GRAPH_STYLES = `
   color: var(--gg-text-muted);
   font-size: 13px;
   text-align: center;
+}
+/* Utility & component layout classes (avoids inline styles) */
+.gg-flex-row {
+  display: flex;
+  align-items: center;
+}
+.gg-flex-col {
+  display: flex;
+  flex-direction: column;
+}
+.gg-gap-4 { gap: 4px; }
+.gg-gap-6 { gap: 6px; }
+.gg-gap-8 { gap: 8px; }
+.gg-gap-16 { gap: 16px; }
+.gg-margin-0 { margin: 0; }
+.gg-margin-top-6 { margin-top: 6px; }
+.gg-font-10 { font-size: 10px; }
+.gg-font-11 { font-size: 11px; }
+.gg-font-12 { font-size: 12px; }
+.gg-font-13 { font-size: 13px; }
+.gg-text-muted { color: var(--gg-text-muted); }
+.gg-text-secondary { color: var(--text-secondary, var(--gg-text-muted)); }
+.gg-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gg-overflow-hidden { overflow: hidden; }
+.gg-flex-shrink-0 { flex-shrink: 0; }
+.gg-flex-1 { flex: 1; }
+.gg-pad-12 { padding: 12px; }
+.gg-pad-16 { padding: 16px; }
+.gg-diff-half-width { width: 50%; }
+.gg-find-input-width { width: 230px; }
+.gg-find-count-badge {
+  font-size: 11px;
+  color: var(--gg-text-muted);
+  min-width: 52px;
+  text-align: center;
+}
+.gg-modal-width-settings { width: 560px; }
+.gg-remote-name-width { width: 110px; }
+.gg-issue-prefix-width { width: 150px; }
+.gg-remote-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--bg-secondary, #0f1318);
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #252b35);
+}
+.gg-issue-rule-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+.gg-file-badge {
+  opacity: 0.6;
+  margin-left: 6px;
+  font-size: 10px;
+}
+.gg-file-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.gg-btn-compact-10 {
+  padding: 1px 4px;
+  font-size: 10px;
+}
+.gg-btn-compact-11 {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.gg-btn-pad-8 {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.gg-branch-scroll-list {
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gg-branch-filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.gg-control-project-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gg-control-muted-label {
+  color: var(--text-muted, var(--gg-text-muted));
+  font-size: 11px;
+}
+.gg-commit-hash-auto { width: auto; }
+.gg-context-overlay-fixed {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
 }
 `;
 

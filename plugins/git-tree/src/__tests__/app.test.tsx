@@ -250,6 +250,7 @@ describe('git-tree app UI tests', () => {
       tab,
       { pluginId: 'git-tree', projectId: 'proj-1' },
       {
+        panelAgent: true,
         context: { projectId: 'proj-1' },
         rpc: {
           discoverRepos: () => ({ repos: [graphData.repo], globalSettings: graphData.globalSettings }),
@@ -301,7 +302,12 @@ describe('git-tree app UI tests', () => {
           updateGlobalSettings: () => ({ ok: true }),
           updateRepoSettings: () => graphData.repoSettings,
           runGitAction: () => ({ ok: true, stdout: '', stderr: '' }),
-          exportRepoConfig: () => ({ ok: true, filePath: '.git-graph.json' }),
+          exportRepoConfig: () => ({ ok: true, filePath: '.git-tree.json' }),
+          draftAgentAboutCommit: (args: any) => ({
+            ok: true,
+            prompt: 'Explain these Git changes and highlight any potential issues.\n\n---\nCommit: aaaa111',
+            title: `Git Tree: ${args?.commitHash ? String(args.commitHash).slice(0, 8) : 'HEAD'}`
+          }),
           askAgentAboutCommit: () => ({ threadId: 'thr-99', title: 'Commit aaaa111' })
         }
       }
@@ -348,10 +354,18 @@ describe('git-tree app UI tests', () => {
     });
     fireEvent.click(view.getByTestId('gg-end-review-btn'));
 
-    // Ask Agent dialog from CommitDetailsPane
+    // Ask Agent from CommitDetailsPane opens draft in side panel
     fireEvent.click(view.getByTestId('gg-ask-agent-btn'));
-    expect(view.getByTestId('gg-dialog-ask-agent')).toBeTruthy();
-    fireEvent.click(view.getByText('Spawn Agent Thread'));
+    await waitFor(() => {
+      expect(
+        view.inspection.navigateCalls.some(
+          (c) =>
+            c.method === 'openPanelAgent' &&
+            'draft' in (c.options as any) &&
+            (c.options as any).draft.prompt.includes('Explain these Git changes')
+        )
+      ).toBe(true);
+    });
 
     // Ctrl+Click second commit for 2-commit comparison
     fireEvent.click(view.getByTestId('gg-commit-row-bbbb111'), { ctrlKey: true });
@@ -413,7 +427,7 @@ describe('git-tree app UI tests', () => {
     // Open Repo Settings modal and interact with it
     fireEvent.click(view.getByTestId('gg-repo-settings-btn'));
     expect(view.getByTestId('gg-repo-settings-modal')).toBeTruthy();
-    fireEvent.click(view.getByText('Export .git-graph.json'));
+    fireEvent.click(view.getByText('Export .git-tree.json'));
     fireEvent.click(view.getByText('Done'));
 
     // Load more commits button
@@ -559,6 +573,46 @@ describe('git-tree app UI tests', () => {
       buttons.forEach((btn) => fireEvent.click(btn));
       menu.unmount();
     }
+
+    // Verify hasCommits={false} disables Stash Uncommitted Changes
+    const uncommittedTarget: ContextMenuTarget = {
+      kind: 'uncommitted',
+      commit: {
+        hash: '*',
+        abbreviatedHash: '*',
+        parents: [],
+        authorName: '*',
+        authorEmail: '',
+        authorDate: 0,
+        committerName: '*',
+        committerEmail: '',
+        commitDate: 0,
+        subject: 'Uncommitted Changes',
+        refs: [],
+        isUncommitted: true
+      },
+      x: 10,
+      y: 10
+    };
+    const disabledMenu = render(
+      React.createElement(ContextMenuOverlay, {
+        target: uncommittedTarget,
+        currentBranch: 'main',
+        hasCommits: false,
+        onClose: () => undefined,
+        onRunAction: () => undefined,
+        onOpenDialog: () => undefined,
+        onOpenPullRequest: () => undefined,
+        onViewTagDetails: () => undefined,
+        onCopyText: () => undefined
+      })
+    );
+    const stashBtn = Array.from(
+      disabledMenu.container.querySelectorAll<HTMLButtonElement>('.gg-context-menu-item')
+    ).find((b) => b.textContent?.includes('Stash Uncommitted Changes'));
+    expect(stashBtn).toBeDefined();
+    expect(stashBtn?.disabled).toBe(true);
+    disabledMenu.unmount();
 
     // Exercise RepoSettingsWidget add remote, prune, delete, add/remove issue rule, PR config, global toggles
     const sampleData = makeSampleGraphData();
@@ -1122,6 +1176,123 @@ describe('git-tree app UI tests', () => {
       })
     );
     expect(descCell.style.flex).toBe('1 1 0px');
+
+    view.unmount();
+  });
+
+  it('opens draft panel from commit context menu and uncommitted context menu', async () => {
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
+    const tab = registrations.projectTabs[0];
+    const graphData = makeSampleGraphData();
+
+    const view = renderSlot(
+      tab,
+      { pluginId: 'git-tree', projectId: 'proj-1' },
+      {
+        panelAgent: true,
+        context: { projectId: 'proj-1' },
+        rpc: {
+          discoverRepos: () => ({ repos: [graphData.repo], globalSettings: graphData.globalSettings }),
+          loadGraph: () => graphData,
+          draftAgentAboutCommit: (args: any) => ({
+            ok: true,
+            prompt: `Draft for ${args.commitHash}`,
+            title: `Git Tree: ${args.commitHash}`
+          })
+        }
+      }
+    );
+
+    await waitFor(() => {
+      expect(view.getByTestId('gg-commit-row-aaaa111')).toBeTruthy();
+    });
+
+    // Right-click commit row to open context menu
+    fireEvent.contextMenu(view.getByTestId('gg-commit-row-aaaa111'));
+    const askCommitBtn = view.getByText(/Ask Agent about Commit/);
+    fireEvent.click(askCommitBtn);
+
+    await waitFor(() => {
+      expect(
+        view.inspection.navigateCalls.some(
+          (c) =>
+            c.method === 'openPanelAgent' &&
+            'draft' in (c.options as any) &&
+            (c.options as any).draft.prompt === 'Draft for aaaa111122223333444455556666777788889999'
+        )
+      ).toBe(true);
+    });
+
+    // Right-click uncommitted row
+    fireEvent.contextMenu(view.getByTestId('gg-commit-row-*'));
+    const askUncommittedBtn = view.getByText(/Ask Agent to Review Working Tree/);
+    fireEvent.click(askUncommittedBtn);
+
+    await waitFor(() => {
+      expect(
+        view.inspection.navigateCalls.some(
+          (c) =>
+            c.method === 'openPanelAgent' &&
+            'draft' in (c.options as any) &&
+            (c.options as any).draft.prompt === 'Draft for *'
+        )
+      ).toBe(true);
+    });
+
+    view.unmount();
+  });
+
+  it('falls back to askAgentAboutCommit and toThread when panelAgent is false', async () => {
+    const registrations = await loadPluginApp(() => import('../../app.tsx'), 'git-tree');
+    const tab = registrations.projectTabs[0];
+    const graphData = makeSampleGraphData();
+
+    const view = renderSlot(
+      tab,
+      { pluginId: 'git-tree', projectId: 'proj-1' },
+      {
+        panelAgent: false,
+        context: { projectId: 'proj-1' },
+        rpc: {
+          discoverRepos: () => ({ repos: [graphData.repo], globalSettings: graphData.globalSettings }),
+          loadGraph: () => graphData,
+          getCommitDetails: () => ({
+            details: makeSampleDetails(),
+            codeReview: null
+          }),
+          getFileDiff: () => makeSampleDiff(),
+          draftAgentAboutCommit: () => ({
+            ok: true,
+            prompt: 'Draft prompt',
+            title: 'Git Tree: aaaa111'
+          }),
+          askAgentAboutCommit: () => ({
+            ok: true,
+            threadId: 'thr-fallback-123',
+            title: 'Git Tree: aaaa111'
+          })
+        }
+      }
+    );
+
+    await waitFor(() => {
+      expect(view.getByTestId('gg-commit-row-aaaa111')).toBeTruthy();
+    });
+
+    fireEvent.click(view.getByTestId('gg-commit-row-aaaa111'));
+    await waitFor(() => {
+      expect(view.getByTestId('gg-ask-agent-btn')).toBeTruthy();
+    });
+
+    fireEvent.click(view.getByTestId('gg-ask-agent-btn'));
+
+    await waitFor(() => {
+      expect(
+        view.inspection.navigateCalls.some(
+          (c) => c.method === 'toThread' && (c as any).threadId === 'thr-fallback-123'
+        )
+      ).toBe(true);
+    });
 
     view.unmount();
   });

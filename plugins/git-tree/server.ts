@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { existsSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ZccPluginApi } from '@zana-ai/zcc-plugin-sdk/server';
 import { registerGitTreeCliAndTools } from './src/server/cli-and-tools.js';
@@ -252,6 +252,18 @@ export default async function createGitTreePlugin(
     }
   });
 
+  async function resolveRepoContext(rec: Record<string, unknown>) {
+    const projectId = asString(rec, 'projectId');
+    const subRepoRelPath = asString(rec, 'subRepoRelPath');
+    const confined = await resolveConfinedRepoPath({
+      projectId,
+      subRepoRelPath,
+      listProjects: () => zcc.sdk.projects.list(),
+      fs
+    });
+    return { projectId, subRepoRelPath, confined };
+  }
+
   // --- RPC Methods ---
   zcc.rpc.method('listProjects', async () => {
     const list = await zcc.sdk.projects.list();
@@ -264,13 +276,8 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('discoverRepos', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
     const globalSettings = await readGlobalSettings();
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { confined } = await resolveRepoContext(rec);
     const repos = await discoverProjectRepos({
       canonicalProjectRoot: confined.canonicalProjectRoot,
       maxDepth: globalSettings.maxDepthOfRepoSearch,
@@ -282,15 +289,8 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('loadGraph', async (rawArgs): Promise<LoadGraphDataResult> => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const globalSettings = await readGlobalSettings();
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
 
     const repoSettings = await storage.getRepoSettings(projectId, confined.subRepoRelPath);
     const maxCommits =
@@ -349,15 +349,8 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('getCommitDetails', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const commitHash = asString(rec, 'commitHash');
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
     const repoSettings = await storage.getRepoSettings(projectId, confined.subRepoRelPath);
     const details = await loadCommitDetails({
       cwd: confined.canonicalRepoRoot,
@@ -376,16 +369,9 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('compareCommits', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const fromHash = asString(rec, 'fromHash');
     const toHash = asString(rec, 'toHash');
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
     const comparison = await compareCommits({
       cwd: confined.canonicalRepoRoot,
       git,
@@ -403,18 +389,11 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('getFileDiff', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const commitHash = asString(rec, 'commitHash');
     const fromHash = asString(rec, 'fromHash') || undefined;
     const filePath = asString(rec, 'filePath');
     const oldPath = asString(rec, 'oldPath') || undefined;
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { confined } = await resolveRepoContext(rec);
     return loadFileDiff({
       cwd: confined.canonicalRepoRoot,
       git,
@@ -427,16 +406,9 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('getFileContent', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const commitHash = asString(rec, 'commitHash');
     const filePath = asString(rec, 'filePath');
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { confined } = await resolveRepoContext(rec);
     return loadFileContent({
       cwd: confined.canonicalRepoRoot,
       git,
@@ -447,8 +419,6 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('runGitAction', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
 
     let action = '';
     let params: Record<string, unknown> = {};
@@ -500,12 +470,7 @@ export default async function createGitTreePlugin(
       };
     }
 
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
     const globalSettings = await readGlobalSettings();
     const outcome = await executeGitAction({
       cwd: confined.canonicalRepoRoot,
@@ -531,15 +496,8 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('getTagDetails', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const tagName = asString(rec, 'tagName');
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { confined } = await resolveRepoContext(rec);
     return getTagDetails({
       cwd: confined.canonicalRepoRoot,
       git,
@@ -549,15 +507,8 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('buildPullRequestUrl', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const sourceBranch = asString(rec, 'sourceBranch');
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
     const repoSettings = await storage.getRepoSettings(projectId, confined.subRepoRelPath);
     const remotesRes = await git({
       cwd: confined.canonicalRepoRoot,
@@ -620,15 +571,8 @@ export default async function createGitTreePlugin(
   // --- Settings & Export RPCs ---
   zcc.rpc.method('updateRepoSettings', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const patch = asRecord(rec.settings ?? rec.patch) as Partial<RepoSettings>;
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
     const updated = await storage.saveRepoSettings(projectId, confined.subRepoRelPath, patch);
     const repoPayload = {
       projectId,
@@ -653,39 +597,40 @@ export default async function createGitTreePlugin(
 
   zcc.rpc.method('exportRepoConfig', async (rawArgs) => {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
     const repoSettings = await storage.getRepoSettings(projectId, confined.subRepoRelPath);
-    const targetFile = join(confined.canonicalRepoRoot, '.git-graph.json');
-    writeFileSync(targetFile, `${JSON.stringify(repoSettings, null, 2)}\n`, 'utf8');
-    return { ok: true, path: '.git-graph.json', filePath: targetFile };
+    const targetFile = join(confined.canonicalRepoRoot, '.git-tree.json');
+    const tmp = `${targetFile}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+    try {
+      writeFileSync(tmp, `${JSON.stringify(repoSettings, null, 2)}\n`, 'utf8');
+      renameSync(tmp, targetFile);
+    } catch (err) {
+      try {
+        if (existsSync(tmp)) unlinkSync(tmp);
+      } catch {}
+      throw err;
+    }
+    return { ok: true, path: '.git-tree.json', filePath: targetFile };
   });
 
   // --- Ask Agent Bridge ---
-  zcc.rpc.method('askAgentAboutCommit', async (rawArgs) => {
+  async function buildCommitAgentPromptContext(rawArgs: unknown) {
     const rec = asRecord(rawArgs);
-    const projectId = asString(rec, 'projectId');
-    const subRepoRelPath = asString(rec, 'subRepoRelPath');
     const commitHash = asString(rec, 'commitHash') || 'HEAD';
     const fromHash = asString(rec, 'fromHash');
     const filePath = asString(rec, 'filePath');
     const userPrompt =
       asString(rec, 'prompt') ||
       asString(rec, 'userPrompt') ||
-      'Explain these Git changes and highlight any potential issues.';
+      (commitHash === '*'
+        ? 'Review the working tree changes and highlight any potential regressions or issues.'
+        : fromHash
+          ? `Compare the changes between ${fromHash.slice(0, 8)} and ${commitHash.slice(0, 8)} and highlight any potential regressions or issues.`
+          : filePath
+            ? `Review the changes in ${filePath} and explain potential regressions or issues.`
+            : `Explain commit ${commitHash.slice(0, 8)} and highlight any potential issues.`);
 
-    const confined = await resolveConfinedRepoPath({
-      projectId,
-      subRepoRelPath,
-      listProjects: () => zcc.sdk.projects.list(),
-      fs
-    });
+    const { projectId, confined } = await resolveRepoContext(rec);
 
     let contextSummary = '';
     if (filePath) {
@@ -734,12 +679,23 @@ export default async function createGitTreePlugin(
     }
 
     const fullPrompt = `${userPrompt}\n\n---\n${contextSummary}`;
-    const title = `Git Tree: ${filePath ? filePath : commitHash.slice(0, 8)}`;
+    const title = `Git Tree: ${filePath ? filePath : commitHash === '*' ? 'Working Tree' : commitHash.slice(0, 8)}`;
+
+    return { projectId, prompt: fullPrompt, title };
+  }
+
+  zcc.rpc.method('draftAgentAboutCommit', async (rawArgs) => {
+    const { projectId, prompt, title } = await buildCommitAgentPromptContext(rawArgs);
+    return { ok: true, prompt, title, projectId };
+  });
+
+  zcc.rpc.method('askAgentAboutCommit', async (rawArgs) => {
+    const { projectId, prompt, title } = await buildCommitAgentPromptContext(rawArgs);
 
     const spawned = await zcc.sdk.threads.spawn({
       projectId,
       title,
-      prompt: fullPrompt
+      prompt
     });
 
     return { ok: true, threadId: spawned.id, title };

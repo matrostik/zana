@@ -25,7 +25,7 @@ export function FindWidget(props: FindWidgetProps) {
     <div className="git-graph-find-bar" role="search" aria-label="Find in Git Tree" data-testid="gg-find-widget">
       <input
         type="search"
-        className="git-graph-input"
+        className="git-graph-input gg-find-input-width"
         aria-label="Find commits"
         placeholder="Find commit, hash, author, branch, tag..."
         value={query}
@@ -41,10 +41,9 @@ export function FindWidget(props: FindWidgetProps) {
             onClose();
           }
         }}
-        style={{ width: 230 }}
         data-testid="gg-find-input"
       />
-      <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 52, textAlign: 'center' }}>
+      <span className="gg-find-count-badge">
         {query.trim()
           ? matchCount > 0
             ? `${activeMatchIndex + 1} / ${matchCount}`
