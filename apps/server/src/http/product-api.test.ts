@@ -1619,7 +1619,7 @@ describe('product HTTP', () => {
   it('transcribes voice over multipart when a host is connected', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'zcc-product-voice-'));
     writeFileSync(join(dataDir, 'projects.json'), JSON.stringify({ version: 1, projects: [] }));
-    writeFileSync(join(dataDir, 'config.json'), JSON.stringify({ version: 1, theme: 'dark' }));
+    writeFileSync(join(dataDir, 'config.json'), JSON.stringify({ version: 1, theme: 'dark', voiceInputEnabled: true }));
     server = await startTestProductServer({
       dataDir,
       origins: { serverPort: 0, devAppPort: 5173 }
@@ -1685,6 +1685,18 @@ describe('product HTTP', () => {
       body: formDown
     });
     expect(down.status).toBe(503);
+
+    // Server-side enforcement: the Experimental toggle off refuses both routes.
+    server.ctx.config.getConfig = () => ({ voiceInputEnabled: false }) as ReturnType<typeof server.ctx.config.getConfig>;
+    server.ctx.hostHub.connectedHostIds = () => ['host-1'];
+    server.ctx.hostHub.resolveHostId = () => 'host-1';
+    const offStatus = await fetch(`${server.url}api/v1/system/voice-status`).then((response) => response.json());
+    expect(offStatus).toEqual({ enabled: false, reason: 'disabled' });
+    const formOff = new FormData();
+    formOff.set('file', new Blob([new Uint8Array([1])], { type: 'audio/webm' }), 'recording.webm');
+    const off = await fetch(`${server.url}api/v1/system/voice-transcription`, { method: 'POST', body: formOff });
+    expect(off.status).toBe(403);
+    await expect(off.json()).resolves.toMatchObject({ error: 'voice_disabled' });
 
     const originForm = new FormData();
     originForm.set('file', new Blob([new Uint8Array([1])], { type: 'audio/webm' }), 'recording.webm');

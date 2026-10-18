@@ -37,6 +37,8 @@ describe('voice helpers', () => {
     expect(voiceStartBlockReason(false, ready)).toBe('Voice input is not supported in this browser');
     expect(voiceStartBlockReason(true, { state: 'unavailable', reason: 'no_host' })).toBe('Host daemon is not connected');
     expect(voiceStartBlockReason(true, { state: 'unavailable', reason: 'auth_missing' })).toContain('codex login');
+    expect(voiceStartBlockReason(true, { state: 'unavailable', reason: 'disabled' })).toContain('Experimental');
+    expect(voiceStartBlockReason(true, { state: 'unavailable', reason: 'ambiguous_host' })).toContain('Several computers');
     expect(voiceStartBlockReason(true, { state: 'unknown', reason: null })).toBe('Checking voice input…');
     expect(voiceStartBlockReason(true, ready)).toBeNull();
   });

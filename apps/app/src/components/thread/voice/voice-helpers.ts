@@ -31,7 +31,7 @@ export function resolveRecordingErrorMessage(error: unknown, hasPreferredAudioIn
   return 'Voice input failed';
 }
 
-export type VoiceUnavailableReason = 'no_host' | 'auth_missing';
+export type VoiceUnavailableReason = 'disabled' | 'no_host' | 'ambiguous_host' | 'auth_missing';
 
 export interface VoiceAvailability {
   state: 'unknown' | 'ready' | 'unavailable';
@@ -44,6 +44,10 @@ export function voiceStartBlockReason(isSupported: boolean, availability: VoiceA
   if (availability.state === 'ready') return null;
   if (availability.reason === 'auth_missing') {
     return 'Sign in to Codex on the connected computer (codex login) or set OPENAI_API_KEY there';
+  }
+  if (availability.reason === 'disabled') return 'Voice input is turned off in Settings → Experimental';
+  if (availability.reason === 'ambiguous_host') {
+    return 'Several computers are connected; disconnect all but one to use voice input';
   }
   return 'Host daemon is not connected';
 }

@@ -4,6 +4,7 @@ import { machineTerminals } from './machine-terminals.js';
 import { SHARED_PRODUCT_FAMILIES } from '@zana-ai/zcc-contracts/shared-product';
 import { sharedProductFamily } from './shared-product.js';
 import { sharedExtensions } from './shared-extensions.js';
+import type { SystemVoiceStatusResponse } from '@zana-ai/zcc-server-contract';
 import type { CcApi } from '@zana-ai/zcc-desktop-contract';
 import type { Host } from '@zana-ai/zcc-domain/thread-runtime';
 import type {
@@ -49,17 +50,12 @@ export type PreferredJoinCodeResult =
   | { ok: true; join: PreferredJoinCode }
   | { ok: false; error: 'pairing_unavailable' };
 
+/** Voice readiness incl. why it is unavailable. */
+export function fetchVoiceStatus(): Promise<SystemVoiceStatusResponse> {
+  return apiJson<SystemVoiceStatusResponse>('/system/voice-status');
+}
+
 /** Mint a join code; a 409 pairing refusal comes back as a typed result instead of an opaque throw. */
-export interface VoiceStatusResponse {
-  enabled: boolean;
-  reason?: 'no_host' | 'auth_missing' | null;
-}
-
-/** Voice readiness incl. why it is unavailable (the desktop IPC `hasApiKey` is boolean-only and unused by composers). */
-export function fetchVoiceStatus(): Promise<VoiceStatusResponse> {
-  return apiJson<VoiceStatusResponse>('/system/voice-status');
-}
-
 export async function requestPreferredJoinCode(): Promise<PreferredJoinCodeResult> {
   const response = await fetchWithAppSurface('/api/v1/hosts/join-codes/preferred', {
     method: 'POST',
@@ -1246,10 +1242,6 @@ function httpProduct(): Pick<
       }
     } as CcApi['pluginApps'],
     voice: {
-      hasApiKey: async () => {
-        const body = await apiJson<{ enabled: boolean }>('/system/voice-status');
-        return body.enabled;
-      },
       ensureMicAccess: async () => true,
       transcribe: async (audio, mimeType) => {
         const started = Date.now();
@@ -1474,7 +1466,6 @@ export const product: CcApi = new Proxy({} as CcApi, {
         const desktop = (window.cc as unknown as CcApi).voice;
         return {
           transcribe: http.transcribe,
-          hasApiKey: http.hasApiKey,
           ensureMicAccess: desktop?.ensureMicAccess ?? http.ensureMicAccess
         };
       }

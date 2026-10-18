@@ -36,7 +36,7 @@ export const VOICE_STATUS_RPC_TIMEOUT_MS = 3_000;
 
 export interface VoiceTranscriptionStatus {
   enabled: boolean;
-  reason: 'no_host' | 'auth_missing' | null;
+  reason: 'disabled' | 'no_host' | 'ambiguous_host' | 'auth_missing' | null;
 }
 
 // Only a definite "no Codex login / key on the host" disables the mic. Any
@@ -44,6 +44,7 @@ export interface VoiceTranscriptionStatus {
 // mode we deliberately don't read) keeps it enabled so real errors surface on
 // use with their precise message instead of a false "unavailable".
 export async function voiceTranscriptionStatus(ctx: ProductHttpContext): Promise<VoiceTranscriptionStatus> {
+  if (!ctx.config.getConfig().voiceInputEnabled) return { enabled: false, reason: 'disabled' };
   if (ctx.hostHub.connectedHostIds().length === 0) return { enabled: false, reason: 'no_host' };
   try {
     const result = await ctx.hostHub.callHostOnlineRpc<CodexVoiceStatusResult>({
@@ -51,9 +52,11 @@ export async function voiceTranscriptionStatus(ctx: ProductHttpContext): Promise
       timeoutMs: VOICE_STATUS_RPC_TIMEOUT_MS,
       command: { type: 'codex.voice.status' }
     });
-    if (result?.state === 'missing') return { enabled: false, reason: 'auth_missing' };
-  } catch {
-    // Fall through to enabled.
+    if (result.state === 'missing') return { enabled: false, reason: 'auth_missing' };
+  } catch (error) {
+    // Transcription would 409 too, so "enabled" would be a false promise.
+    if (error instanceof AmbiguousHostError) return { enabled: false, reason: 'ambiguous_host' };
+    // Otherwise fall through to enabled.
   }
   return { enabled: true, reason: null };
 }
@@ -79,7 +82,11 @@ export async function transcribeVoiceOnHost(
   if (args.bytes.byteLength > VOICE_TRANSCRIPTION_MAX_BYTES) {
     throw new VoiceTranscriptionError(400, 'invalid_request', 'Audio file exceeds 25MB limit');
   }
-  const model = ctx.config.getConfig().voiceModel?.trim() || DEFAULT_VOICE_MODEL;
+  const config = ctx.config.getConfig();
+  if (!config.voiceInputEnabled) {
+    throw new VoiceTranscriptionError(403, 'voice_disabled', 'Voice input is turned off in Settings → Experimental');
+  }
+  const model = config.voiceModel?.trim() || DEFAULT_VOICE_MODEL;
   try {
     const hostId = ctx.hostHub.resolveHostId();
     const result = await ctx.hostHub.callHostOnlineRpc<CodexVoiceTranscribeResult>({

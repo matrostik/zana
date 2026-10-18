@@ -4,7 +4,7 @@ import { Mic, Loader2 } from 'lucide-react';
 import { useUi } from '../store.js';
 import type { AutoGrowTextareaHandle } from './ui/CommandComposer.js';
 import { voiceStartBlockReason } from './thread/voice/voice-helpers.js';
-import { useVoiceAvailability } from './thread/voice/voice-status-store.js';
+import { useVoiceAvailability, useVoiceStatus } from './thread/voice/voice-status-store.js';
 
 interface Props {
   value: string;
@@ -186,6 +186,7 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
 
           if (!result.ok || !result.text.trim()) {
             pushToast(result.error || 'No speech detected', 'error');
+            if (!result.ok) void useVoiceStatus.getState().refresh();
             return;
           }
 
@@ -212,6 +213,8 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
           });
         } catch (err) {
           pushToast(`Transcription failed: ${(err as Error).message}`, 'error');
+          // The host login may have changed; re-check so the button reflects it.
+          void useVoiceStatus.getState().refresh();
         } finally {
           setTranscribing(false);
           stopRecording();
@@ -268,7 +271,8 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
       type="button"
       className={`voice-input-btn ${iconOnly ? 'voice-input-btn--icon' : ''} ${recording ? 'is-recording' : ''} ${className ?? ''}`}
       onClick={handleClick}
-      disabled={!hasKey || transcribing}
+      // Never lock Stop: availability may flip while a recording is already running.
+      disabled={transcribing || (!recording && !hasKey)}
       title={title}
       aria-label={title}
     >

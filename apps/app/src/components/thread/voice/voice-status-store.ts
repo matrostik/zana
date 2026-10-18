@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
-import { fetchVoiceStatus } from '../../../lib/product-client.js';
+import { fetchVoiceStatus, product } from '../../../lib/product-client.js';
 import { useData } from '../../../store.js';
 import type { VoiceAvailability } from './voice-helpers.js';
 
@@ -13,31 +13,40 @@ interface VoiceStatusState {
 }
 
 let inflight: Promise<void> | null = null;
+// Bumped whenever a result must be discarded (toggle turned off, test reset) so a
+// fetch that was in flight at that moment cannot overwrite the reset state.
+let generation = 0;
 
 export const useVoiceStatus = create<VoiceStatusState>((set) => ({
   availability: { state: 'unknown', reason: null },
   refresh() {
     if (!useData.getState().voiceInputEnabled) {
+      generation += 1;
+      inflight = null;
       set({ availability: { state: 'unknown', reason: null } });
       return Promise.resolve();
     }
     if (inflight) return inflight;
-    inflight = fetchVoiceStatus()
-      .then((body) => set({
-        availability: body.enabled
-          ? { state: 'ready', reason: null }
-          : { state: 'unavailable', reason: body.reason ?? 'no_host' }
-      }))
+    const mine = generation;
+    const apply = (availability: VoiceAvailability) => {
+      if (mine === generation) set({ availability });
+    };
+    const request: Promise<void> = fetchVoiceStatus()
+      .then((body) => apply(body.enabled
+        ? { state: 'ready', reason: null }
+        : { state: 'unavailable', reason: body.reason ?? 'no_host' }))
       // An unreachable status route is not proof voice is broken: keep the
       // mic usable and let a real attempt report the precise error.
-      .catch(() => set({ availability: { state: 'ready', reason: null } }))
-      .finally(() => { inflight = null; });
-    return inflight;
+      .catch(() => apply({ state: 'ready', reason: null }))
+      .finally(() => { if (inflight === request) inflight = null; });
+    inflight = request;
+    return request;
   }
 }));
 
 let syncStarted = false;
 let lastFocusRefresh = 0;
+let releaseSync: (() => void) | null = null;
 
 /**
  * One app-lifetime subscription (Rule 3): refresh when the Experimental toggle
@@ -49,23 +58,35 @@ export function startVoiceStatusSync(): void {
   syncStarted = true;
   let wasEnabled = useData.getState().voiceInputEnabled;
   if (wasEnabled) void useVoiceStatus.getState().refresh();
-  useData.subscribe((state) => {
+  const releases: Array<() => void> = [];
+  releases.push(useData.subscribe((state) => {
     if (state.voiceInputEnabled === wasEnabled) return;
     wasEnabled = state.voiceInputEnabled;
     void useVoiceStatus.getState().refresh();
-  });
+  }));
+  // A host connecting or leaving changes no_host / ambiguous_host / auth state.
+  releases.push(product.hosts.onChanged(() => {
+    if (!useData.getState().voiceInputEnabled) return;
+    void useVoiceStatus.getState().refresh();
+  }));
   if (typeof window !== 'undefined') {
-    window.addEventListener('focus', () => {
+    const onFocus = () => {
       const now = Date.now();
       if (!useData.getState().voiceInputEnabled || now - lastFocusRefresh < FOCUS_REFRESH_MIN_MS) return;
       lastFocusRefresh = now;
       void useVoiceStatus.getState().refresh();
-    });
+    };
+    window.addEventListener('focus', onFocus);
+    releases.push(() => window.removeEventListener('focus', onFocus));
   }
+  releaseSync = () => { for (const release of releases) release(); };
 }
 
 /** For tests: forget the one-time subscription guard and cached state. */
 export function resetVoiceStatusForTests(): void {
+  releaseSync?.();
+  releaseSync = null;
+  generation += 1;
   syncStarted = false;
   lastFocusRefresh = 0;
   inflight = null;

@@ -8,6 +8,7 @@ import { VOICE_TRANSCRIPTION_MAX_BYTES } from '../../http/multipart-voice.js';
 function ctx(overrides: {
   connected?: string[];
   voiceModel?: string;
+  voiceInputEnabled?: boolean;
   rpc?: ReturnType<typeof vi.fn>;
 }): ProductHttpContext {
   const connected = overrides.connected ?? ['host-1'];
@@ -21,7 +22,7 @@ function ctx(overrides: {
       callHostOnlineRpc: overrides.rpc ?? vi.fn(async () => ({ model: 'gpt-transcribe', text: 'hello' }))
     },
     config: {
-      getConfig: () => ({ voiceModel: overrides.voiceModel })
+      getConfig: () => ({ voiceModel: overrides.voiceModel, voiceInputEnabled: overrides.voiceInputEnabled ?? true })
     }
   } as unknown as ProductHttpContext;
 }
@@ -44,6 +45,25 @@ describe('voice transcription service', () => {
       expect(rpc).not.toHaveBeenCalled();
     });
 
+    it('reports disabled without touching the host when dictation is off', async () => {
+      const rpc = vi.fn();
+      await expect(voiceTranscriptionStatus(ctx({ rpc, voiceInputEnabled: false })))
+        .resolves.toEqual({ enabled: false, reason: 'disabled' });
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it('reports ambiguous_host when several computers are connected', async () => {
+      const ambiguous = {
+        hostHub: {
+          connectedHostIds: () => ['a', 'b'],
+          resolveHostId: () => { throw new AmbiguousHostError(); },
+          callHostOnlineRpc: vi.fn()
+        },
+        config: { getConfig: () => ({ voiceInputEnabled: true }) }
+      } as unknown as ProductHttpContext;
+      await expect(voiceTranscriptionStatus(ambiguous)).resolves.toEqual({ enabled: false, reason: 'ambiguous_host' });
+    });
+
     it('probes the host with codex.voice.status', async () => {
       const rpc = vi.fn(async () => ({ state: 'ready' }));
       await expect(status(rpc)).resolves.toEqual({ enabled: true, reason: null });
@@ -62,6 +82,14 @@ describe('voice transcription service', () => {
       await expect(status(vi.fn(async () => { throw new Error('unknown command'); }))).resolves.toEqual({ enabled: true, reason: null });
       await expect(status(vi.fn(async () => ({ model: 'x', text: 'y' })))).resolves.toEqual({ enabled: true, reason: null });
     });
+  });
+
+  it('refuses with 403 voice_disabled when dictation is off, before touching the host', async () => {
+    const rpc = vi.fn();
+    await expect(transcribeVoiceOnHost(ctx({ rpc, voiceInputEnabled: false }), {
+      bytes: Buffer.from('audio'), mimeType: 'audio/webm', filename: 'recording.webm'
+    })).rejects.toMatchObject({ status: 403, code: 'voice_disabled' });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('RPCs the host with base64 audio and returns text', async () => {

@@ -54,4 +54,24 @@ test.describe('dictation on', () => {
     if (await options.isVisible() && await options.getAttribute('aria-expanded') !== 'true') await options.click();
     await expect(app.window.getByRole('button', { name: 'Start voice input', exact: true })).toBeEnabled();
   });
+
+  test.describe('unstubbed host status', () => {
+    // Empty OPENAI_API_KEY so a developer's shell key cannot make the isolated HOME look ready.
+    test.use({ launchEnv: { ZCC_FAKE_PROVIDER: '1', OPENAI_API_KEY: '' } });
+
+    test('mic reflects the real /system/voice-status for a HOME with no ~/.codex', async ({ app, home }) => {
+      await openThread(app, home);
+      const status = await app.window.evaluate(async () =>
+        (await fetch('/api/v1/system/voice-status')).json() as Promise<{ enabled: boolean; reason?: string | null }>);
+      // Never ready: the isolated HOME has no Codex login. Which reason depends on whether the
+      // fixture's local host-daemon has connected yet.
+      expect(status.enabled).toBe(false);
+      expect(['auth_missing', 'no_host']).toContain(status.reason);
+      const options = app.window.getByRole('button', { name: 'Composer options', exact: true });
+      if (await options.isVisible() && await options.getAttribute('aria-expanded') !== 'true') await options.click();
+      const button = mic(app.window);
+      await expect(button).toBeDisabled();
+      await expect(button).toHaveAttribute('aria-label', status.reason === 'auth_missing' ? /codex login/ : /Host daemon is not connected/);
+    });
+  });
 });
