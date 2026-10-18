@@ -319,7 +319,7 @@ export const AgentLauncher = memo(function AgentLauncher({
 
   return createPortal(
     <div className="palette-backdrop" onMouseDown={onClose}>
-      <ComposerDraftProvider sessionKey={sessionKey}>{content}</ComposerDraftProvider>
+      <ComposerDraftProvider sessionKey={sessionKey} session={session}>{content}</ComposerDraftProvider>
     </div>,
     document.body
   );

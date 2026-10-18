@@ -25,6 +25,8 @@ describe('thread permission selection', () => {
     session.setSetting('permissionMode', 'auto');
     const view = renderHook(() => useThreadPermissionMode({ session, supportedModes: ['full'] }));
     expect(view.result.current.selectionError).toMatch(/saved permission policy/);
+    // The picker keeps showing the unavailable pick (its placeholder), not offered[0].
+    expect(view.result.current.permissionMode).toBe('auto');
     act(() => view.result.current.setPermissionMode('full'));
     expect(view.result.current.selectionError).toBeNull();
   });

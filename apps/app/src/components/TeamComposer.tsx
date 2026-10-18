@@ -62,8 +62,8 @@ export function TeamComposer({
   const [coordinationMode, setCoordinationMode] = useComposerSetting<Extract<TeamCoordinationMode, 'structured' | 'freeform'>>(session, 'team.coordination',
     () => useData.getState().teamDefaultCoordinationMode
   );
-  const [title, setTitle] = useComposerSetting(session, 'team.title', '');
-  const [summary, setSummary] = useComposerSetting(session, 'team.summary', '');
+  const [title, setTitle] = useComposerSetting(session, 'team.title', '', { content: true });
+  const [summary, setSummary] = useComposerSetting(session, 'team.summary', '', { content: true });
   const [jobSources, setJobSources] = useState<ExecutionSourceCapabilityView[]>([]);
   const [pickingSources, setPickingSources] = useState(false);
   const [launching, setLaunching] = useState(false);

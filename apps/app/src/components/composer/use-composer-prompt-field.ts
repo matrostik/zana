@@ -45,7 +45,7 @@ import { composerTriggersForMentionProviders } from './composer-mention-triggers
 import { type ActiveTrigger, type TypeaheadSuggestion } from './types.js';
 import { useComposerSuggestions, useMentionProviderRows } from './use-composer-suggestions.js';
 import { useComposerSession } from './ComposerDraft.js';
-import { MAX_COMPOSER_IMAGE_BYTES, retainedComposerImageBytes } from './composer-session.js';
+import { MAX_COMPOSER_IMAGE_BYTES, isEmptyComposerDocument, retainedComposerImageBytes, type ComposerSession } from './composer-session.js';
 
 export type ComposerSlashKind = 'thread' | 'cli';
 
@@ -354,22 +354,33 @@ export function useComposerPromptField({
     // overwrite it after navigation. Initial text is inserted below on mount.
     if (!initialText) draft.setContent({ document: editor.getJSON() });
   }, [draft, editor, initialText]);
-  const selectionRestored = useRef(false);
+  const selectionRestoredFor = useRef<ComposerSession | null>(null);
   useEffect(() => {
-    if (!editor || selectionRestored.current) return;
-    selectionRestored.current = true;
+    if (!editor || selectionRestoredFor.current === draft) return;
+    selectionRestoredFor.current = draft;
     const selection = draft.getSnapshot().selection;
     if (selection) editor.commands.setTextSelection({ from: Math.min(selection.from, editor.state.doc.content.size), to: Math.min(selection.to, editor.state.doc.content.size) });
   }, [draft, editor]);
 
-  const seededInitialText = useRef(snapshot.document !== undefined);
+  // A surface session outlives one seed (Inbox/Library "Spawn agent" reuse the
+  // project's launcher). A new seed replaces an empty or unedited earlier seed;
+  // the same seed, or anything the user typed, is kept across navigation.
+  const seededFor = useRef<{ draft: ComposerSession; text: string } | null>(null);
   useEffect(() => {
-    if (!editor || seededInitialText.current || !initialText) return;
-    seededInitialText.current = true;
-    const chain = editor.chain().insertContent(initialText);
+    if (!editor || !initialText) return;
+    if (seededFor.current?.draft === draft && seededFor.current.text === initialText) return;
+    seededFor.current = { draft, text: initialText };
+    const current = draft.getSnapshot();
+    if (current.seed?.text === initialText && current.document !== undefined) return;
+    const replaceable = current.document === undefined
+      || isEmptyComposerDocument(current.document)
+      || current.seed?.revision === current.revision;
+    if (!replaceable) return;
+    const chain = editor.chain().clearContent().insertContent(initialText);
     if (autoFocus) chain.focus();
     chain.run();
-  }, [autoFocus, editor, initialText]);
+    draft.setSeed({ text: initialText, revision: draft.getSnapshot().revision });
+  }, [autoFocus, draft, editor, initialText]);
 
   useEffect(() => {
     if (!editor || !autoFocus || initialText) return;

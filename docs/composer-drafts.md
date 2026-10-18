@@ -30,8 +30,21 @@ session and are released on removal, clear, or disposal, not on navigation.
 Storage retains at most 100 sessions and admits at most 128 MiB of retained image
 data. Inactive empty sessions are reclaimed first; unsent drafts are never silently
 evicted. At session capacity a new surface warns that navigation cannot retain its
-draft. An unavailable explicitly selected model, role, or permission policy must
-be resolved before sending instead of silently replacing the user's choice.
+draft. Typed settings (Squad title and summary) count as draft content. An
+unavailable explicitly selected model, role, reasoning level, or permission policy
+must be resolved before sending instead of silently replacing the user's choice;
+these are only validated once the provider's own discovery has settled. Switching
+provider clears the model, reasoning, and role choices so the new catalog's
+defaults apply. A thread's inherited service tier is not a choice and falls back
+to the default for a send when the provider no longer offers it.
+
+## Seeded prompts
+
+A surface may be opened with `initialText` (Inbox and Library "Spawn agent",
+plugin panels, the plugin Browse carousel). The session records the last seed it
+applied. A different seed replaces the prompt when it is empty or still exactly
+the earlier seed; anything the user typed is kept. The same seed never refills a
+prompt the user cleared or sent.
 
 Squad source capability selections deliberately remain mount-local: capability
 IDs are authority-bearing and project-scoped, and there is no renderer revalidation

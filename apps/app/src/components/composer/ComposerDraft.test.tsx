@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, renderHook, waitFor } from '@testing-library/react';
 import { EditorContent, type JSONContent } from '@tiptap/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ComposerDraftProvider, useComposerSession, useComposerSetting } from './ComposerDraft.js';
-import { composerSession, resetComposerSessions } from './composer-session.js';
+import { ComposerSession, composerSession, resetComposerSessions, MAX_COMPOSER_SESSIONS } from './composer-session.js';
 import { useComposerPromptField } from './use-composer-prompt-field.js';
 import { mentionAttrsForSuggestion } from './mention-attrs.js';
 
@@ -176,5 +176,80 @@ describe('shared composer draft', () => {
     render(<Probe initialText="Thread follow-up" />);
     await ready();
     expect(field.text).toBe('Thread follow-up');
+  });
+});
+
+describe('seeded surfaces', () => {
+  it('replaces an unedited earlier seed with a new one for the same surface', async () => {
+    const first = render(<Surface mode="cli" sessionKey="launcher:p" initialText="Message A" />);
+    await ready();
+    expect(field.text).toBe('Message A');
+    first.unmount();
+    render(<Surface mode="cli" sessionKey="launcher:p" initialText="Message B" />);
+    await ready();
+    expect(field.text).toBe('Message B');
+  });
+
+  it('applies a new seed after the previous one was sent, and keeps the same seed cleared', async () => {
+    const first = render(<Surface mode="cli" sessionKey="launcher:p" initialText="Message A" />);
+    await ready();
+    act(() => field.clear());
+    first.unmount();
+    const again = render(<Surface mode="cli" sessionKey="launcher:p" initialText="Message A" />);
+    await ready();
+    expect(field.text).toBe('');
+    again.unmount();
+    render(<Surface mode="cli" sessionKey="launcher:p" initialText="Message B" />);
+    await ready();
+    expect(field.text).toBe('Message B');
+  });
+
+  it('keeps user edits instead of a new seed, and reseeds on a prop change without remount', async () => {
+    const view = render(<Surface mode="cli" sessionKey="panel:v" initialText="Plugin draft 1" />);
+    await ready();
+    view.rerender(<Surface mode="cli" sessionKey="panel:v" initialText="Plugin draft 2" />);
+    await waitFor(() => expect(field.text).toBe('Plugin draft 2'));
+    act(() => field.setText('My own words'));
+    view.unmount();
+    render(<Surface mode="cli" sessionKey="panel:v" initialText="Plugin draft 3" />);
+    await ready();
+    expect(field.text).toBe('My own words');
+  });
+});
+
+describe('composer session ownership', () => {
+  it('re-evaluates a setting fallback until the user chooses, and clear returns to it', () => {
+    const session = new ComposerSession();
+    const { result, rerender } = renderHook(({ host }) => useComposerSetting(session, 'modern.hostId', () => host), { initialProps: { host: '' } });
+    rerender({ host: 'late-host' });
+    expect(result.current[0]).toBe('late-host');
+    expect(result.current[2]).toBe(false);
+    act(() => result.current[1]('picked'));
+    rerender({ host: 'other' });
+    expect(result.current[0]).toBe('picked');
+    act(() => result.current[3]());
+    expect(result.current[0]).toBe('other');
+  });
+
+  it('shares a parent-supplied session with descendants', () => {
+    const session = new ComposerSession('Draft storage is full.');
+    let seen: ComposerSession | undefined;
+    function Child() { seen = useComposerSession(); return null; }
+    render(<ComposerDraftProvider sessionKey="launcher" session={session}><Child /></ComposerDraftProvider>);
+    expect(seen).toBe(session);
+  });
+
+  it('disposes overflow sessions it handed out once their surface unmounts', () => {
+    for (let index = 0; index < MAX_COMPOSER_SESSIONS; index++) composerSession(`full:${index}`).setSetting('team.title', 'x', { content: true });
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    let seen: ComposerSession | undefined;
+    function Child() { seen = useComposerSession(JSON.stringify(['thread', 'overflow'])); return null; }
+    const view = render(<Child />);
+    expect(seen?.retentionError).toMatch(/Draft storage is full/);
+    const image = { id: 'i', previewSrc: 'blob:overflow', sizeBytes: 1 } as never;
+    act(() => seen!.setContent({ images: [image] }));
+    view.unmount();
+    expect(revoke).toHaveBeenCalledWith('blob:overflow');
+    revoke.mockRestore();
   });
 });

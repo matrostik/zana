@@ -162,6 +162,117 @@ describe('composer host cache subscriptions', () => {
     await waitFor(() => expect(view.result.current.selectionError).toMatch(/saved role/));
   });
 
+  it('does not flash an unavailable-model warning while discovery is still settling', async () => {
+    let resolveDiscovery!: (value: unknown) => void;
+    const discovery = new Promise((resolve) => { resolveDiscovery = resolve; });
+    const warmCatalog = {
+      providers: [{ id: 'codex', displayName: 'Codex', capabilities: { permissionModes: ['auto'] } }],
+      models: [{ model: 'warm-model', displayName: 'Warm', supportedReasoningEfforts: [], defaultReasoningEffort: 'medium' }],
+      selectedOnlyModels: [],
+      modelLoadError: null
+    };
+    resetThreadModelCatalog((query) => query?.projectId === 'project-a'
+      ? Promise.resolve(warmCatalog) as never
+      : discovery as never);
+
+    const warm = renderHook(() => useThreadComposerOptions({
+      lockedProviderId: 'codex', hostId: 'host', projectId: 'project-a'
+    }));
+    await waitFor(() => expect(warm.result.current.model).toBe('warm-model'));
+
+    const session = new ComposerSession();
+    session.setSetting('modern.model', 'saved-model');
+    const view = renderHook(() => useThreadComposerOptions({
+      session, lockedProviderId: 'codex', hostId: 'host', projectId: 'project-b'
+    }));
+
+    // Warm rows stay visible while the project's own discovery settles.
+    expect(view.result.current.modelIsLoading).toBe(false);
+    expect(view.result.current.catalogSettled).toBe(false);
+    expect(view.result.current.modelOptions.map(row => row.value)).toContain('warm-model');
+    expect(view.result.current.selectionError).toBeNull();
+    await act(async () => {
+      resolveDiscovery({
+        providers: [{ id: 'codex', displayName: 'Codex', capabilities: { permissionModes: ['auto'] } }],
+        models: [{ model: 'saved-model', displayName: 'Saved', supportedReasoningEfforts: [], defaultReasoningEffort: 'medium' }],
+        selectedOnlyModels: [],
+        modelLoadError: null
+      });
+    });
+    await waitFor(() => expect(view.result.current.catalogSettled).toBe(true));
+    expect(view.result.current.selectionError).toBeNull();
+  });
+
+  it('treats a provider switch as defaults, so the new catalog reconciles model and role', async () => {
+    const providers = [
+      { id: 'codex', displayName: 'Codex', capabilities: { permissionModes: ['auto'] } },
+      { id: 'pi', displayName: 'Pi', capabilities: { permissionModes: ['auto'] } }
+    ];
+    resetThreadModelCatalog(async (query?: { providerId?: string }) => ({
+      providers,
+      models: query?.providerId === 'pi'
+        ? [{ model: 'pi-model', displayName: 'Pi model', supportedReasoningEfforts: [], defaultReasoningEffort: 'medium' }]
+        : [{ model: 'codex-model', displayName: 'Codex model', supportedReasoningEfforts: [], defaultReasoningEffort: 'medium' }],
+      selectedOnlyModels: [],
+      acpMode: query?.providerId === 'pi' ? { currentValue: 'build', options: [{ value: 'build', label: 'Build' }] } : undefined,
+      modelLoadError: null
+    }) as never);
+    const session = new ComposerSession();
+    session.setSetting('modern.provider', 'codex');
+    const view = renderHook(() => useThreadComposerOptions({ session, hostId: 'host', projectId: 'p' }));
+    await waitFor(() => expect(view.result.current.catalogSettled).toBe(true));
+    act(() => { view.result.current.setModel('codex-model'); });
+    act(() => { view.result.current.setProviderId('pi'); });
+    expect(Object.hasOwn(session.getSnapshot().settings, 'modern.model')).toBe(false);
+    expect(Object.hasOwn(session.getSnapshot().settings, 'modern.acpMode')).toBe(false);
+    await waitFor(() => expect(view.result.current.model).toBe('pi-model'));
+    await waitFor(() => expect(view.result.current.acpMode).toBe('build'));
+    expect(view.result.current.selectionError).toBeNull();
+  });
+
+  it('snaps a defaulted reasoning level onto an explicitly picked model', async () => {
+    const effort = (reasoningEffort: string) => ({ reasoningEffort, description: reasoningEffort });
+    resetThreadModelCatalog(async () => ({
+      providers: [{ id: 'codex', displayName: 'Codex', capabilities: { permissionModes: ['auto'] } }],
+      models: [
+        { model: 'deep', displayName: 'Deep', supportedReasoningEfforts: [effort('low'), effort('high')], defaultReasoningEffort: 'high' },
+        { model: 'quick', displayName: 'Quick', supportedReasoningEfforts: [effort('low')], defaultReasoningEffort: 'low' }
+      ],
+      selectedOnlyModels: [],
+      modelLoadError: null
+    }) as never);
+    const session = new ComposerSession();
+    const view = renderHook(() => useThreadComposerOptions({ session, threadId: 't', lockedProviderId: 'codex', initialModel: 'deep', initialReasoningLevel: 'high' }));
+    await waitFor(() => expect(view.result.current.catalogSettled).toBe(true));
+    expect(view.result.current.model).toBe('deep');
+    expect(view.result.current.reasoningLevel).toBe('high');
+    act(() => { view.result.current.setModel('quick'); });
+    await waitFor(() => expect(view.result.current.reasoningLevel).toBe('low'));
+    expect(view.result.current.selectionError).toBeNull();
+  });
+
+  it('does not report a saved role as unavailable until discovery settles', async () => {
+    let resolveDiscovery!: (value: unknown) => void;
+    const discovery = new Promise((resolve) => { resolveDiscovery = resolve; });
+    const row = { model: 'm', displayName: 'M', supportedReasoningEfforts: [], defaultReasoningEffort: 'medium' };
+    const providers = [{ id: 'codex', displayName: 'Codex', capabilities: { permissionModes: ['auto'] } }];
+    resetThreadModelCatalog((query) => query?.projectId === 'project-a'
+      ? Promise.resolve({ providers, models: [row], selectedOnlyModels: [], modelLoadError: null }) as never
+      : discovery as never);
+    const warm = renderHook(() => useThreadComposerOptions({ lockedProviderId: 'codex', hostId: 'host', projectId: 'project-a' }));
+    await waitFor(() => expect(warm.result.current.catalogSettled).toBe(true));
+
+    const session = new ComposerSession();
+    session.setSetting('modern.acpMode', 'reviewer');
+    const view = renderHook(() => useThreadComposerOptions({ session, lockedProviderId: 'codex', hostId: 'host', projectId: 'project-b' }));
+    expect(view.result.current.catalogSettled).toBe(false);
+    expect(view.result.current.selectionError).toBeNull();
+    await act(async () => {
+      resolveDiscovery({ providers, models: [row], selectedOnlyModels: [], acpMode: { options: [{ value: 'agent', label: 'Agent' }] }, modelLoadError: null });
+    });
+    await waitFor(() => expect(view.result.current.selectionError).toMatch(/saved role/));
+  });
+
   it('keeps simultaneous composers on different hosts isolated and reuses local models on return', async () => {
     const fetcher = vi.fn(async (query?: { hostId?: string; providerId?: string }) => ({
       providers: [{ id: 'codex', displayName: 'Codex', capabilities: { permissionModes: ['full'] } }],

@@ -12,12 +12,13 @@ export interface ComposerSessionSnapshot {
   images: ComposerImageAttachment[];
   attachments: PromptInput[];
   settings: Record<string, unknown>;
+  /** Last `initialText` applied and the revision it produced; an equal revision means the seed is unedited. */
+  seed?: { text: string; revision: number };
   revision: number;
 }
 
-function hasContent(snapshot: ComposerSessionSnapshot): boolean {
-  return snapshot.images.length > 0 || snapshot.attachments.length > 0
-    || JSON.stringify(snapshot.document ?? EMPTY_DOCUMENT) !== JSON.stringify(EMPTY_DOCUMENT);
+export function isEmptyComposerDocument(document: JSONContent | undefined): boolean {
+  return JSON.stringify(document ?? EMPTY_DOCUMENT) === JSON.stringify(EMPTY_DOCUMENT);
 }
 
 function equalSetting(a: unknown, b: unknown): boolean {
@@ -29,6 +30,8 @@ export class ComposerSession {
   private snapshot: ComposerSessionSnapshot = { images: [], attachments: [], settings: {}, revision: 0 };
   private listeners = new Set<() => void>();
   private users = 0;
+  /** Settings holding typed text (e.g. a Squad title) count as an unsent draft. */
+  private contentSettingKeys = new Set<string>();
   constructor(readonly retentionError?: string) {}
   getSnapshot = () => this.snapshot;
   subscribe = (listener: () => void) => {
@@ -39,7 +42,12 @@ export class ComposerSession {
     this.users++;
     return () => { this.users--; };
   }
-  get reclaimable() { return this.users === 0 && !hasContent(this.snapshot); }
+  get reclaimable() { return this.users === 0 && !this.hasContent(); }
+  private hasContent(): boolean {
+    const { images, attachments, document, settings } = this.snapshot;
+    return images.length > 0 || attachments.length > 0 || !isEmptyComposerDocument(document)
+      || [...this.contentSettingKeys].some(key => settings[key] !== undefined && settings[key] !== null && settings[key] !== '');
+  }
   private publish(next: ComposerSessionSnapshot) {
     this.snapshot = next;
     for (const listener of this.listeners) listener();
@@ -63,13 +71,24 @@ export class ComposerSession {
   setSelection(selection: ComposerSessionSnapshot['selection']) {
     this.snapshot = { ...this.snapshot, selection };
   }
-  setSetting(key: string, value: unknown) {
+  setSeed(seed: ComposerSessionSnapshot['seed']) {
+    this.snapshot = { ...this.snapshot, seed };
+  }
+  setSetting(key: string, value: unknown, options?: { content?: boolean }) {
+    if (options?.content) this.contentSettingKeys.add(key);
     if (equalSetting(this.snapshot.settings[key], value) && Object.hasOwn(this.snapshot.settings, key)) return;
     this.publish({ ...this.snapshot, settings: { ...this.snapshot.settings, [key]: value } });
+  }
+  /** Returns a setting to "not chosen", so asynchronously arriving defaults apply again. */
+  deleteSetting(key: string) {
+    if (!Object.hasOwn(this.snapshot.settings, key)) return;
+    const { [key]: _removed, ...settings } = this.snapshot.settings;
+    this.publish({ ...this.snapshot, settings });
   }
   clearIfRevision(revision: number): boolean {
     if (revision !== this.snapshot.revision) return false;
     this.setContent({ document: EMPTY_DOCUMENT, images: [], attachments: [] });
+    // The seed is kept: a cleared or sent prompt must not be refilled by the same seed.
     this.setSelection(undefined);
     return true;
   }

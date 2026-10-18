@@ -90,4 +90,37 @@ describe('composer sessions', () => {
     expect(composerSession('active')).toBe(active);
     release();
   });
+
+  it('deletes a setting so it reads as never chosen', () => {
+    const session = composerSession('delete');
+    session.deleteSetting('missing');
+    const listener = vi.fn();
+    session.subscribe(listener);
+    session.setSetting('modern.model', 'picked');
+    session.deleteSetting('modern.model');
+    expect(Object.hasOwn(session.getSnapshot().settings, 'modern.model')).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('never evicts a session whose only draft is typed content settings', () => {
+    const squad = composerSession('squad');
+    squad.setSetting('team.title', 'Release squad', { content: true });
+    const blank = composerSession('blank-content');
+    blank.setSetting('team.title', '', { content: true });
+    composerSession('config-only').setSetting('modern.model', 'm');
+    for (let index = 3; index < MAX_COMPOSER_SESSIONS; index++) composerSession(`filler:${index}`).setSetting('team.title', 'x', { content: true });
+    composerSession('overflow-1');
+    composerSession('overflow-2');
+    expect(composerSession('squad')).toBe(squad);
+    expect(composerSession('blank-content')).not.toBe(blank);
+  });
+
+  it('keeps the seed record through a clear but not as content', () => {
+    const session = composerSession('seeded');
+    session.setContent({ document: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Seed' }] }] } });
+    session.setSeed({ text: 'Seed', revision: session.getSnapshot().revision });
+    expect(session.clearIfRevision(session.getSnapshot().revision)).toBe(true);
+    expect(session.getSnapshot().seed?.text).toBe('Seed');
+    expect(session.reclaimable).toBe(true);
+  });
 });

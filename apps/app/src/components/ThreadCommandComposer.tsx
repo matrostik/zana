@@ -164,8 +164,6 @@ function ThreadComposerContent({
   const lastProjectId = useData((s) => s.lastProjectId);
   const selectedProjectId = useUi((s) => s.selectedProjectId);
   const upsertThread = useThreads((s) => s.upsert);
-  const [chosenServiceTier, setChosenServiceTier] = useComposerSetting<string | undefined>(session, 'modern.serviceTier', undefined);
-  const serviceTier = chosenServiceTier ?? initialServiceTier ?? undefined;
   const [internalProjectId, setInternalProjectId] = useComposerSetting(session, 'projectId',
     pinnedProject?.id ?? composerProjectId ?? ''
   );
@@ -210,11 +208,12 @@ function ThreadComposerContent({
     projectId: currentThread?.projectId ?? selectedProject?.id,
     hostPending: !catalogHostId && hosts.length === 0
   });
-  useEffect(() => {
-    if (!options.rosterReady) return;
-    const tiers = options.serviceTierOptions;
-    if (tiers && serviceTier && serviceTier !== 'default' && !tiers.some(tier => tier.id === serviceTier)) setChosenServiceTier('default');
-  }, [options.rosterReady, options.serviceTierOptions, serviceTier]);
+  // The tier is inherited from the thread, never picked here, so an unoffered
+  // tier falls back to the default for this send without being saved.
+  const serviceTier = options.rosterReady && initialServiceTier && initialServiceTier !== 'default'
+    && options.serviceTierOptions && !options.serviceTierOptions.some(tier => tier.id === initialServiceTier)
+    ? 'default'
+    : initialServiceTier ?? undefined;
   const { permissionMode, setPermissionMode, selectionError: permissionSelectionError } = useThreadPermissionMode({
     session,
     settingKey: 'modern.permissionMode',
@@ -361,7 +360,7 @@ function ThreadComposerContent({
   );
   const selectedComposerMode = composerModeEntriesForProvider.find((entry) => entry.id === composerMode)
     ?? composerModeEntriesForProvider[0];
-  const composerModeError = hasComposerMode && !options.modelIsLoading && options.acpModeOptions.length > 0
+  const composerModeError = hasComposerMode && options.catalogSettled
     && !composerModeEntriesForProvider.some(entry => entry.id === composerMode)
     ? 'The saved composer mode is unavailable. Choose an available mode before sending.'
     : null;

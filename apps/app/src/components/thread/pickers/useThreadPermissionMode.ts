@@ -19,7 +19,7 @@ export function useThreadPermissionMode({
   session?: ComposerSession;
   settingKey?: string;
 }) {
-  const fallbackSession = useComposerSession(threadId ? JSON.stringify(['permission', threadId]) : undefined);
+  const fallbackSession = useComposerSession(threadId ? JSON.stringify(['thread', threadId]) : undefined);
   const [saved, save, hasSaved] = useComposerSetting<PermissionMode | undefined>(suppliedSession ?? fallbackSession, settingKey, undefined);
   const [fullAccessByDefault] = useBooleanPreference(FULL_ACCESS_BY_DEFAULT_KEY, FULL_ACCESS_BY_DEFAULT);
   const parsed = permissionModeSchema.safeParse(initialPermissionMode);
@@ -35,10 +35,11 @@ export function useThreadPermissionMode({
   }, [threadId, persisted, hasSaved, saved]);
 
   const offered = permissionModeOptionsFor(supportedModes ?? []);
-  const permissionMode = offered.length > 0 && !offered.some((row) => row.value === selected)
-    ? offered[0]!.value
-    : selected;
-  const selectionError = hasSaved && offered.length > 0 && !offered.some(row => row.value === selected)
+  const unavailable = offered.length > 0 && !offered.some((row) => row.value === selected);
+  // A saved pick that is no longer offered stays selected (the picker shows its
+  // placeholder) so the error and the picker agree; defaults snap silently.
+  const permissionMode = unavailable && !hasSaved ? offered[0]!.value : selected;
+  const selectionError = unavailable && hasSaved
     ? 'The saved permission policy is unavailable. Choose an available policy before sending.'
     : null;
   const setPermissionMode = useCallback((value: string) => {

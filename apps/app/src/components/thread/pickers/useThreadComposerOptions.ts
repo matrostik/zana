@@ -69,9 +69,9 @@ export function useThreadComposerOptions(input: {
   const fallbackSession = useComposerSession();
   const session = input.session ?? fallbackSession;
   const [savedProvider, saveProvider, hasProvider] = useComposerSetting<string | undefined>(session, 'modern.provider', undefined);
-  const [savedModel, saveModel, hasModel] = useComposerSetting<string | undefined>(session, 'modern.model', undefined);
-  const [savedReasoning, saveReasoning, hasReasoning] = useComposerSetting<ReasoningLevel | undefined>(session, 'modern.reasoning', undefined);
-  const [savedAcpMode, saveAcpMode, hasAcpMode] = useComposerSetting<string | undefined>(session, 'modern.acpMode', undefined);
+  const [savedModel, saveModel, hasModel, clearModel] = useComposerSetting<string | undefined>(session, 'modern.model', undefined);
+  const [savedReasoning, saveReasoning, hasReasoning, clearReasoning] = useComposerSetting<ReasoningLevel | undefined>(session, 'modern.reasoning', undefined);
+  const [savedAcpMode, saveAcpMode, hasAcpMode, clearAcpMode] = useComposerSetting<string | undefined>(session, 'modern.acpMode', undefined);
   const hostCatalog = threadModelCatalogForHost(input.hostId, input.projectId);
   const catalog = useSyncExternalStore(hostCatalog.subscribe, hostCatalog.getSnapshot, hostCatalog.getSnapshot);
   const [providerId, setProviderIdState] = useState(
@@ -80,7 +80,7 @@ export function useThreadComposerOptions(input: {
   const [model, setModelState] = useState(() => {
     if (hasModel) return savedModel ?? '';
     if (input.initialModel) return input.initialModel;
-    const provider = input.lockedProviderId ?? rememberedProviderId() ?? 'claude-code';
+    const provider = input.lockedProviderId ?? savedProvider ?? rememberedProviderId() ?? 'claude-code';
     return restoreProviderSelection(provider).model;
   });
   const [reasoningLevel, setReasoningLevelState] = useState<ReasoningLevel>(() => {
@@ -88,7 +88,7 @@ export function useThreadComposerOptions(input: {
     if (input.initialReasoningLevel) {
       return asReasoningLevel(input.initialReasoningLevel, 'medium');
     }
-    const provider = input.lockedProviderId ?? rememberedProviderId() ?? 'claude-code';
+    const provider = input.lockedProviderId ?? savedProvider ?? rememberedProviderId() ?? 'claude-code';
     return restoreProviderSelection(provider).reasoningLevel;
   });
   const [acpMode, setAcpModeState] = useState<string | undefined>(() => hasAcpMode ? savedAcpMode : input.initialAcpMode ?? undefined);
@@ -116,16 +116,18 @@ export function useThreadComposerOptions(input: {
     const restored = restoreProviderSelection(value);
     setModelState(restored.model);
     setReasoningLevelState(restored.reasoningLevel);
-    saveModel(restored.model);
-    saveReasoning(restored.reasoningLevel);
-    saveAcpMode(undefined);
+    // The restored values are defaults, not picks: clear the explicit choices so
+    // the new provider's catalog can reconcile model, reasoning and native role.
+    clearModel();
+    clearReasoning();
+    clearAcpMode();
     setAcpModeState(undefined);
     rememberComposerSelection({
       providerId: value,
       model: restored.model,
       reasoningLevel: restored.reasoningLevel
     });
-  }, [model, providerId, reasoningLevel, saveProvider, saveModel, saveReasoning, saveAcpMode]);
+  }, [model, providerId, reasoningLevel, saveProvider, clearModel, clearReasoning, clearAcpMode]);
 
   useEffect(() => {
     if (hasProvider && !input.lockedProviderId && savedProvider) setProviderIdState(savedProvider);
@@ -174,7 +176,10 @@ export function useThreadComposerOptions(input: {
   const cached = catalog.byProvider[providerId];
   const models = cached?.models ?? fallbackModelsForProvider(providerId);
   const moreModels = cached?.selectedOnlyModels ?? fallbackMoreModelsForProvider(providerId);
-  const loading = !cached && catalog.inflight.has(providerId);
+  const loading = Boolean(input.hostPending) || (!cached && catalog.inflight.has(providerId));
+  // Warm rows inherited from another project stay visible, but are not
+  // authoritative enough to snap a model or report a saved choice as unavailable.
+  const settling = loading || catalog.provisionalProviders.has(providerId);
   const modelLoadError = cached?.modelLoadError ?? null;
   const modelLoadErrorDetail = cached?.modelLoadErrorDetail ?? null;
   const acpModeOptions = cached?.acpMode?.options ?? [];
@@ -250,7 +255,7 @@ export function useThreadComposerOptions(input: {
     const offeredRows = models.concat(moreModels);
     const offeredIds = offeredRows.map((row) => row.model);
     if (offeredIds.length === 0) {
-      if (!loading && model) setModelState('');
+      if (!settling && model) setModelState('');
       return;
     }
     const fallback = defaultOfferedComposerModel(models, moreModels)?.model ?? offeredIds[0]!;
@@ -260,24 +265,24 @@ export function useThreadComposerOptions(input: {
       persistRemembered: persistSelection,
       offeredModels: offeredIds,
       fallbackModel: fallback,
-      loading
+      loading: settling
     });
     if (!nextModel) return;
-    if (nextModel !== model) {
-      setModelState(nextModel);
-      rememberComposerSelection({ providerId, model: nextModel, reasoningLevel });
-      return;
-    }
+    if (nextModel !== model) setModelState(nextModel);
     rememberComposerSelection({ providerId, model: nextModel, reasoningLevel });
-    const row = offeredRows.find((item) => item.model === nextModel) ?? activeModel;
-    if (!row) return;
+  }, [hasModel, settling, model, models, moreModels, persistSelection, providerId, reasoningLevel]);
+
+  // Reasoning reconciles independently: an explicitly picked model must still
+  // snap a defaulted reasoning level onto what that model supports.
+  useEffect(() => {
+    if (hasReasoning || !activeModel) return;
     const supported = visibleComposerReasoningLevels(
-      row.supportedReasoningEfforts.map((effort) => effort.reasoningEffort)
+      activeModel.supportedReasoningEfforts.map((effort) => effort.reasoningEffort)
     );
     if (supported.length === 0) return;
     const next = reconcileReasoningLevel(reasoningLevel, supported);
-    if (next !== reasoningLevel && !hasReasoning) setReasoningLevelState(next);
-  }, [hasModel, hasReasoning, activeModel, loading, model, models, moreModels, persistSelection, providerId, reasoningLevel]);
+    if (next !== reasoningLevel) setReasoningLevelState(next);
+  }, [hasReasoning, activeModel, reasoningLevel]);
 
   const providerOptions: PickerOption<string>[] = providers.map((row) => ({
     value: row.id,
@@ -292,13 +297,15 @@ export function useThreadComposerOptions(input: {
     label: REASONING_LABELS[level]
   }));
   const provider = providers.find((row) => row.id === providerId) ?? providers[0];
-  const selectionError = cached && hasModel && model && !models.concat(moreModels).some(row => row.model === model)
-    ? 'The saved model is unavailable. Choose an available model before sending.'
-    : cached && hasAcpMode && acpMode && !acpModeOptions.some(row => row.value === acpMode)
-      ? 'The saved role is unavailable. Choose an available role before sending.'
-      : cached && hasReasoning && reasoningOptions.length > 0 && !reasoningOptions.some(row => row.value === reasoningLevel)
-        ? 'The saved reasoning level is unavailable. Choose an available level before sending.'
-      : null;
+  const selectionError = settling || !cached
+    ? null
+    : hasModel && model && !models.concat(moreModels).some(row => row.model === model)
+      ? 'The saved model is unavailable. Choose an available model before sending.'
+      : hasAcpMode && acpMode && !acpModeOptions.some(row => row.value === acpMode)
+        ? 'The saved role is unavailable. Choose an available role before sending.'
+        : hasReasoning && reasoningOptions.length > 0 && !reasoningOptions.some(row => row.value === reasoningLevel)
+          ? 'The saved reasoning level is unavailable. Choose an available level before sending.'
+          : null;
 
   return {
     providers,
@@ -318,6 +325,8 @@ export function useThreadComposerOptions(input: {
     modelOptions,
     moreModelOptions,
     modelIsLoading: loading,
+    /** The provider's own discovery result is in, so saved choices can be validated. */
+    catalogSettled: Boolean(cached) && !settling,
     modelLoadError,
     modelLoadErrorDetail,
     reasoningLevel,
