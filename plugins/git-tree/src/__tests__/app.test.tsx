@@ -489,7 +489,8 @@ describe('git-tree app UI tests', () => {
       { kind: 'add-tag' as const, commit: sampleCommit },
       { kind: 'stash-push' as const },
       { kind: 'stash-branch' as const, selector: 'stash@{0}' },
-      { kind: 'clean-untracked' as const }
+      { kind: 'clean-untracked' as const },
+      { kind: 'discard-all' as const }
     ];
 
     for (const dlg of dialogKinds) {
@@ -506,7 +507,7 @@ describe('git-tree app UI tests', () => {
       inputs.forEach((inp) => fireEvent.change(inp, { target: { value: 'test-val' } }));
       const checkboxes = modal.container.querySelectorAll('input[type="checkbox"]');
       checkboxes.forEach((cb) => fireEvent.click(cb));
-      const primaryBtn = modal.container.querySelector('.gg-btn-primary') as HTMLButtonElement | null;
+      const primaryBtn = modal.container.querySelector('.gg-btn-primary, .gg-btn-danger') as HTMLButtonElement | null;
       if (primaryBtn) fireEvent.click(primaryBtn);
       modal.unmount();
     }

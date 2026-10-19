@@ -30,8 +30,10 @@ export type ActiveGitDialog =
   | { kind: 'add-tag'; commit: GitCommitNode }
   | { kind: 'tag-details'; tagName: string; details: GitTagDetails | null }
   | { kind: 'stash-push' }
+  | { kind: 'commit-uncommitted' }
   | { kind: 'stash-branch'; selector: string }
-  | { kind: 'clean-untracked' };
+  | { kind: 'clean-untracked' }
+  | { kind: 'discard-all' };
 
 export interface ContextMenuOverlayProps {
   target: ContextMenuTarget | null;
@@ -383,6 +385,16 @@ export function ContextMenuOverlay({
             <button
               type="button"
               className="gg-context-menu-item"
+              onClick={() => {
+                onClose();
+                onOpenDialog({ kind: 'commit-uncommitted' });
+              }}
+            >
+              Commit…
+            </button>
+            <button
+              type="button"
+              className="gg-context-menu-item"
               disabled={!hasCommits}
               title={
                 !hasCommits
@@ -396,6 +408,16 @@ export function ContextMenuOverlay({
               }}
             >
               Stash Uncommitted Changes…
+            </button>
+            <button
+              type="button"
+              className="gg-context-menu-item danger"
+              onClick={() => {
+                onClose();
+                onOpenDialog({ kind: 'discard-all' });
+              }}
+            >
+              Discard All Changes…
             </button>
             <button
               type="button"
@@ -1220,6 +1242,46 @@ export function GitActionDialogModal({
           </>
         )}
 
+        {dialog.kind === 'commit-uncommitted' && (
+          <>
+            <div className="gg-modal-header">
+              <span>Commit Uncommitted Changes</span>
+              <button type="button" className="gg-btn gg-btn-icon" onClick={onClose}>
+                ✕
+              </button>
+            </div>
+            <div className="gg-modal-body">
+              <div className="gg-field">
+                <label className="gg-field-label">Commit Message</label>
+                <input
+                  type="text"
+                  className="gg-input"
+                  placeholder="Describe your changes"
+                  value={textA}
+                  onChange={(e) => setTextA(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="gg-modal-footer">
+              <button type="button" className="gg-btn" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="gg-btn gg-btn-primary"
+                disabled={!textA.trim()}
+                onClick={() => {
+                  onRunAction({ kind: 'commit-uncommitted', message: textA.trim() });
+                  onClose();
+                }}
+              >
+                Commit
+              </button>
+            </div>
+          </>
+        )}
+
         {dialog.kind === 'stash-push' && (
           <>
             <div className="gg-modal-header">
@@ -1349,6 +1411,38 @@ export function GitActionDialogModal({
                 }}
               >
                 Clean Files
+              </button>
+            </div>
+          </>
+        )}
+
+        {dialog.kind === 'discard-all' && (
+          <>
+            <div className="gg-modal-header">
+              <span>Discard All Changes</span>
+              <button type="button" className="gg-btn gg-btn-icon" onClick={onClose}>
+                ✕
+              </button>
+            </div>
+            <div className="gg-modal-body">
+              <p>
+                This resets all tracked files to HEAD and deletes all untracked files and
+                directories. This cannot be undone.
+              </p>
+            </div>
+            <div className="gg-modal-footer">
+              <button type="button" className="gg-btn" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="gg-btn gg-btn-danger"
+                onClick={() => {
+                  onRunAction({ kind: 'discard-all' });
+                  onClose();
+                }}
+              >
+                Discard All
               </button>
             </div>
           </>

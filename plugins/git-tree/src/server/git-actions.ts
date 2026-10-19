@@ -11,6 +11,7 @@ export interface GitActionOutcome {
   stdout: string;
   stderr: string;
   error?: string;
+  notice?: string;
 }
 
 async function runGitMutation(cwd: string, git: GitRunner, args: string[], timeoutMs = 45_000): Promise<GitActionOutcome> {
@@ -99,6 +100,21 @@ export async function executeGitAction(args: {
       const branch = assertSafeGitToken(str('branch'), 'branch');
       const setUpstream = bool('setUpstream');
       const forceMode = str('forceMode'); // 'none' | 'force-with-lease' | 'force'
+      if (!setUpstream) {
+        const remoteRef = `refs/remotes/${remote}/${branch}`;
+        const hasRemoteRef = await git({ cwd, args: ['rev-parse', '--verify', '--quiet', remoteRef] });
+        if (hasRemoteRef.code === 0) {
+          const ahead = await git({ cwd, args: ['rev-list', '--count', `${remoteRef}..refs/heads/${branch}`] });
+          if (ahead.code === 0 && Number(ahead.stdout.trim()) === 0) {
+            return {
+              ok: true,
+              stdout: '',
+              stderr: '',
+              notice: `Nothing to push: ${branch} has no new commits compared with ${remote}/${branch}.`
+            };
+          }
+        }
+      }
       const cmd: string[] = ['push'];
       if (setUpstream) cmd.push('--set-upstream');
       if (forceMode === 'force-with-lease') cmd.push('--force-with-lease');
@@ -291,6 +307,14 @@ export async function executeGitAction(args: {
     }
 
     // --- Stash & Uncommitted Actions ---
+    case 'commitUncommitted': {
+      const message = str('message');
+      if (!message) return { ok: false, error: 'Commit message is required.' };
+      const staged = await runGitMutation(cwd, git, ['add', '-A']);
+      if (!staged.ok) return staged;
+      return runGitMutation(cwd, git, ['commit', '-m', message]);
+    }
+
     case 'stashPush': {
       const message = str('message');
       const includeUntracked = bool('includeUntracked');
@@ -347,6 +371,12 @@ export async function executeGitAction(args: {
       const cmd = ['clean', '-f'];
       if (includeDirectories) cmd.push('-d');
       return runGitMutation(cwd, git, cmd);
+    }
+
+    case 'discardAll': {
+      const resetRes = await runGitMutation(cwd, git, ['reset', '--hard', 'HEAD']);
+      if (!resetRes.ok) return resetRes;
+      return runGitMutation(cwd, git, ['clean', '-f', '-d']);
     }
 
     // --- Remote Management ---

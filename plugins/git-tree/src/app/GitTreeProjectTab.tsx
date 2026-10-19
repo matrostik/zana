@@ -37,6 +37,7 @@ import {
 import { ControlBar } from './components/ControlBar.js';
 import { FindWidget } from './components/FindWidget.js';
 import { CommitDetailsPane } from './components/CommitDetailsPane.js';
+import { copyText } from './clipboard.js';
 import {
   ContextMenuOverlay,
   GitActionDialogModal,
@@ -459,12 +460,13 @@ export function GitTreeProjectTab({
     async (action: GitMutationAction) => {
       try {
         setBanner(null);
-        await rpc.call('runGitAction', {
+        const outcome = (await rpc.call('runGitAction', {
           projectId,
           subRepoRelPath: selectedRepoRelPath,
           action
-        });
+        })) as { notice?: string } | undefined;
         await loadReposAndGraph(selectedRepoRelPath, maxCommits);
+        if (outcome?.notice) setBanner({ kind: 'info', text: outcome.notice });
       } catch (err) {
         setBanner({
           kind: 'error',
@@ -638,9 +640,16 @@ export function GitTreeProjectTab({
     [handleUpdateGlobalSettings]
   );
 
-  const handleCopyText = useCallback((text: string, label: string) => {
-    void navigator.clipboard?.writeText(text);
-    setBanner({ kind: 'info', text: `${label} copied to clipboard.` });
+  const handleCopyText = useCallback(async (text: string, label: string) => {
+    if (!text) {
+      setBanner({ kind: 'info', text: `Nothing to copy: ${label} is empty.` });
+      return;
+    }
+    if (await copyText(text)) {
+      setBanner({ kind: 'info', text: `${label} copied to clipboard.` });
+    } else {
+      setBanner({ kind: 'error', text: `Could not copy ${label.toLowerCase()}.` });
+    }
   }, []);
 
   const handleViewTagDetails = useCallback(
@@ -1128,6 +1137,11 @@ export function GitTreeProjectTab({
             pruneTags: globalSettings.fetchAndPruneTags
           })
         }
+        onPush={() => {
+          const branch = graphData?.currentBranch;
+          if (branch) setActiveDialog({ kind: 'push-branch', branchName: branch });
+        }}
+        canPush={Boolean(graphData?.currentBranch)}
         onScrollToHead={handleScrollToHead}
         onToggleFind={() => setFindOpen((prev) => !prev)}
         onOpenRepoSettings={() => setSettingsOpen(true)}

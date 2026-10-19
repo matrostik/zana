@@ -1,4 +1,28 @@
-function ct(){return globalThis.__ZCC_PLUGIN_RUNTIME__??{}}function Dt(o){throw new Error(`${o} is not available until the host plugin runtime is installed`)}function Et(o){return{__zccPluginApp:!0,setup:o}}function Lt(){return ct().useRpc?.()??Dt("useRpc")}function ft(o,s){ct().useRealtime?.(o,s)}function $t(){return ct().useZccContext?.()??{projectId:null,threadId:null}}function zt(){return ct().useZccNavigate?.()??Dt("useZccNavigate")}var _t=`
+// ../../../../../../../Applications/Zana.app/Contents/Resources/zcc-cli/runtime/plugin-sdk-app.js
+function pluginRuntime() {
+  return globalThis.__ZCC_PLUGIN_RUNTIME__ ?? {};
+}
+function missing(name) {
+  throw new Error(`${name} is not available until the host plugin runtime is installed`);
+}
+function definePluginApp(setup) {
+  return { __zccPluginApp: true, setup };
+}
+function useRpc() {
+  return pluginRuntime().useRpc?.() ?? missing("useRpc");
+}
+function useRealtime(channel, handler) {
+  pluginRuntime().useRealtime?.(channel, handler);
+}
+function useZccContext() {
+  return pluginRuntime().useZccContext?.() ?? { projectId: null, threadId: null };
+}
+function useZccNavigate() {
+  return pluginRuntime().useZccNavigate?.() ?? missing("useZccNavigate");
+}
+
+// src/app/styles.ts
+var GIT_GRAPH_STYLES = `
 /* ==========================================================================
    Git Graph \u2014 VS Code Authentic Styling
    ========================================================================== */
@@ -1588,6 +1612,5230 @@ function ct(){return globalThis.__ZCC_PLUGIN_RUNTIME__??{}}function Dt(o){throw 
   inset: 0;
   z-index: 99;
 }
-`;var G=globalThis.__ZCC_HOST_REACT__,ve=G,Ln=G.Children,$n=G.Component,zn=G.Fragment,_n=G.StrictMode,Fn=G.Suspense,jn=G.cloneElement,Hn=G.createContext,Gn=G.createElement,Bn=G.createRef,On=G.forwardRef,Wn=G.isValidElement,Vn=G.lazy,Un=G.memo,qn=G.startTransition,Z=G.useCallback,Zn=G.useContext,Yn=G.useDebugValue,Kn=G.useDeferredValue,le=G.useEffect,Jn=G.useId,Xn=G.useImperativeHandle,Qn=G.useInsertionEffect,Ft=G.useLayoutEffect,pe=G.useMemo,eo=G.useReducer,Q=G.useRef,w=G.useState,to=G.useSyncExternalStore,no=G.useTransition,oo=G.version;var jt=["#0085d9","#d9008f","#00d90a","#d98500","#a300d9","#ff0000","#00d9cc","#e138e8","#85d900","#dc5b23","#6f24d6","#ffcc00"];function Ht(o,s,r=jt){let a=r.length>0?r:jt,u=new Map;o.forEach((A,h)=>u.set(A.hash,h));let m=new Set;if(s&&u.has(s)){let A=[s];for(m.add(s);A.length>0;){let h=A.shift(),$=u.get(h);if($!==void 0)for(let S of o[$].parents)m.has(S)||(m.add(S),u.has(S)&&A.push(S))}}let d=[],P=[],l=[],N=0,b=0,x=()=>{let A=a[N%a.length];return N+=1,A},c=A=>{let h=d.findIndex(S=>S===null);if(h>=0)return d[h]=A,h>b&&(b=h),h;let $=d.length;return d.push(A),$>b&&(b=$),$};for(let A=0;A<o.length;A++){let h=o[A],$=[];for(let V=0;V<d.length;V++)d[V]?.targetHash===h.hash&&$.push(V);let S,C;if($.length>0){S=$[0],C=h.isUncommitted?"#8a94a6":d[S].color;for(let V of $){let ee=d[V];l.push({fromRow:ee.fromRow,fromLane:ee.fromLane,toRow:A,toLane:S,color:ee.color,isUncommitted:ee.isUncommitted}),d[V]=null}}else C=h.isUncommitted?"#8a94a6":x(),S=c({targetHash:h.hash,color:C,fromRow:A,fromLane:0,isUncommitted:h.isUncommitted}),d[S]=null;P.push({commit:h,row:A,lane:S,color:C,isAncestorOfHead:h.isUncommitted||(s?m.has(h.hash):!0),isMerge:h.parents.length>1}),h.parents.filter(V=>u.has(V)).forEach((V,ee)=>{if(ee===0)d[S]={targetHash:V,color:h.isUncommitted?x():C,fromRow:A,fromLane:S,isUncommitted:h.isUncommitted};else{let ue=d.findIndex(H=>H?.targetHash===V),me=ue>=0?d[ue].color:x();c({targetHash:V,color:me,fromRow:A,fromLane:S})}})}return{nodes:P,segments:l,maxLane:b}}function Gt(o){let{segment:s,rowHeight:r,laneWidth:a,padX:u,style:m,expandedRow:d=-1,detailsHeight:P=0}=o,l=h=>d>=0&&P>0&&h>d?h*r+P+r/2:h*r+r/2,N=u+s.fromLane*a,b=l(s.fromRow),x=u+s.toLane*a,c=l(s.toRow);if(N===x)return`M ${N} ${b} L ${x} ${c}`;if(m==="angular"){let h=b+r*.5;return h>=c?`M ${N} ${b} L ${x} ${c}`:`M ${N} ${b} L ${N} ${h} L ${x} ${c}`}if(s.toRow-s.fromRow<=1){if(d>=0&&P>0&&s.fromRow<=d&&s.toRow>d){let S=b+r,C=b+r*.45,f=S-r*.45;return`M ${N} ${b} C ${N} ${C}, ${x} ${f}, ${x} ${S} L ${x} ${c}`}let h=b+r*.5,$=c-r*.5;return`M ${N} ${b} C ${N} ${h}, ${x} ${$}, ${x} ${c}`}if(s.toLane>s.fromLane){let h=b+r,$=b+r*.45,S=h-r*.45;return`M ${N} ${b} C ${N} ${$}, ${x} ${S}, ${x} ${h} L ${x} ${c}`}else{let h=c-r,$=h+r*.45,S=c-r*.45;return`M ${N} ${b} L ${N} ${h} C ${N} ${$}, ${x} ${S}, ${x} ${c}`}}var bn={":art:":"\u{1F3A8}",":zap:":"\u26A1",":fire:":"\u{1F525}",":bug:":"\u{1F41B}",":ambulance:":"\u{1F691}\uFE0F",":sparkles:":"\u2728",":memo:":"\u{1F4DD}",":rocket:":"\u{1F680}",":lipstick:":"\u{1F484}",":tada:":"\u{1F389}",":white_check_mark:":"\u2705",":lock:":"\u{1F512}\uFE0F",":bookmark:":"\u{1F516}",":rotating_light:":"\u{1F6A8}",":construction:":"\u{1F6A7}",":green_heart:":"\u{1F49A}",":arrow_down:":"\u2B07\uFE0F",":arrow_up:":"\u2B06\uFE0F",":pushpin:":"\u{1F4CC}",":construction_worker:":"\u{1F477}",":chart_with_upwards_trend:":"\u{1F4C8}",":recycle:":"\u267B\uFE0F",":heavy_plus_sign:":"\u2795",":heavy_minus_sign:":"\u2796",":wrench:":"\u{1F527}",":hammer:":"\u{1F528}",":globe_with_meridians:":"\u{1F310}",":pencil2:":"\u270F\uFE0F",":rewind:":"\u23EA\uFE0F",":twisted_rightwards_arrows:":"\u{1F500}",":package:":"\u{1F4E6}\uFE0F",":alien:":"\u{1F47D}\uFE0F",":truck:":"\u{1F69A}",":page_facing_up:":"\u{1F4C4}",":boom:":"\u{1F4A5}",":bento:":"\u{1F371}",":wheelchair:":"\u267F\uFE0F",":bulb:":"\u{1F4A1}",":speech_balloon:":"\u{1F4AC}",":card_file_box:":"\u{1F5C3}\uFE0F",":loud_sound:":"\u{1F50A}",":mute:":"\u{1F507}",":Coffin:":"\u26B0\uFE0F",":test_tube:":"\u{1F9EA}",":necktie:":"\u{1F454}",":stethoscope:":"\u{1FA7A}",":bricks:":"\u{1F9F1}"};function fn(o){return o.replace(/:[a-z0-9_+-]+:/gi,s=>{let r=s.toLowerCase();return bn[r]??s})}function dt(o,s=[]){let r=fn(o),a=[],u=/(`[^`]+`|https?:\/\/[^\s)]+)/g,m=0,d,P=l=>{if(l){if(s.length===0){a.push({kind:"text",text:l});return}for(let N of s)try{let b=new RegExp(N.pattern,"g"),x=0,c,A=[];for(;(c=b.exec(l))!==null;){c.index>x&&A.push({kind:"text",text:l.slice(x,c.index)});let h=N.urlTemplate;if(c.forEach(($,S)=>{$!==void 0&&(h=h.replace(new RegExp(`\\$${S}`,"g"),$))}),A.push({kind:"link",text:c[0],href:h}),x=c.index+c[0].length,c[0].length===0)break}if(A.length>0){x<l.length&&A.push({kind:"text",text:l.slice(x)}),a.push(...A);return}}catch{}a.push({kind:"text",text:l})}};for(;(d=u.exec(r))!==null;){d.index>m&&P(r.slice(m,d.index));let l=d[0];l.startsWith("`")&&l.endsWith("`")?a.push({kind:"code",text:l.slice(1,-1)}):a.push({kind:"link",text:l,href:l}),m=d.index+l.length}return m<r.length&&P(r.slice(m)),a.length>0?a:[{kind:"text",text:r}]}function Bt(o,s){let r={name:"",path:"",kind:"folder",children:[]};for(let u of o){let m=u.newPath.split("/").filter(Boolean),d=r,P="";for(let l=0;l<m.length;l++){let N=m[l];if(P=P?`${P}/${N}`:N,l===m.length-1)d.children.push({name:N,path:u.newPath,kind:"file",children:[],fileChange:u});else{let x=d.children.find(c=>c.kind==="folder"&&c.name===N);x||(x={name:N,path:P,kind:"folder",children:[]},d.children.push(x)),d=x}}}function a(u){return u.map(d=>{if(d.kind==="file")return d;let P={...d,children:a(d.children)};for(;s&&P.children.length===1&&P.children[0].kind==="folder";){let l=P.children[0];P={name:`${P.name}/${l.name}`,path:l.path,kind:"folder",children:l.children}}return P}).sort((d,P)=>d.kind!==P.kind?d.kind==="folder"?-1:1:d.name.localeCompare(P.name))}return a(r.children)}function Ot(o){let s=[],r=0,a=o.lines;for(;r<a.length;){let u=a[r];if(u.type==="context"){s.push({leftLineNumber:u.oldLineNumber,leftContent:u.content,leftType:"context",rightLineNumber:u.newLineNumber,rightContent:u.content,rightType:"context"}),r+=1;continue}if(u.type==="meta"){s.push({leftLineNumber:null,leftContent:u.content,leftType:"meta",rightLineNumber:null,rightContent:u.content,rightType:"meta"}),r+=1;continue}let m=[],d=[];for(;r<a.length&&a[r].type==="del";)m.push(a[r]),r+=1;for(;r<a.length&&a[r].type==="add";)d.push(a[r]),r+=1;let P=Math.max(m.length,d.length);for(let l=0;l<P;l++){let N=m[l],b=d[l];s.push({leftLineNumber:N?N.oldLineNumber:null,leftContent:N?N.content:"",leftType:N?"del":"empty",rightLineNumber:b?b.newLineNumber:null,rightContent:b?b.content:"",rightType:b?"add":"empty"})}}return s}function ot(o,s,r=Date.now()){if(!o)return"";let a=new Date(o*1e3);if(s==="iso")return a.toISOString().slice(0,16).replace("T"," ");if(s==="datetime")return a.toLocaleString();let u=Math.max(0,Math.floor((r-o*1e3)/1e3));if(u<60)return"just now";let m=Math.floor(u/60);if(m<60)return`${m}m ago`;let d=Math.floor(m/60);if(d<24)return`${d}h ago`;let P=Math.floor(d/24);if(P<30)return`${P}d ago`;let l=Math.floor(P/30);return l<12?`${l}mo ago`:`${Math.floor(P/365)}y ago`}var Wt=globalThis.__ZCC_HOST_REACT__,j=Wt.Fragment;function e(o,s,r){return Wt.createElement(o,r===void 0?s:{...s,key:r})}var t=e;function Vt(o){let[s,r]=w(!1),[a,u]=w(""),{repos:m,selectedRepoRelPath:d,onSelectRepo:P,branches:l,remoteBranches:N,repoSettings:b,globalSettings:x,onUpdateRepoSettings:c,onUpdateGlobalSettings:A,onFetch:h,onScrollToHead:$,onToggleFind:S,findOpen:C,onOpenRepoSettings:f,onRefresh:V,projects:ee,selectedProjectId:ue,onSelectProject:me,loading:H,headerActions:I}=o,q=b.selectedBranches,D=q.length===0,oe=[...l,...b.showRemoteBranches?N.map(T=>`remotes/${T}`):[]].filter(T=>!a.trim()||T.toLowerCase().includes(a.trim().toLowerCase())),Re=T=>{let J=new Set(q);J.has(T)?J.delete(T):J.add(T),c({selectedBranches:[...J]})};return t("header",{className:"gg-control-bar git-graph-toolbar",role:"toolbar","aria-label":"Git Tree controls",children:[t("div",{className:"git-graph-toolbar-left",children:[e("span",{className:"git-graph-title",children:"\u2442 Git Tree"}),ee&&ee.length>1&&t("label",{className:"gg-control-project-label",children:[e("span",{className:"gg-control-muted-label",children:"Project:"}),e("select",{"aria-label":"Select project",className:"gg-select git-graph-select",value:ue,onChange:T=>me?.(T.target.value),children:ee.map(T=>e("option",{value:T.id,children:T.name},T.id))})]}),m.length>1&&t("label",{className:"gg-control-project-label",children:[e("span",{className:"gg-control-muted-label",children:"Repo:"}),e("select",{"aria-label":"Select repository",className:"gg-select git-graph-select",value:d,onChange:T=>P(T.target.value),children:m.map(T=>t("option",{value:T.relPath,children:[T.label," ",T.currentBranch?`(${T.currentBranch})`:""]},T.relPath||"root"))})]}),t("div",{style:{position:"relative",zIndex:s?100:1},children:[e("button",{type:"button",className:`gg-btn git-graph-btn ${D?"":"git-graph-btn--active"}`,"aria-label":"Filter branches","aria-expanded":s,onClick:()=>r(T=>!T),"data-testid":"gg-branches-filter-btn",children:t("span",{children:["\u2442 Branches:"," ",D?"Show All":q.length===1?q[0]:`${q.length} selected`," \u25BE"]})}),s&&t(j,{children:[e("div",{className:"gg-context-overlay-fixed",onClick:()=>r(!1)}),t("div",{className:"gg-popover git-graph-popover",role:"dialog","aria-label":"Branch filter","data-testid":"gg-branches-popover",children:[t("div",{className:"gg-branch-filter-header",children:[e("strong",{className:"gg-font-12",children:"Filter Branches"}),e("button",{type:"button",className:"gg-btn git-graph-btn",onClick:()=>r(!1),children:"Close"})]}),e("input",{type:"search",className:"git-graph-input",placeholder:"Filter branch list...",value:a,onChange:T=>u(T.target.value)}),t("label",{className:"git-graph-checkbox-row",children:[e("input",{type:"checkbox",checked:D,onChange:()=>c({selectedBranches:[]})}),e("span",{children:"Show All Branches"})]}),t("label",{className:"git-graph-checkbox-row",children:[e("input",{type:"checkbox",checked:b.showRemoteBranches,onChange:T=>c({showRemoteBranches:T.target.checked})}),e("span",{children:"Show Remote Branches"})]}),t("label",{className:"git-graph-checkbox-row",children:[e("input",{type:"checkbox",checked:b.showTags,onChange:T=>c({showTags:T.target.checked})}),e("span",{children:"Show Tags"})]}),t("label",{className:"git-graph-checkbox-row",children:[e("input",{type:"checkbox",checked:b.showStashes,onChange:T=>c({showStashes:T.target.checked})}),e("span",{children:"Show Stashes"})]}),t("label",{className:"git-graph-checkbox-row",children:[e("input",{type:"checkbox",checked:b.onlyFollowFirstParent,onChange:T=>c({onlyFollowFirstParent:T.target.checked})}),e("span",{children:"Only Follow First Parent"})]}),e("div",{className:"git-graph-context-sep"}),e("div",{className:"gg-branch-scroll-list",children:oe.map(T=>t("label",{className:"git-graph-checkbox-row",children:[e("input",{type:"checkbox",checked:q.includes(T),onChange:()=>Re(T)}),e("span",{className:"gg-ellipsis",children:T})]},T))})]})]})]}),t("select",{"aria-label":"Commit ordering",className:"gg-select git-graph-select",value:b.commitOrdering,onChange:T=>c({commitOrdering:T.target.value}),title:"Commit order",children:[e("option",{value:"date",children:"Order: Commit Date"}),e("option",{value:"author-date",children:"Order: Author Date"}),e("option",{value:"topo",children:"Order: Topological"})]}),t("button",{type:"button",className:"gg-btn git-graph-btn",title:"Toggle rounded or angular graph lines",onClick:()=>A({graphStyle:x.graphStyle==="rounded"?"angular":"rounded"}),children:["Style: ",x.graphStyle==="rounded"?"Rounded":"Angular"]}),t("button",{type:"button",className:"gg-btn git-graph-btn",title:"Toggle Commit Details location (Docked split vs Inline row)",onClick:()=>A({commitDetailsLocation:x.commitDetailsLocation==="docked"?"inline":"docked"}),children:["Details: ",x.commitDetailsLocation==="docked"?"Docked":"Inline"]})]}),t("div",{className:"git-graph-toolbar-right",children:[e("button",{type:"button",className:"gg-btn git-graph-btn",onClick:h,disabled:H,title:"Fetch from Remote(s)",children:"\u2B07 Fetch"}),e("button",{type:"button",className:"gg-btn git-graph-btn",onClick:$,title:"Scroll to HEAD (Ctrl/Cmd+H)",children:"\u2316 HEAD"}),e("button",{type:"button",className:`gg-btn git-graph-btn ${C?"git-graph-btn--active active":""}`,onClick:S,title:"Find commits, branches, or tags (Ctrl/Cmd+F)","data-testid":"gg-find-btn",children:"\u{1F50D} Find"}),e("button",{type:"button",className:"gg-btn git-graph-btn",onClick:f,title:"Repository Settings (Remotes, Issue Linking, Pull Requests)","data-testid":"gg-repo-settings-btn",children:"\u2699 Settings"}),t("button",{type:"button",className:"gg-btn git-graph-btn",onClick:V,disabled:H,title:"Refresh Git Tree (Ctrl/Cmd+R)",children:["\u21BB ",H?"Loading\u2026":"Refresh"]}),I]})]})}function Ut(o){let{query:s,onChangeQuery:r,matchCount:a,activeMatchIndex:u,onPrev:m,onNext:d,onClose:P}=o;return t("div",{className:"git-graph-find-bar",role:"search","aria-label":"Find in Git Tree","data-testid":"gg-find-widget",children:[e("input",{type:"search",className:"git-graph-input gg-find-input-width","aria-label":"Find commits",placeholder:"Find commit, hash, author, branch, tag...",value:s,autoFocus:!0,onChange:l=>r(l.target.value),onKeyDown:l=>{l.key==="Enter"?(l.preventDefault(),l.shiftKey?m():d()):l.key==="Escape"&&(l.preventDefault(),P())},"data-testid":"gg-find-input"}),e("span",{className:"gg-find-count-badge",children:s.trim()?a>0?`${u+1} / ${a}`:"0 / 0":""}),e("button",{type:"button",className:"git-graph-btn",disabled:a===0,onClick:m,title:"Previous match (Shift+Enter)","data-testid":"gg-find-prev",children:"\u2191"}),e("button",{type:"button",className:"git-graph-btn",disabled:a===0,onClick:d,title:"Next match (Enter)","data-testid":"gg-find-next",children:"\u2193"}),e("button",{type:"button",className:"git-graph-btn",onClick:P,"aria-label":"Close find widget",children:"\u2715"})]})}var qt="zcc.gitTree.commitDetailsFilesWidth",Zt="zcc.gitTree.commitDetailsFilesHeight",gt="zcc.gitTree.commitDetailsHeight",xt="zcc.gitTree.commitDetailsWidth",vt=200,pt=100,Yt=260,xn=320;function Kt(o){try{if(typeof localStorage>"u")return null;let s=Number(localStorage.getItem(o));return Number.isFinite(s)&&s>0?s:null}catch{return null}}function ye(o,s){try{if(typeof localStorage>"u")return;s===null?localStorage.removeItem(o):localStorage.setItem(o,String(s))}catch{}}function Jt(o,s){if(!o.length)return 290;let r=0;for(let a of o){let u=s==="list"?a.oldPath!==a.newPath?`${a.oldPath} \u2192 ${a.newPath}`:a.newPath:a.newPath.split("/").pop()||a.newPath;u.length>r&&(r=u.length)}return Math.max(260,Math.min(650,Math.round(r*7.8+120)))}function yt({mode:o,details:s,comparison:r,loading:a,inline:u,fileViewType:m,compactFolders:d,diffViewMode:P,dateFormat:l,issueRules:N,codeReview:b,selectedFilePath:x,fileDiff:c,loadingDiff:A,fileContent:h,loadingContent:$,onSelectFile:S,onLoadFileContent:C,onChangeFileViewType:f,onToggleCompactFolders:V,onChangeDiffViewMode:ee,onStartCodeReview:ue,onToggleReviewedFile:me,onEndCodeReview:H,onSelectParentHash:I,onAskAgent:q,onCopyText:D,onClose:oe}){let[Re,T]=w({}),[J,Fe]=w("diff"),Ae=Q(null),Te=Q(null),Pe=Q(null),he=Q(null),te=pe(()=>o==="comparison"?r?.fileChanges??[]:s?.fileChanges??[],[o,s,r]),we=o==="comparison"?`${r?.fromHash??""}..${r?.toHash??""}`:s?.hash??"",[be,Ie]=w(()=>Kt(gt)),[ke,qe]=w(()=>Kt(xt)),[Ce,je]=w(!1),[Ze,He]=w(!1),[Ne,Me]=w(()=>Jt(te,m)),[De,Ye]=w(!1),[Ee,Ge]=w(()=>{let g=te.length*28+48;return Math.min(260,Math.max(pt,g))}),Be=Q(we);le(()=>{Be.current!==we&&(Be.current=we,He(!1),Ye(!1))},[we]);let ae=Q(null),Le=Q(null),ce=Q(null),Ke=Q(null);le(()=>()=>{ae.current?.(),Le.current?.(),ce.current?.(),Ke.current?.(),document.body.style.cursor="",document.body.style.userSelect=""},[]),le(()=>{let g=Pe.current;if(!g)return;let M=()=>{g&&g.clientWidth>0&&je(g.clientWidth<=640)};if(M(),window.addEventListener("resize",M),typeof ResizeObserver<"u"){let v=new ResizeObserver(M);return v.observe(g),()=>{window.removeEventListener("resize",M),v.disconnect()}}return()=>window.removeEventListener("resize",M)},[]),Ft(()=>{if(te.length===0)return;let g=()=>{let v=he.current,R=Pe.current;if(!(!v||!R))if(Ce){if(De)return;let F=R.clientHeight>0?R.clientHeight:500,L=Math.floor(F*.5),y=0,Y=v.querySelectorAll(".gg-file-row, .gg-folder-row");Y.length>0?(Y.forEach(xe=>{y+=(xe.offsetHeight||26)+2}),y+=8):y=te.length*26+8;let K=Math.max(v.scrollHeight+48,y+48),W=K>L?L:Math.max(pt,K),ne=Math.max(pt,Math.min(Math.floor(F*.8),W));Ge(ne)}else{if(Ze)return;let F=0;v.querySelectorAll(".gg-file-row, .gg-folder-row").forEach(W=>{let ne=W.querySelector(".gg-file-path");if(ne){let xe=Math.max(0,ne.scrollWidth-ne.clientWidth),et=W.offsetWidth+xe;et>F&&(F=et)}else W.scrollWidth>F&&(F=W.scrollWidth)});let y=F>0?F+24:0;y<=0&&(y=Jt(te,m));let Y=R.clientWidth>0?Math.floor(R.clientWidth*.6):650,K=Math.max(vt,Math.min(Math.max(vt,Y),y));Me(K)}};g();let M=requestAnimationFrame(g);return()=>cancelAnimationFrame(M)},[te,m,d,Ze,De,Ce]);let it=g=>{g.preventDefault(),document.body.style.cursor="row-resize",document.body.style.userSelect="none";let M=g.clientY,v=Ee,R=v,F=Y=>{let K=Y.clientY-M,W=Pe.current,ne=W&&W.clientHeight>0?W.clientHeight:600,xe=Math.floor(ne*.8);R=Math.max(pt,Math.min(xe,Math.round(v+K))),Ge(R),Ye(!0)},L=()=>{document.body.style.cursor="",document.body.style.userSelect="",window.removeEventListener("mousemove",F),window.removeEventListener("mouseup",y),Le.current=null},y=()=>{L(),ye(Zt,R)};Le.current=L,window.addEventListener("mousemove",F),window.addEventListener("mouseup",y)},Oe=()=>{Ye(!1),ye(Zt,null)},at=g=>{g.preventDefault(),document.body.style.cursor="col-resize",document.body.style.userSelect="none";let M=g.clientX,v=Ne,R=v,F=Y=>{let K=Y.clientX-M,W=Pe.current,ne=W&&W.clientWidth>0?Math.floor(W.clientWidth*.75):800;R=Math.max(vt,Math.min(ne,Math.round(v+K))),Me(R),He(!0)},L=()=>{document.body.style.cursor="",document.body.style.userSelect="",window.removeEventListener("mousemove",F),window.removeEventListener("mouseup",y),ae.current=null},y=()=>{L(),ye(qt,R)};ae.current=L,window.addEventListener("mousemove",F),window.addEventListener("mouseup",y)},Je=()=>{He(!1),ye(qt,null)},Xe=g=>{g.preventDefault(),document.body.style.cursor="row-resize",document.body.style.userSelect="none";let M=g.clientY,v=Te.current?.offsetHeight??(be||480),R=v,F=Y=>{let K=M-Y.clientY,W=typeof window<"u"?Math.round(window.innerHeight*.88):900;R=Math.max(Yt,Math.min(W,Math.round(v+K))),Ie(R)},L=()=>{document.body.style.cursor="",document.body.style.userSelect="",window.removeEventListener("mousemove",F),window.removeEventListener("mouseup",y),ce.current=null},y=()=>{L(),ye(gt,R)};ce.current=L,window.addEventListener("mousemove",F),window.addEventListener("mouseup",y)},X=g=>{g.preventDefault(),document.body.style.cursor="row-resize",document.body.style.userSelect="none";let M=g.clientY,v=Te.current?.offsetHeight??(be||480),R=v,F=Y=>{let K=Y.clientY-M,W=typeof window<"u"?Math.round(window.innerHeight*.88):900;R=Math.max(Yt,Math.min(W,Math.round(v+K))),Ie(R)},L=()=>{document.body.style.cursor="",document.body.style.userSelect="",window.removeEventListener("mousemove",F),window.removeEventListener("mouseup",y),ce.current=null},y=()=>{L(),ye(gt,R)};ce.current=L,window.addEventListener("mousemove",F),window.addEventListener("mouseup",y)},Qe=()=>{Ie(null),ye(gt,null)},We=g=>{g.preventDefault(),document.body.style.cursor="col-resize",document.body.style.userSelect="none";let M=g.clientX,v=Te.current?.offsetWidth??(ke||500),R=v,F=Y=>{let K=M-Y.clientX,W=typeof window<"u"?Math.round(window.innerWidth*.8):1e3;R=Math.max(xn,Math.min(W,Math.round(v+K))),qe(R)},L=()=>{document.body.style.cursor="",document.body.style.userSelect="",window.removeEventListener("mousemove",F),window.removeEventListener("mouseup",y),Ke.current=null},y=()=>{L(),ye(xt,R)};Ke.current=L,window.addEventListener("mousemove",F),window.addEventListener("mouseup",y)},Ve=()=>{qe(null),ye(xt,null)},O=pe(()=>{let g={};return be&&(g.height=`${be}px`,g.maxHeight="88vh"),!u&&ke&&(g.width=`${ke}px`,g.maxWidth="80%"),Object.keys(g).length>0?g:void 0},[u,be,ke]);le(()=>{x&&Ae.current&&Ae.current?.scrollIntoView?.({behavior:"smooth",block:"nearest"})},[x]);let fe=pe(()=>Bt(te,d),[te,d]),E=pe(()=>new Set(b?.reviewedFiles??[]),[b]),$e=g=>{T(M=>({...M,[g]:!M[g]}))},ze=g=>dt(g,N).map((v,R)=>v.kind==="code"?e("code",{children:v.text},R):v.kind==="link"&&v.href?e("a",{href:v.href,target:"_blank",rel:"noreferrer",children:v.text},R):e(ve.Fragment,{children:v.text},R)),re=(g,M,v=0)=>{let R=x===g.newPath,F=E.has(g.newPath);return t("div",{className:`gg-file-row ${R?"selected":""}`,style:{paddingLeft:`${12+v*14}px`},onClick:()=>{S(g),J==="source"&&C?.(g.newPath)},"data-testid":`gg-file-row-${g.newPath}`,children:[b&&e("input",{type:"checkbox",checked:F,onClick:L=>L.stopPropagation(),onChange:L=>me(g.newPath,L.target.checked),title:"Mark file as reviewed"}),e("span",{className:`gg-file-status gg-file-status-${g.status}`,children:g.status}),t("span",{className:"gg-file-path",style:{textDecoration:F?"line-through":void 0,opacity:F?.65:1},title:g.oldPath!==g.newPath?`${g.oldPath} \u2192 ${g.newPath}`:g.newPath,children:[M,g.staged!==void 0&&t("span",{className:"gg-file-badge",children:["(",g.staged?"staged":"unstaged",")"]})]}),t("span",{className:"gg-file-stat",children:[g.additions!==null&&g.additions>0&&t("span",{className:"gg-stat-add",children:["+",g.additions]}),g.deletions!==null&&g.deletions>0&&t("span",{className:"gg-stat-del",children:["-",g.deletions]})]}),e("button",{type:"button",className:"gg-btn gg-btn-icon gg-btn-compact-10",title:"Copy File Path",onClick:L=>{L.stopPropagation(),D(g.newPath,"File path")},children:"\u{1F4CB}"})]},`${g.newPath}:${g.staged?"staged":"work"}`)},se=(g,M=0)=>g.map(v=>{if(v.kind==="file"&&v.fileChange)return re(v.fileChange,v.name,M);let R=!!Re[v.path];return t(ve.Fragment,{children:[t("div",{className:"gg-folder-row",style:{paddingLeft:`${12+M*14}px`},onClick:()=>$e(v.path),children:[e("span",{children:R?"\u25B8":"\u25BE"}),t("span",{children:["\u{1F4C1} ",v.name]})]}),!R&&se(v.children,M+1)]},`folder:${v.path}`)});return t("div",{ref:Te,className:`gg-details-pane ${u?"gg-details-inline inline":""}`,style:O,"data-testid":"gg-details-pane",children:[e("div",{className:"gg-details-top-resizer",onMouseDown:Xe,onDoubleClick:Qe,title:"Drag to resize height \xB7 Double-click to reset","data-testid":"gg-details-top-resizer"}),u&&e("div",{className:"gg-details-bottom-resizer",onMouseDown:X,onDoubleClick:Qe,title:"Drag to resize height \xB7 Double-click to reset","data-testid":"gg-details-bottom-resizer"}),!u&&e("div",{className:"gg-details-left-resizer",onMouseDown:We,onDoubleClick:Ve,title:"Drag to resize pane width \xB7 Double-click to reset","data-testid":"gg-details-left-resizer"}),t("div",{className:"gg-details-header",children:[e("div",{className:"gg-details-header-title",children:o==="comparison"&&r?t(j,{children:[e("span",{children:"Comparing"}),e("span",{className:"gg-commit-hash gg-commit-hash-auto",children:r.fromHash.slice(0,7)}),e("span",{children:"\u2194"}),e("span",{className:"gg-commit-hash gg-commit-hash-auto",children:r.toHash.slice(0,7)})]}):s?t(j,{children:[e("span",{children:s.hash==="*"?"Uncommitted Changes":`Commit ${s.abbreviatedHash}`}),s.signature&&t("span",{className:"gg-ref-badge gg-ref-tag",title:s.signature.signer||s.signature.label,children:["\u{1F512} ",s.signature.label]})]}):e("span",{children:"Commit Details"})}),t("div",{className:"gg-flex-row gg-gap-4 gg-flex-shrink-0",children:[e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>q(x??void 0),title:"Spawn a Zana Agent thread with this commit and diff context","data-testid":"gg-ask-agent-btn",children:"\u2728 Ask Agent"}),b?t("button",{type:"button",className:"gg-btn",onClick:H,title:"End Code Review","data-testid":"gg-end-review-btn",children:["\u2713 End Review (",E.size,"/",te.length,")"]}):e("button",{type:"button",className:"gg-btn",onClick:ue,title:"Start Persistent Code Review","data-testid":"gg-start-review-btn",children:"\u{1F441} Code Review"}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:oe,title:"Close Details (Esc)","data-testid":"gg-close-details-btn",children:"\u2715"})]})]}),a?e("div",{className:"gg-empty",children:"Loading commit details\u2026"}):t("div",{className:"gg-details-body",children:[o==="single"&&s&&s.hash!=="*"&&t("div",{className:"gg-details-meta",children:[t("div",{className:"gg-details-meta-grid",children:[e("span",{className:"gg-details-meta-label",children:"Commit:"}),t("span",{children:[e("code",{children:s.hash})," ",e("button",{type:"button",className:"gg-btn gg-btn-icon gg-btn-compact-10",onClick:()=>D(s.hash,"Commit hash"),children:"Copy"})]}),e("span",{className:"gg-details-meta-label",children:"Parents:"}),e("span",{children:s.parents.length===0?"None (root commit)":s.parents.map((g,M)=>t(ve.Fragment,{children:[M>0&&", ",e("span",{className:"gg-parent-link",onClick:()=>I(g),children:g.slice(0,8)})]},g))}),e("span",{className:"gg-details-meta-label",children:"Author:"}),t("span",{children:[s.authorName," <",s.authorEmail,"> (",ot(s.authorDate,l),")"]}),e("span",{className:"gg-details-meta-label",children:"Committer:"}),t("span",{children:[s.committerName," <",s.committerEmail,"> (",ot(s.commitDate,l),")"]})]}),t("div",{className:"gg-details-message",children:[e("strong",{children:ze(s.subject)}),s.body?`
+`;
 
-${s.body}`:""]})]}),t("div",{ref:Pe,className:`gg-details-columns ${Ce?"stacked":"side-by-side"}`,"data-testid":"gg-details-columns",children:[t("div",{className:"gg-details-col-files",style:Ce?{height:`${Ee}px`,flexBasis:`${Ee}px`,width:"100%"}:{width:`${Ne}px`,flexBasis:`${Ne}px`},children:[t("div",{className:"gg-files-toolbar",children:[t("span",{children:["Changed Files (",te.length,")",b?` \u2022 Reviewed ${E.size}/${te.length}`:""]}),t("div",{className:"gg-flex-row gg-gap-4",children:[e("button",{type:"button",className:`gg-btn gg-btn-compact-11 ${m==="tree"?"gg-btn-active":""}`,onClick:()=>f("tree"),"data-testid":"gg-view-tree-btn",children:"Tree"}),e("button",{type:"button",className:`gg-btn gg-btn-compact-11 ${m==="list"?"gg-btn-active":""}`,onClick:()=>f("list"),"data-testid":"gg-view-list-btn",children:"List"}),m==="tree"&&e("button",{type:"button",className:`gg-btn gg-btn-compact-11 ${d?"gg-btn-active":""}`,onClick:V,title:"Compact single-child folders",children:"Compact"})]})]}),e("div",{ref:he,className:"gg-file-list","data-testid":"gg-file-list",children:te.length===0?e("div",{className:"gg-empty gg-pad-12",children:"No file changes in this commit."}):m==="tree"?se(fe):te.map(g=>re(g,g.oldPath!==g.newPath?`${g.oldPath} \u2192 ${g.newPath}`:g.newPath,0))})]}),Ce?e("div",{className:"gg-details-row-resizer",onMouseDown:it,onDoubleClick:Oe,title:"Drag to resize \xB7 Double-click to auto-split","data-testid":"gg-details-row-resizer"}):e("div",{className:"gg-details-col-resizer",onMouseDown:at,onDoubleClick:Je,title:"Drag to resize column \xB7 Double-click to auto-fit","data-testid":"gg-details-col-resizer"}),e("div",{className:"gg-details-col-diff",children:x?t("div",{className:"gg-diff-viewer","data-testid":"gg-diff-viewer",ref:Ae,children:[t("div",{className:"gg-diff-toolbar",children:[e("span",{style:{fontFamily:"var(--font-mono, monospace)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:600},title:x,children:x}),t("div",{className:"gg-flex-row gg-gap-4",children:[e("button",{type:"button",className:`gg-btn gg-btn-pad-8 ${J==="diff"?"gg-btn-active":""}`,onClick:()=>Fe("diff"),"data-testid":"gg-view-diff-btn",title:"View diff changes",children:"Diff"}),e("button",{type:"button",className:`gg-btn gg-btn-pad-8 ${J==="source"?"gg-btn-active":""}`,onClick:()=>{Fe("source"),x&&!h&&C?.(x)},"data-testid":"gg-view-source-btn",title:"View full source code",children:"Source Code"}),J==="diff"&&t(j,{children:[e("button",{type:"button",className:`gg-btn gg-btn-compact-11 ${P==="unified"?"gg-btn-active":""}`,onClick:()=>ee("unified"),"data-testid":"gg-diff-unified-btn",children:"Unified"}),e("button",{type:"button",className:`gg-btn gg-btn-compact-11 ${P==="split"?"gg-btn-active":""}`,onClick:()=>ee("split"),"data-testid":"gg-diff-split-btn",children:"Split"})]}),e("button",{type:"button",className:"gg-btn gg-btn-icon gg-btn-compact-11",title:J==="source"?"Copy file content":"Copy diff",onClick:()=>D(J==="source"?h?.content??"":c?.rawDiff??"",J==="source"?"Source code":"Diff"),children:"\u{1F4CB}"})]})]}),e("div",{className:"gg-diff-content-scroll",children:J==="source"?$?e("div",{className:"gg-empty gg-pad-16",children:"Loading source code\u2026"}):h?h.isBinary?e("div",{className:"gg-empty gg-pad-16",children:"Binary file \u2014 cannot display text content."}):e("table",{className:"gg-source-table","data-testid":"gg-source-code-table",children:e("tbody",{children:h.content.split(/\r?\n/).map((g,M)=>t("tr",{className:"gg-source-line",children:[e("td",{className:"gg-diff-gutter",children:M+1}),e("td",{className:"gg-diff-code",children:g||" "})]},M))})}):e("div",{className:"gg-empty gg-pad-16",children:"No source code available for this file."}):A?e("div",{className:"gg-empty gg-pad-16",children:"Loading diff\u2026"}):c?c.isBinary?e("div",{className:"gg-empty gg-pad-16",children:"Binary file changed \u2014 inline text diff not available."}):c.hunks.length===0?e("div",{className:"gg-empty gg-pad-16",children:"No textual diff hunks (empty file or mode-only change)."}):P==="unified"?e("table",{className:"gg-diff-table","data-testid":"gg-diff-unified-table",children:e("tbody",{children:c.hunks.map((g,M)=>t(ve.Fragment,{children:[e("tr",{className:"gg-diff-hunk-header",children:e("td",{colSpan:3,className:"gg-diff-code",children:g.header})}),g.lines.map((v,R)=>t("tr",{className:v.type==="add"?"gg-diff-line-add":v.type==="del"?"gg-diff-line-del":"",children:[e("td",{className:"gg-diff-gutter",children:v.oldLineNumber??""}),e("td",{className:"gg-diff-gutter",children:v.newLineNumber??""}),e("td",{className:"gg-diff-code",children:v.type==="add"?`+${v.content}`:v.type==="del"?`-${v.content}`:` ${v.content}`})]},`${M}-${R}`))]},M))})}):e("table",{className:"gg-diff-table","data-testid":"gg-diff-split-table",children:e("tbody",{children:c.hunks.map((g,M)=>{let v=Ot(g);return t(ve.Fragment,{children:[e("tr",{className:"gg-diff-hunk-header",children:e("td",{colSpan:4,className:"gg-diff-code",children:g.header})}),v.map((R,F)=>t("tr",{children:[e("td",{className:`gg-diff-gutter ${R.leftType==="del"?"gg-diff-line-del":""}`,children:R.leftLineNumber??""}),e("td",{className:`gg-diff-code gg-diff-half-width ${R.leftType==="del"?"gg-diff-line-del":""}`,children:R.leftContent}),e("td",{className:`gg-diff-gutter ${R.rightType==="add"?"gg-diff-line-add":""}`,children:R.rightLineNumber??""}),e("td",{className:`gg-diff-code gg-diff-half-width ${R.rightType==="add"?"gg-diff-line-add":""}`,children:R.rightContent})]},`${M}-${F}`))]},M)})})}):e("div",{className:"gg-empty gg-pad-16",children:"Select a file to inspect its diff."})})]}):e("div",{className:"gg-empty",style:{height:"100%",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"},children:"Select a file from the list to inspect changes."})})]})]})]})}function Xt({target:o,currentBranch:s,hasCommits:r=!0,onClose:a,onRunAction:u,onOpenDialog:m,onOpenPullRequest:d,onViewTagDetails:P,onCopyText:l,onAskAgent:N}){if(!o)return null;let b={left:`${Math.min(o.x,window.innerWidth-220)}px`,top:`${Math.min(o.y,window.innerHeight-320)}px`};return e("div",{className:"gg-context-overlay-fixed",onClick:a,onContextMenu:x=>{x.preventDefault(),a()},children:t("div",{className:"gg-context-menu",style:b,onClick:x=>x.stopPropagation(),"data-testid":"gg-context-menu",children:[o.kind==="branch"&&t(j,{children:[t("div",{className:"gg-context-menu-header",children:["Branch: ",o.ref.name]}),o.ref.name!==s&&e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),u({kind:"checkout-branch",branchName:o.ref.name})},children:"Checkout Branch"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"rename-branch",branchName:o.ref.name})},children:"Rename Branch\u2026"}),o.ref.name!==s&&t(j,{children:[e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"merge-branch",branchName:o.ref.name})},children:"Merge into Current Branch\u2026"}),t("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"rebase-branch",ontoBranch:o.ref.name})},children:["Rebase Current Branch onto ",o.ref.name,"\u2026"]})]}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"push-branch",branchName:o.ref.name})},children:"Push Branch\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"pull-branch",branchName:o.ref.name})},children:"Pull into Branch\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),d(o.ref.name)},children:"Create Pull Request\u2026"}),e("div",{className:"gg-context-menu-sep"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),l(o.ref.name,"Branch name")},children:"Copy Branch Name"}),o.ref.name!==s&&e("button",{type:"button",className:"gg-context-menu-item danger",onClick:()=>{a(),m({kind:"delete-branch",branchName:o.ref.name})},children:"Delete Branch\u2026"})]}),o.kind==="remote-branch"&&t(j,{children:[t("div",{className:"gg-context-menu-header",children:["Remote Branch: ",o.ref.remote,"/",o.ref.name]}),t("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),u({kind:"checkout-branch",branchName:o.ref.name,createAndTrackFrom:`${o.ref.remote}/${o.ref.name}`})},children:["Checkout Branch (Track ",o.ref.remote,"/",o.ref.name,")"]}),t("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),u({kind:"fetch-into-local-branch",remote:o.ref.remote||"origin",remoteBranch:o.ref.name,localBranch:o.ref.name,force:!1})},children:["Fetch into Local Branch (",o.ref.name,")"]}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"merge-branch",branchName:`${o.ref.remote}/${o.ref.name}`})},children:"Merge into Current Branch\u2026"}),e("div",{className:"gg-context-menu-sep"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),l(`${o.ref.remote}/${o.ref.name}`,"Remote branch name")},children:"Copy Remote Branch Name"}),e("button",{type:"button",className:"gg-context-menu-item danger",onClick:()=>{a(),u({kind:"delete-remote-branch",remote:o.ref.remote||"origin",branchName:o.ref.name})},children:"Delete Remote Branch"})]}),o.kind==="tag"&&t(j,{children:[t("div",{className:"gg-context-menu-header",children:["Tag: ",o.ref.name]}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),P(o.ref.name)},children:"View Tag Details"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),u({kind:"push-tag",tagName:o.ref.name,remote:"origin"})},children:"Push Tag to origin"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),l(o.ref.name,"Tag name")},children:"Copy Tag Name"}),e("div",{className:"gg-context-menu-sep"}),e("button",{type:"button",className:"gg-context-menu-item danger",onClick:()=>{a(),u({kind:"delete-tag",tagName:o.ref.name,deleteFromRemote:null})},children:"Delete Tag"})]}),o.kind==="stash"&&t(j,{children:[t("div",{className:"gg-context-menu-header",children:["Stash: ",o.selector]}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),u({kind:"stash-apply",selector:o.selector,reinstateIndex:!1})},children:"Apply Stash"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),u({kind:"stash-pop",selector:o.selector,reinstateIndex:!1})},children:"Pop Stash"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"stash-branch",selector:o.selector})},children:"Create Branch from Stash\u2026"}),e("div",{className:"gg-context-menu-sep"}),e("button",{type:"button",className:"gg-context-menu-item danger",onClick:()=>{a(),u({kind:"stash-drop",selector:o.selector})},children:"Drop Stash"})]}),o.kind==="uncommitted"&&t(j,{children:[e("div",{className:"gg-context-menu-header",children:"Uncommitted Changes"}),e("button",{type:"button",className:"gg-context-menu-item",disabled:!r,title:r?void 0:"Cannot stash: Git requires an initial commit before stashing",onClick:()=>{r&&(a(),m({kind:"stash-push"}))},children:"Stash Uncommitted Changes\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),N?.("*")},children:"\u2728 Ask Agent to Review Working Tree\u2026"}),e("div",{className:"gg-context-menu-sep"}),e("button",{type:"button",className:"gg-context-menu-item danger",onClick:()=>{a(),u({kind:"reset-uncommitted",mode:"hard"})},children:"Reset Working Tree (Hard)"}),e("button",{type:"button",className:"gg-context-menu-item danger",onClick:()=>{a(),m({kind:"clean-untracked"})},children:"Clean Untracked Files\u2026"})]}),o.kind==="commit"&&t(j,{children:[t("div",{className:"gg-context-menu-header",children:["Commit: ",o.commit.abbreviatedHash]}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"create-branch",commit:o.commit})},children:"Create Branch\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"add-tag",commit:o.commit})},children:"Add Tag\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),u({kind:"checkout-commit",commitHash:o.commit.hash})},children:"Checkout Commit (Detached HEAD)"}),e("div",{className:"gg-context-menu-sep"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"cherry-pick",commit:o.commit})},children:"Cherry-Pick Commit\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"revert-commit",commit:o.commit})},children:"Revert Commit\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),m({kind:"reset-commit",commit:o.commit,defaultMode:"mixed"})},children:"Reset Current Branch to Here\u2026"}),e("button",{type:"button",className:"gg-context-menu-item danger",disabled:o.commit.parents.length===0,title:o.commit.parents.length===0?"Cannot drop the initial (root) commit":void 0,onClick:()=>{o.commit.parents.length!==0&&(a(),m({kind:"drop-commit",commit:o.commit}))},children:"Drop Commit\u2026"}),e("div",{className:"gg-context-menu-sep"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),N?.(o.commit.hash)},children:"\u2728 Ask Agent about Commit\u2026"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),l(o.commit.hash,"Commit hash")},children:"Copy Commit Hash"}),e("button",{type:"button",className:"gg-context-menu-item",onClick:()=>{a(),l(o.commit.subject,"Commit subject")},children:"Copy Commit Subject"})]})]})})}function Qt({dialog:o,remotes:s,currentBranch:r,onClose:a,onRunAction:u}){let m=s[0]?.name??"origin",[d,P]=w(""),[l,N]=w(""),[b,x]=w(!0),[c,A]=w(!1),[h,$]=w(!1),[S,C]=w("mixed");return o?e("div",{className:"gg-modal-backdrop",onClick:a,children:t("div",{className:"gg-modal",onClick:f=>f.stopPropagation(),"data-testid":`gg-dialog-${o.kind}`,children:[o.kind==="create-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Create Branch at ",o.commit.abbreviatedHash]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),t("div",{className:"gg-modal-body",children:[t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Branch Name"}),e("input",{type:"text",className:"gg-input",placeholder:"feature/my-branch",value:d,onChange:f=>P(f.target.value),autoFocus:!0})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:b,onChange:f=>x(f.target.checked)}),e("span",{children:"Check out branch after creation"})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",disabled:!d.trim(),onClick:()=>{u({kind:"create-branch",branchName:d.trim(),startPoint:o.commit.hash,checkout:b}),a()},children:"Create Branch"})]})]}),o.kind==="rename-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Rename Branch ",o.branchName]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"New Branch Name"}),e("input",{type:"text",className:"gg-input",value:d,placeholder:o.branchName,onChange:f=>P(f.target.value),autoFocus:!0})]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",disabled:!d.trim(),onClick:()=>{u({kind:"rename-branch",oldName:o.branchName,newName:d.trim()}),a()},children:"Rename"})]})]}),o.kind==="delete-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Delete Branch ",o.branchName]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:c,onChange:f=>A(f.target.checked)}),e("span",{children:"Force delete (-D) even if unmerged"})]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"delete-branch",branchName:o.branchName,force:c}),a()},children:"Delete Branch"})]})]}),o.kind==="merge-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Merge ",o.branchName," into Current Branch"]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),t("div",{className:"gg-modal-body",children:[t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:c,onChange:f=>A(f.target.checked)}),e("span",{children:"Create a new commit even if fast-forward is possible (--no-ff)"})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:h,onChange:f=>$(f.target.checked)}),e("span",{children:"Squash commits (--squash)"})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"merge",target:o.branchName,noFastForward:c,squash:h,noCommit:!1}),a()},children:"Merge"})]})]}),o.kind==="rebase-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Rebase Current Branch onto ",o.ontoBranch]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:b,onChange:f=>x(f.target.checked)}),e("span",{children:"Auto-stash uncommitted changes before rebase (--autostash)"})]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"rebase",onto:o.ontoBranch,autostash:b}),a()},children:"Rebase"})]})]}),o.kind==="push-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Push Branch ",o.branchName]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),t("div",{className:"gg-modal-body",children:[t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Remote"}),e("input",{type:"text",className:"gg-input",value:d||m,onChange:f=>P(f.target.value)})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:b,onChange:f=>x(f.target.checked)}),e("span",{children:"Set upstream (-u)"})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:c,onChange:f=>A(f.target.checked)}),e("span",{children:"Force with lease (--force-with-lease)"})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"push-branch",branchName:o.branchName,remote:(d||m).trim(),setUpstream:b,forceMode:c?"force-with-lease":"none"}),a()},children:"Push"})]})]}),o.kind==="pull-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Pull Branch ",o.branchName]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),t("div",{className:"gg-modal-body",children:[t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Remote"}),e("input",{type:"text",className:"gg-input",value:d||m,onChange:f=>P(f.target.value)})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:c,onChange:f=>A(f.target.checked)}),e("span",{children:"Rebase instead of merge (--rebase)"})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"pull-branch",remote:(d||m).trim(),branchName:o.branchName,noFastForward:!1,squash:!1,rebase:c}),a()},children:"Pull"})]})]}),o.kind==="cherry-pick"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Cherry-Pick Commit ",o.commit.abbreviatedHash]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),t("div",{className:"gg-modal-body",children:[t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:b,onChange:f=>x(f.target.checked)}),e("span",{children:"Record origin commit hash in message (-x)"})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:c,onChange:f=>A(f.target.checked)}),e("span",{children:"Stage changes without committing (--no-commit)"})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"cherry-pick",commitHash:o.commit.hash,parentIndex:o.commit.parents.length>1?1:void 0,recordOrigin:b,noCommit:c}),a()},children:"Cherry-Pick"})]})]}),o.kind==="revert-commit"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Revert Commit ",o.commit.abbreviatedHash]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:c,onChange:f=>A(f.target.checked)}),e("span",{children:"Stage revert changes without committing (--no-commit)"})]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"revert-commit",commitHash:o.commit.hash,parentIndex:o.commit.parents.length>1?1:void 0,noCommit:c}),a()},children:"Revert"})]})]}),o.kind==="reset-commit"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Reset Current Branch to ",o.commit.abbreviatedHash]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Reset Mode"}),t("select",{className:"gg-select",value:S,onChange:f=>C(f.target.value),children:[e("option",{value:"soft",children:"Soft \u2014 Keep all changes staged"}),e("option",{value:"mixed",children:"Mixed \u2014 Keep working tree, unstage index"}),e("option",{value:"hard",children:"Hard \u2014 Discard all uncommitted changes"})]})]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),t("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"reset-to-commit",commitHash:o.commit.hash,mode:S}),a()},children:["Reset (",S,")"]})]})]}),o.kind==="drop-commit"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Drop Commit ",o.commit.abbreviatedHash,"?"]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("p",{className:"gg-margin-0 gg-font-12",children:["This will rebase ",e("code",{children:"HEAD"})," onto the parent of"," ",e("code",{children:o.commit.abbreviatedHash}),", removing this commit from the current branch history."]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"drop-commit",commitHash:o.commit.hash,branch:r??void 0}),a()},children:"Drop Commit"})]})]}),o.kind==="add-tag"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Add Tag at ",o.commit.abbreviatedHash]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),t("div",{className:"gg-modal-body",children:[t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Tag Name"}),e("input",{type:"text",className:"gg-input",placeholder:"v1.0.0",value:d,onChange:f=>P(f.target.value),autoFocus:!0})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:b,onChange:f=>x(f.target.checked)}),e("span",{children:"Annotated Tag (-a)"})]}),b&&t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Tag Message"}),e("input",{type:"text",className:"gg-input",placeholder:"Release v1.0.0",value:l,onChange:f=>N(f.target.value)})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:c,onChange:f=>A(f.target.checked)}),t("span",{children:["Push tag to ",m," immediately"]})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",disabled:!d.trim(),onClick:()=>{u({kind:"create-tag",tagName:d.trim(),commitHash:o.commit.hash,annotated:b,message:l.trim()||d.trim(),pushToRemote:c?m:null}),a()},children:"Create Tag"})]})]}),o.kind==="tag-details"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Tag Details: ",o.tagName]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:o.details?t("div",{className:"gg-details-meta-grid",children:[e("span",{className:"gg-details-meta-label",children:"Name:"}),e("span",{children:o.details.name}),e("span",{className:"gg-details-meta-label",children:"Type:"}),e("span",{children:o.details.isAnnotated?"Annotated":"Lightweight"}),e("span",{className:"gg-details-meta-label",children:"Target:"}),e("code",{children:o.details.hash}),o.details.taggerName&&t(j,{children:[e("span",{className:"gg-details-meta-label",children:"Tagger:"}),t("span",{children:[o.details.taggerName," <",o.details.taggerEmail,">"]})]}),o.details.message&&t(j,{children:[e("span",{className:"gg-details-meta-label",children:"Message:"}),e("span",{children:o.details.message})]})]}):e("div",{children:"Loading tag details\u2026"})}),e("div",{className:"gg-modal-footer",children:e("button",{type:"button",className:"gg-btn",onClick:a,children:"Close"})})]}),o.kind==="stash-push"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[e("span",{children:"Stash Uncommitted Changes"}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),t("div",{className:"gg-modal-body",children:[t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Stash Message (optional)"}),e("input",{type:"text",className:"gg-input",placeholder:"WIP: feature changes",value:d,onChange:f=>P(f.target.value),autoFocus:!0})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:b,onChange:f=>x(f.target.checked)}),e("span",{children:"Include untracked files (-u)"})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"stash-push",message:d.trim()||void 0,includeUntracked:b}),a()},children:"Stash Changes"})]})]}),o.kind==="stash-branch"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[t("span",{children:["Create Branch from ",o.selector]}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Branch Name"}),e("input",{type:"text",className:"gg-input",placeholder:"stash-recovery",value:d,onChange:f=>P(f.target.value),autoFocus:!0})]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",disabled:!d.trim(),onClick:()=>{u({kind:"stash-branch",selector:o.selector,branchName:d.trim()}),a()},children:"Create Branch"})]})]}),o.kind==="clean-untracked"&&t(j,{children:[t("div",{className:"gg-modal-header",children:[e("span",{children:"Clean Untracked Files"}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:a,children:"\u2715"})]}),e("div",{className:"gg-modal-body",children:t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:b,onChange:f=>x(f.target.checked)}),e("span",{children:"Include untracked directories (-d)"})]})}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:a,children:"Cancel"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:()=>{u({kind:"clean-untracked",includeDirectories:b}),a()},children:"Clean Files"})]})]})]})}):null}function en({open:o,remotes:s,repoSettings:r,globalSettings:a,onClose:u,onRunGitAction:m,onUpdateRepoSettings:d,onUpdateGlobalSettings:P,onExportRepoConfig:l}){let[N,b]=w(""),[x,c]=w(""),[A,h]=w(""),[$,S]=w("");return o?e("div",{className:"gg-modal-backdrop",onClick:u,children:t("div",{className:"gg-modal gg-modal-width-settings",onClick:C=>C.stopPropagation(),"data-testid":"gg-repo-settings-modal",children:[t("div",{className:"gg-modal-header",children:[e("span",{children:"Repository & Graph Settings"}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:u,children:"\u2715"})]}),t("div",{className:"gg-modal-body gg-gap-16",children:[t("div",{className:"gg-field",children:[t("label",{className:"gg-field-label",children:["Git Remotes (",s.length,")"]}),t("div",{className:"gg-flex-col gg-gap-6",children:[s.map(C=>t("div",{className:"gg-remote-card",children:[t("div",{className:"gg-overflow-hidden",children:[e("strong",{children:C.name}),e("div",{className:"gg-font-11 gg-text-secondary gg-ellipsis",children:C.fetchUrl})]}),t("div",{className:"gg-flex-row gg-gap-4 gg-flex-shrink-0",children:[e("button",{type:"button",className:"gg-btn",onClick:()=>m({kind:"remote-prune",name:C.name}),title:"Prune stale remote-tracking branches",children:"Prune"}),e("button",{type:"button",className:"gg-btn",onClick:()=>m({kind:"remote-delete",name:C.name}),title:"Remove Remote",children:"Delete"})]})]},C.name)),t("div",{className:"gg-flex-row gg-gap-6",children:[e("input",{type:"text",className:"gg-input gg-remote-name-width",placeholder:"upstream",value:N,onChange:C=>b(C.target.value)}),e("input",{type:"text",className:"gg-input gg-flex-1",placeholder:"https://github.com/org/repo.git",value:x,onChange:C=>c(C.target.value)}),e("button",{type:"button",className:"gg-btn gg-btn-primary",disabled:!N.trim()||!x.trim(),onClick:()=>{m({kind:"remote-add",name:N.trim(),url:x.trim(),fetch:!0}),b(""),c("")},children:"Add Remote"})]})]})]}),t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Pull Request Creation"}),t("div",{style:{display:"flex",gap:"8px"},children:[t("select",{className:"gg-select",value:r.pullRequestConfig.provider,onChange:C=>d({pullRequestConfig:{...r.pullRequestConfig,provider:C.target.value}}),children:[e("option",{value:"github",children:"GitHub"}),e("option",{value:"gitlab",children:"GitLab"}),e("option",{value:"bitbucket",children:"Bitbucket"}),e("option",{value:"custom",children:"Custom URL Template"})]}),e("input",{type:"text",className:"gg-input",placeholder:"Remote (origin)",value:r.pullRequestConfig.remoteName,onChange:C=>d({pullRequestConfig:{...r.pullRequestConfig,remoteName:C.target.value}})}),e("input",{type:"text",className:"gg-input",placeholder:"Target branch (main)",value:r.pullRequestConfig.targetBranch,onChange:C=>d({pullRequestConfig:{...r.pullRequestConfig,targetBranch:C.target.value}})})]})]}),t("div",{className:"gg-field",children:[t("label",{className:"gg-field-label",children:["Issue Linking Rules (",r.issueLinkingRules.length,")"]}),t("div",{className:"gg-flex-col gg-gap-6",children:[r.issueLinkingRules.map(C=>t("div",{className:"gg-issue-rule-row",children:[t("code",{children:["/",C.pattern,"/ \u2192 ",C.urlTemplate]}),e("button",{type:"button",className:"gg-btn",onClick:()=>d({issueLinkingRules:r.issueLinkingRules.filter(f=>f.id!==C.id)}),children:"Remove"})]},C.id)),t("div",{className:"gg-flex-row gg-gap-6",children:[e("input",{type:"text",className:"gg-input gg-issue-prefix-width",placeholder:"#(\\d+)",value:A,onChange:C=>h(C.target.value)}),e("input",{type:"text",className:"gg-input gg-flex-1",placeholder:"https://github.com/org/repo/issues/$1",value:$,onChange:C=>S(C.target.value)}),e("button",{type:"button",className:"gg-btn",disabled:!A.trim()||!$.trim(),onClick:()=>{let C={id:`rule-${Date.now()}`,pattern:A.trim(),urlTemplate:$.trim()};d({issueLinkingRules:[...r.issueLinkingRules,C]}),h(""),S("")},children:"Add Rule"})]})]})]}),t("div",{className:"gg-field",children:[e("label",{className:"gg-field-label",children:"Graph Display & Muting"}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:a.muteNonAncestors,onChange:C=>P({muteNonAncestors:C.target.checked})}),e("span",{children:"Dim commits that are not ancestors of HEAD"})]}),t("label",{className:"gg-checkbox-row",children:[e("input",{type:"checkbox",checked:a.muteMergeCommits,onChange:C=>P({muteMergeCommits:C.target.checked})}),e("span",{children:"Dim merge commits (commits with >1 parent)"})]}),t("div",{className:"gg-flex-row gg-gap-8 gg-margin-top-6",children:[t("select",{className:"gg-select",value:a.dateFormat,onChange:C=>P({dateFormat:C.target.value}),children:[e("option",{value:"relative",children:"Date Format: Relative"}),e("option",{value:"iso",children:"Date Format: ISO"}),e("option",{value:"datetime",children:"Date Format: Local Date/Time"})]}),t("select",{className:"gg-select",value:a.dateType,onChange:C=>P({dateType:C.target.value}),children:[e("option",{value:"author",children:"Show Author Date"}),e("option",{value:"commit",children:"Show Commit Date"})]})]})]})]}),t("div",{className:"gg-modal-footer",children:[e("button",{type:"button",className:"gg-btn",onClick:l,title:"Write .git-tree.json into the repository root",children:"Export .git-tree.json"}),e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:u,children:"Done"})]})]})}):null}var Se={date:125,author:130,commit:74},_e=28,Pt=14,wt=14;function tn({focusWindow:o,bringBack:s}){return e("div",{className:"gg-root","data-testid":"gg-detached-placeholder",children:t("div",{className:"gg-empty",style:{gap:"12px"},children:[e("div",{style:{fontSize:"14px",fontWeight:600},children:"Git Tree is open in its own window"}),t("div",{style:{display:"flex",gap:"8px"},children:[e("button",{type:"button",className:"gg-btn gg-btn-primary",onClick:o,children:"Focus Window"}),e("button",{type:"button",className:"gg-btn",onClick:s,children:"Bring Back Here"})]})]})})}function nn({projectId:o,headerActions:s}){let r=Lt(),a={projectId:null};try{a=$t()}catch{}let[u,m]=w([]),[d,P]=w(o||a.projectId||""),l=o||d||a.projectId||"",N=null;try{N=zt()}catch{N=null}le(()=>{!o&&!d&&r.call("listProjects").then(n=>{let i=Array.isArray(n)?n:[];m(i),i.length>0&&!d&&P(i[0].id)}).catch(()=>{})},[o,d,r]);let[b,x]=w([]),[c,A]=w(""),[h,$]=w(null),[S,C]=w(300),[f,V]=w(!0),[ee,ue]=w(null),[me,H]=w(null),[I,q]=w(null),[D,oe]=w(null),[Re,T]=w(null),[J,Fe]=w(null),[Ae,Te]=w(!1),[Pe,he]=w(null),[te,we]=w(null),[be,Ie]=w(null),[ke,qe]=w(!1),[Ce,je]=w(null),[Ze,He]=w(!1),[Ne,Me]=w(!1),[De,Ye]=w(""),[Ee,Ge]=w(0),[Be,ae]=w(null),[Le,ce]=w(null),[Ke,it]=w(!1),[Oe,at]=w(!1),Je=Q(null),Xe=Q(null),X=Z(async(n,i,p)=>{let k=p??l;if(!k){V(!1);return}V(!0),ue(null);try{let z=await r.call("discoverRepos",{projectId:k}),B=Array.isArray(z)?z:z?.repos??[];if(x(B),B.length===0){$(null),V(!1);return}let U=n!==void 0?n:B.some(ie=>ie.relPath===c)?c:B[0].relPath;U!==c&&A(U);let _=await r.call("loadGraph",{projectId:k,subRepoRelPath:U,maxCommits:i??S});$(_)}catch(z){ue(z instanceof Error?z.message:String(z))}finally{V(!1)}},[l,r,c,S]);le(()=>{X()},[l]);let Qe=n=>{let i=n;(!i?.projectId||i.projectId===l)&&X(c,S)};ft("git-tree:changed",Qe),ft("git-graph:changed",Qe),le(()=>{if(!l||!I){T(null),Fe(null),he(null),we(null),Ie(null),je(null);return}let n=!1;return Te(!0),we(null),Ie(null),je(null),(async()=>{try{if(D&&D!==I){let p=await r.call("compareCommits",{projectId:l,subRepoRelPath:c,fromHash:I,toHash:D});if(n)return;Fe(p.comparison),T(null),he(p.codeReview),p.comparison.fileChanges.length>0&&Ve(p.comparison.fileChanges[0],D,I)}else{let p=await r.call("getCommitDetails",{projectId:l,subRepoRelPath:c,commitHash:I});if(n)return;T(p.details),Fe(null),he(p.codeReview),p.details.fileChanges.length>0&&Ve(p.details.fileChanges[0],I,void 0)}}catch(p){n||H({kind:"error",text:p instanceof Error?p.message:String(p)})}finally{n||Te(!1)}})(),()=>{n=!0}},[l,c,I,D]);let We=Z(async(n,i)=>{let p=i??D??I;if(p){He(!0);try{let k=await r.call("getFileContent",{projectId:l,subRepoRelPath:c,commitHash:p,filePath:n});je(k)}catch(k){H({kind:"error",text:k instanceof Error?k.message:String(k)})}finally{He(!1)}}},[l,r,c,I,D]),Ve=Z(async(n,i,p)=>{let k=i??D??I;if(!k)return;let z=p!==void 0?p:D?I??void 0:void 0;we(n.newPath),qe(!0),je(null),We(n.newPath,k);try{let B=await r.call("getFileDiff",{projectId:l,subRepoRelPath:c,commitHash:k,fromHash:z,filePath:n.newPath,oldPath:n.oldPath!==n.newPath?n.oldPath:void 0,staged:n.staged,untracked:n.untracked});Ie(B)}catch(B){H({kind:"error",text:B instanceof Error?B.message:String(B)})}finally{qe(!1)}},[l,r,c,I,D,We]),O=h?.commits??[],fe=h?.headHash??null,E=h?.globalSettings??{graphStyle:"rounded",initialLoadCommits:300,loadMoreCommits:100,muteNonAncestors:!1,muteMergeCommits:!1,commitDetailsLocation:"docked",fileViewType:"tree",compactFolders:!0,diffViewMode:"unified",maxDepthOfRepoSearch:2,dateType:"author",dateFormat:"relative",fetchAndPrune:!1,fetchAndPruneTags:!1,signCommits:!1,signTags:!1,useMailmap:!0,graphColors:[],columnWidths:Se},$e=h?.repoSettings??{selectedBranches:[],showRemoteBranches:!0,showStashes:!0,showTags:!0,showUncommittedChanges:!0,showUntrackedFiles:!0,onlyFollowFirstParent:!1,commitOrdering:"date",issueLinkingRules:[],pullRequestConfig:{provider:"github",remoteName:"origin",targetBranch:"main"}},ze=pe(()=>Ht(O,fe,E.graphColors),[O,fe,E.graphColors]),re=pe(()=>Math.max(48,wt*2+(ze.maxLane+1)*Pt),[ze.maxLane]),se=pe(()=>{let n=De.trim().toLowerCase();if(!n)return[];let i=[];return O.forEach((p,k)=>{[p.hash,p.abbreviatedHash,p.subject,p.authorName,p.authorEmail,...p.refs.map(B=>B.remote?`${B.remote}/${B.name}`:B.name)].join(" ").toLowerCase().includes(n)&&i.push(k)}),i},[O,De]),g=Z(n=>{let i=Je.current;if(!i)return;let p=Math.max(0,n*_e-i.clientHeight/3);i.scrollTo?.({top:p,behavior:"smooth"})},[]),M=Z(()=>{if(!fe)return;let n=O.findIndex(i=>i.hash===fe);n>=0&&(q(fe),oe(null),g(n))},[O,fe,g]),v=Z(async n=>{try{H(null),await r.call("runGitAction",{projectId:l,subRepoRelPath:c,action:n}),await X(c,S)}catch(i){H({kind:"error",text:i instanceof Error?i.message:String(i)})}},[l,r,c,X,S]),R=Z(async()=>{if(!(!l||Oe)){at(!0),H(null);try{await r.call("runGitAction",{projectId:l,subRepoRelPath:"",action:"init"}),await X()}catch(n){H({kind:"error",text:n instanceof Error?n.message:String(n)})}finally{at(!1)}}},[l,Oe,r,X]),F=Z(async n=>{try{await r.call("updateRepoSettings",{projectId:l,subRepoRelPath:c,patch:n}),await X(c,S)}catch(i){H({kind:"error",text:i instanceof Error?i.message:String(i)})}},[l,r,c,X,S]),L=Z(async n=>{try{await r.call("updateGlobalSettings",{patch:n}),$(i=>i&&{...i,globalSettings:{...i.globalSettings,...n}})}catch(i){H({kind:"error",text:i instanceof Error?i.message:String(i)})}},[r]),[y,Y]=w(()=>({description:E.columnWidths?.description,date:E.columnWidths?.date??Se.date,author:E.columnWidths?.author??Se.author,commit:E.columnWidths?.commit??Se.commit})),[K,W]=w(null),ne=Q(y);ne.current=y;let xe=Q(!1),et=Q(null);le(()=>{!xe.current&&E.columnWidths&&Y({description:E.columnWidths.description,date:E.columnWidths.date??Se.date,author:E.columnWidths.author??Se.author,commit:E.columnWidths.commit??Se.commit})},[E.columnWidths]);let rt=Z((n,i)=>{n.preventDefault(),n.stopPropagation(),xe.current=!0,W(i);let p=n.clientX,k=i==="description"?ne.current.description??et.current?.getBoundingClientRect().width??260:ne.current[i],z=k,B=document.body.style.userSelect,U=document.body.style.cursor;document.body.style.userSelect="none",document.body.style.cursor="col-resize";let _=i==="commit"?50:i==="description"?150:60,ie=i==="description"?1200:500,nt=bt=>{let mn=bt.clientX-p,Mt=Math.max(_,Math.min(ie,Math.round(k+mn)));z=Mt,Y(hn=>({...hn,[i]:Mt}))},It=()=>{window.removeEventListener("mousemove",nt),window.removeEventListener("mouseup",It),document.body.style.userSelect=B,document.body.style.cursor=U,xe.current=!1,W(null);let bt={...ne.current,[i]:z};L({columnWidths:bt})};window.addEventListener("mousemove",nt),window.addEventListener("mouseup",It)},[L]),st=Z(n=>{if(n==="description"){let k={...ne.current};delete k.description,Y(k),L({columnWidths:k});return}let i=Se[n],p={...ne.current,[n]:i};Y(p),L({columnWidths:p})},[L]),ut=Z((n,i)=>{navigator.clipboard?.writeText(n),H({kind:"info",text:`${i} copied to clipboard.`})},[]),an=Z(async n=>{ce({kind:"tag-details",tagName:n,details:null});try{let i=await r.call("getTagDetails",{projectId:l,subRepoRelPath:c,tagName:n});ce({kind:"tag-details",tagName:n,details:i})}catch(i){H({kind:"error",text:i instanceof Error?i.message:String(i)})}},[l,r,c]),rn=Z(async n=>{try{let i=await r.call("buildPullRequestUrl",{projectId:l,subRepoRelPath:c,sourceBranch:n});i.url?window.open(i.url,"_blank","noopener,noreferrer"):H({kind:"error",text:"Could not derive a Pull Request URL from the configured remote."})}catch(i){H({kind:"error",text:i instanceof Error?i.message:String(i)})}},[l,r,c]),mt=Z(async n=>{let{commitHash:i,fromHash:p,filePath:k}=n;try{H({kind:"info",text:"Preparing agent draft\u2026"});let z=await r.call("draftAgentAboutCommit",{projectId:l,subRepoRelPath:c,commitHash:i,fromHash:p,filePath:k}),B=z.title,U=k?`${i}:${k}`:i;if(N?.openPanelAgent&&N.openPanelAgent({draft:{prompt:z.prompt,view:U,...l?{projectId:l}:{}},title:B})){H({kind:"info",text:`Draft opened in side panel: ${B}`});return}let _=await r.call("askAgentAboutCommit",{projectId:l,subRepoRelPath:c,commitHash:i,fromHash:p,filePath:k});H({kind:"info",text:`Spawned Agent thread: ${_.title}`}),N?.toThread?.(_.threadId)}catch(z){H({kind:"error",text:z instanceof Error?z.message:String(z)})}},[l,r,c,N]),kt=Z(async()=>{if(!I)return;let n=D?I:null,i=D??I;try{let p=await r.call("codeReviewStart",{projectId:l,subRepoRelPath:c,fromHash:n,toHash:i});he(p)}catch(p){H({kind:"error",text:p instanceof Error?p.message:String(p)})}},[l,r,c,I,D]),Ct=Z(async(n,i)=>{if(!I)return;let p=D?I:null,k=D??I;try{let z=await r.call("codeReviewToggleFile",{projectId:l,subRepoRelPath:c,fromHash:p,toHash:k,filePath:n,reviewed:i});he(z)}catch(z){H({kind:"error",text:z instanceof Error?z.message:String(z)})}},[l,r,c,I,D]),Nt=Z(async()=>{if(!I)return;let n=D?I:null,i=D??I;try{await r.call("codeReviewEnd",{projectId:l,subRepoRelPath:c,fromHash:n,toHash:i}),he(null)}catch(p){H({kind:"error",text:p instanceof Error?p.message:String(p)})}},[l,r,c,I,D]),sn=Z(n=>{if((n.ctrlKey||n.metaKey)&&n.key.toLowerCase()==="f"){n.preventDefault(),Me(!0);return}if((n.ctrlKey||n.metaKey)&&n.key.toLowerCase()==="h"){n.preventDefault(),M();return}if((n.ctrlKey||n.metaKey)&&n.key.toLowerCase()==="r"){n.preventDefault(),X(c,S);return}if(n.key==="Escape"){Be?ae(null):Le?ce(null):Ne?Me(!1):I&&(q(null),oe(null));return}if(n.key==="ArrowDown"||n.key==="ArrowUp"){if(O.length===0)return;let i=I?O.findIndex(z=>z.hash===I):-1,p=n.key==="ArrowDown"?Math.min(O.length-1,i+1):Math.max(0,i<=0?0:i-1),k=O[p];k&&(n.preventDefault(),q(k.hash),oe(null))}},[O,I,Be,Le,Ne,M,X,c,S]),ln=(n,i,p)=>{let k=i.type==="head"?`gg-ref-badge gg-ref-head ${i.isHead?"is-current":""}`:i.type==="remote"?"gg-ref-badge gg-ref-remote":i.type==="tag"?"gg-ref-badge gg-ref-tag":"gg-ref-badge gg-ref-stash",z=i.type==="remote"?"\u2601":i.type==="tag"?"\u{1F3F7}":i.type==="stash"?"\u{1F4E6}":i.isHead?"\u25CF":"\u2442",B=i.type==="remote"&&i.remote?`${i.remote}/${i.name}`:i.name;return t("span",{className:k,title:i.type==="head"?i.isHead?`Current branch: ${i.name}`:`Branch: ${i.name} (Double-click to checkout)`:i.type==="remote"?`Remote branch: ${B}`:i.type==="tag"?`Tag: ${i.name}`:`Stash: ${i.name}`,onContextMenu:U=>{U.preventDefault(),U.stopPropagation(),i.type==="head"?ae({kind:"branch",commit:n,ref:i,x:U.clientX,y:U.clientY}):i.type==="remote"?ae({kind:"remote-branch",commit:n,ref:i,x:U.clientX,y:U.clientY}):i.type==="tag"?ae({kind:"tag",commit:n,ref:i,x:U.clientX,y:U.clientY}):i.type==="stash"&&ae({kind:"stash",commit:n,selector:i.selector||i.name,x:U.clientX,y:U.clientY})},onDoubleClick:U=>{U.stopPropagation(),i.type==="head"&&!i.isHead&&v({kind:"checkout-branch",branchName:i.name})},children:[e("span",{className:"gg-ref-icon",children:z}),e("span",{className:"gg-ref-name",children:B})]},`${i.type}:${i.remote??""}:${i.name}:${p}`)},cn=n=>dt(n,$e.issueLinkingRules).map((p,k)=>p.kind==="code"?e("code",{style:{background:"rgba(255,255,255,0.08)",padding:"0 4px",borderRadius:"3px",fontSize:"11px"},children:p.text},k):p.kind==="link"&&p.href?e("a",{href:p.href,target:"_blank",rel:"noreferrer",onClick:z=>z.stopPropagation(),style:{color:"var(--accent-color, #4da3ff)"},children:p.text},k):e(ve.Fragment,{children:p.text},k)),de=!!I,ge=E.commitDetailsLocation==="inline",[tt,dn]=w(340),[St,gn]=w(0),[ht,Rt]=w(0),At=Q(null);le(()=>{let n=Je.current;if(!n)return;let i=()=>{n&&(gn(n.clientWidth),Rt(n.scrollLeft))};if(i(),typeof ResizeObserver<"u"){let p=new ResizeObserver(i);return p.observe(n),()=>p.disconnect()}},[h,f,O.length]);let Tt=Math.max(re+8,ht+8),lt=St>0?Math.max(280,ht+St-Tt-16):void 0,Ue=pe(()=>{if(!de||!ge)return-1;let n=D??I;return n?O.findIndex(i=>i.hash===n):-1},[de,ge,D,I,O]);le(()=>{let n=At.current;if(!n)return;let i=()=>{if(n){let p=n.offsetHeight;p>0&&dn(p)}};if(i(),typeof ResizeObserver<"u"){let p=new ResizeObserver(i);return p.observe(n),()=>p.disconnect()}},[ge,de,I,D,Re,J,be,Ae,ke]);let pn=pe(()=>{let n=O.length*_e;return ge&&de&&Ue>=0?n+tt+12:n},[O.length,ge,de,Ue,tt]),un=Z(n=>ge&&de&&Ue>=0&&n>Ue?n*_e+tt+12+_e/2:n*_e+_e/2,[ge,de,Ue,tt]);return t("div",{className:"gg-root",tabIndex:0,onKeyDown:sn,"data-testid":"gg-project-tab",children:[e(Vt,{projects:u,selectedProjectId:l,onSelectProject:n=>{P(n),q(null),oe(null),X(void 0,void 0,n)},repos:b,selectedRepoRelPath:c,onSelectRepo:n=>{q(null),oe(null),A(n),X(n,S)},branches:h?.branches??[],remoteBranches:h?.remoteBranches??[],repoSettings:$e,globalSettings:E,loading:f,findOpen:Ne,headerActions:s,onUpdateRepoSettings:n=>{F(n)},onUpdateGlobalSettings:n=>{L(n)},onFetch:()=>{v({kind:"fetch",all:!0,prune:E.fetchAndPrune,pruneTags:E.fetchAndPruneTags})},onScrollToHead:M,onToggleFind:()=>Me(n=>!n),onOpenRepoSettings:()=>it(!0),onRefresh:()=>{X(c,S)}}),me&&t("div",{className:`gg-banner ${me.kind==="error"?"gg-banner-error":"gg-banner-info"}`,"data-testid":"gg-banner",children:[e("span",{children:me.text}),e("button",{type:"button",className:"gg-btn gg-btn-icon",onClick:()=>H(null),children:"\u2715"})]}),t("div",{className:"gg-workspace",children:[Ne&&e(Ut,{query:De,matchCount:se.length,activeMatchIndex:Ee,onChangeQuery:n=>{Ye(n),Ge(0)},onNext:()=>{if(se.length===0)return;let n=(Ee+1)%se.length;Ge(n);let i=se[n];q(O[i].hash),g(i)},onPrev:()=>{if(se.length===0)return;let n=(Ee-1+se.length)%se.length;Ge(n);let i=se[n];q(O[i].hash),g(i)},onClose:()=>Me(!1)}),t("div",{className:"gg-table-container",children:[e("div",{className:"gg-table-header-scroll",ref:Xe,children:t("div",{className:"gg-table-header",children:[e("div",{style:{width:`${re}px`,minWidth:`${re}px`,maxWidth:`${re}px`,flex:`0 0 ${re}px`,paddingLeft:"8px",boxSizing:"border-box"},children:"Graph"}),e("div",{ref:et,style:{...y.description!==void 0?{width:`${y.description}px`,minWidth:`${y.description}px`,maxWidth:`${y.description}px`,flex:`0 0 ${y.description}px`}:{flex:"1 1 0px",minWidth:"150px"},padding:"0 8px",boxSizing:"border-box"},children:"Description"}),e("div",{className:`gg-col-resizer ${K==="description"?"active":""}`,title:"Resize Description \xB7 Double-click to auto-fit","data-testid":"gg-col-resizer-description",onMouseDown:n=>rt(n,"description"),onDoubleClick:()=>st("description")}),e("div",{style:{width:`${y.date}px`,minWidth:`${y.date}px`,maxWidth:`${y.date}px`,flex:`0 0 ${y.date}px`,padding:"0 6px",boxSizing:"border-box"},children:"Date"}),e("div",{className:`gg-col-resizer ${K==="date"?"active":""}`,title:"Resize Date \xB7 Double-click to reset","data-testid":"gg-col-resizer-date",onMouseDown:n=>rt(n,"date"),onDoubleClick:()=>st("date")}),e("div",{style:{width:`${y.author}px`,minWidth:`${y.author}px`,maxWidth:`${y.author}px`,flex:`0 0 ${y.author}px`,padding:"0 6px",boxSizing:"border-box"},children:"Author"}),e("div",{className:`gg-col-resizer ${K==="author"?"active":""}`,title:"Resize Author \xB7 Double-click to reset","data-testid":"gg-col-resizer-author",onMouseDown:n=>rt(n,"author"),onDoubleClick:()=>st("author")}),e("div",{style:{width:`${y.commit}px`,minWidth:`${y.commit}px`,maxWidth:`${y.commit}px`,flex:`0 0 ${y.commit}px`,textAlign:"right",padding:"0 6px",boxSizing:"border-box"},children:"Commit"}),e("div",{className:`gg-col-resizer ${K==="commit"?"active":""}`,title:"Resize Commit \xB7 Double-click to reset","data-testid":"gg-col-resizer-commit",onMouseDown:n=>rt(n,"commit"),onDoubleClick:()=>st("commit")})]})}),f&&!h?e("div",{className:"gg-empty",children:"Loading Git Tree\u2026"}):ee?t("div",{className:"gg-empty",children:[t("div",{children:["Failed to load Git Tree: ",ee]}),e("button",{type:"button",className:"gg-btn",style:{marginTop:"8px"},onClick:()=>{X(c,S)},children:"Retry"})]}):b.length===0?t("div",{className:"gg-empty",style:{gap:"12px"},children:[e("div",{children:"No Git repositories found in this project."}),e("button",{type:"button",className:"gg-btn gg-btn-primary","data-testid":"gg-init-repo-btn",disabled:Oe,onClick:()=>{R()},children:Oe?"Initializing\u2026":"Initialize Git Repository"})]}):O.length===0?e("div",{className:"gg-empty",children:fe?"No commits match the current branch filters.":"Repository initialized with no commits or uncommitted changes yet."}):t("div",{className:"gg-table-scroll",ref:Je,onScroll:n=>{let i=n.currentTarget.scrollLeft;i!==ht&&Rt(i),Xe.current&&(Xe.current.scrollLeft=i)},children:[t("div",{className:"gg-rows-wrapper",children:[t("svg",{className:"gg-svg-overlay",width:re,height:pn,"data-testid":"gg-svg-dag",children:[ze.segments.map((n,i)=>e("path",{d:Gt({segment:n,rowHeight:_e,laneWidth:Pt,padX:wt,style:E.graphStyle,expandedRow:ge&&de?Ue:-1,detailsHeight:ge&&de?tt+12:0}),fill:"none",stroke:n.color,strokeWidth:2,strokeDasharray:n.isUncommitted?"3 3":void 0},i)),ze.nodes.map(n=>{let i=wt+n.lane*Pt,p=un(n.row),k=I===n.commit.hash;return n.commit.isUncommitted?e("circle",{cx:i,cy:p,r:k?5.5:4.5,fill:"var(--bg-primary, #12151a)",stroke:n.color,strokeWidth:k?2.5:2,strokeDasharray:"2 2"},n.commit.hash):n.commit.isStash?e("rect",{x:i-(k?5:4),y:p-(k?5:4),width:k?10:8,height:k?10:8,rx:2,fill:"var(--bg-primary, #12151a)",stroke:n.color,strokeWidth:k?2.5:2},n.commit.hash):n.isMerge?t("g",{children:[e("circle",{cx:i,cy:p,r:k?5.5:4.5,fill:"var(--bg-primary, #12151a)",stroke:k?"#ffffff":n.color,strokeWidth:k?2.5:2}),e("circle",{cx:i,cy:p,r:2,fill:n.color})]},n.commit.hash):e("circle",{cx:i,cy:p,r:k?5.5:n.commit.isHead?5:4,fill:n.color,stroke:k||n.commit.isHead?"#ffffff":"var(--bg-primary, #12151a)",strokeWidth:k?2:n.commit.isHead?1.5:1},n.commit.hash)})]}),ze.nodes.map(n=>{let{commit:i}=n,p=I===i.hash,k=D===i.hash,z=De.trim().length>0&&se.includes(n.row),B=E.muteNonAncestors&&!n.isAncestorOfHead||E.muteMergeCommits&&n.isMerge,U=E.dateType==="commit"?i.commitDate:i.authorDate;return t(ve.Fragment,{children:[t("div",{className:["gg-commit-row",p?"selected":"",k?"compared":"",B?"muted":"",z?"search-match":"",i.isUncommitted?"uncommitted":""].filter(Boolean).join(" "),onClick:_=>{(_.ctrlKey||_.metaKey)&&I&&I!==i.hash?oe(i.hash):(q(ie=>ie===i.hash&&!D?null:i.hash),oe(null))},onContextMenu:_=>{_.preventDefault(),i.isUncommitted?ae({kind:"uncommitted",commit:i,x:_.clientX,y:_.clientY}):i.isStash&&i.stashSelector?ae({kind:"stash",commit:i,selector:i.stashSelector,x:_.clientX,y:_.clientY}):ae({kind:"commit",commit:i,x:_.clientX,y:_.clientY})},"data-testid":`gg-commit-row-${i.abbreviatedHash}`,children:[e("div",{className:"gg-graph-spacer",style:{width:`${re}px`,minWidth:`${re}px`,maxWidth:`${re}px`,flex:`0 0 ${re}px`,boxSizing:"border-box"}}),t("div",{className:"gg-commit-desc",style:{...y.description!==void 0?{width:`${y.description}px`,minWidth:`${y.description}px`,maxWidth:`${y.description}px`,flex:`0 0 ${y.description}px`}:{flex:"1 1 0px",minWidth:"150px"},padding:"0 8px",boxSizing:"border-box"},children:[i.refs.map((_,ie)=>ln(i,_,ie)),e("span",{className:"gg-commit-subject",children:cn(i.subject)})]}),e("div",{className:"gg-commit-date",style:{width:`${y.date}px`,minWidth:`${y.date}px`,maxWidth:`${y.date}px`,flex:`0 0 ${y.date}px`,padding:"0 6px",boxSizing:"border-box"},children:i.isUncommitted?"Working Tree":ot(U,E.dateFormat)}),e("div",{className:"gg-commit-author",style:{width:`${y.author}px`,minWidth:`${y.author}px`,maxWidth:`${y.author}px`,flex:`0 0 ${y.author}px`,padding:"0 6px",boxSizing:"border-box"},title:i.authorEmail,children:i.authorName}),e("div",{className:"gg-commit-hash",style:{width:`${y.commit}px`,minWidth:`${y.commit}px`,maxWidth:`${y.commit}px`,flex:`0 0 ${y.commit}px`,textAlign:"right",padding:"0 6px",boxSizing:"border-box"},children:i.abbreviatedHash})]}),ge&&de&&(!D&&p||D&&k)&&e("div",{ref:At,className:"gg-inline-details-wrapper",style:{marginLeft:`${Tt}px`,width:lt!==void 0?`${lt}px`:void 0,maxWidth:lt!==void 0?`${lt}px`:"100%",marginBottom:"8px",boxSizing:"border-box"},children:e(yt,{mode:D?"comparison":"single",details:Re,comparison:J,loading:Ae,inline:!0,fileViewType:E.fileViewType,compactFolders:E.compactFolders,diffViewMode:E.diffViewMode,dateFormat:E.dateFormat,issueRules:$e.issueLinkingRules,codeReview:Pe,selectedFilePath:te,fileDiff:be,loadingDiff:ke,fileContent:Ce,loadingContent:Ze,onSelectFile:_=>{Ve(_)},onLoadFileContent:_=>{We(_)},onChangeFileViewType:_=>{L({fileViewType:_})},onToggleCompactFolders:()=>{L({compactFolders:!E.compactFolders})},onChangeDiffViewMode:_=>{L({diffViewMode:_})},onStartCodeReview:()=>{kt()},onToggleReviewedFile:(_,ie)=>{Ct(_,ie)},onEndCodeReview:()=>{Nt()},onSelectParentHash:_=>{q(_),oe(null);let ie=O.findIndex(nt=>nt.hash===_);ie>=0&&g(ie)},onAskAgent:_=>{mt({commitHash:D??I??"*",fromHash:(D?I:null)??void 0,filePath:_})},onCopyText:ut,onClose:()=>{q(null),oe(null)}})})]},i.hash)})]}),h?.hasMore&&e("div",{className:"gg-load-more-row",children:t("button",{type:"button",className:"gg-btn",onClick:()=>{let n=S+(E.loadMoreCommits||100);C(n),X(c,n)},"data-testid":"gg-load-more-btn",children:["Load ",E.loadMoreCommits||100," More Commits"]})})]})]}),!ge&&de&&e(yt,{mode:D?"comparison":"single",details:Re,comparison:J,loading:Ae,inline:!1,fileViewType:E.fileViewType,compactFolders:E.compactFolders,diffViewMode:E.diffViewMode,dateFormat:E.dateFormat,issueRules:$e.issueLinkingRules,codeReview:Pe,selectedFilePath:te,fileDiff:be,loadingDiff:ke,fileContent:Ce,loadingContent:Ze,onSelectFile:n=>{Ve(n)},onLoadFileContent:n=>{We(n)},onChangeFileViewType:n=>{L({fileViewType:n})},onToggleCompactFolders:()=>{L({compactFolders:!E.compactFolders})},onChangeDiffViewMode:n=>{L({diffViewMode:n})},onStartCodeReview:()=>{kt()},onToggleReviewedFile:(n,i)=>{Ct(n,i)},onEndCodeReview:()=>{Nt()},onSelectParentHash:n=>{q(n),oe(null);let i=O.findIndex(p=>p.hash===n);i>=0&&g(i)},onAskAgent:n=>{mt({commitHash:D??I??"*",fromHash:(D?I:null)??void 0,filePath:n})},onCopyText:ut,onClose:()=>{q(null),oe(null)}})]}),e(Xt,{target:Be,currentBranch:h?.currentBranch??null,hasCommits:O.some(n=>!n.isUncommitted),onClose:()=>ae(null),onRunAction:n=>{v(n)},onOpenDialog:n=>ce(n),onOpenPullRequest:n=>{rn(n)},onViewTagDetails:n=>{an(n)},onCopyText:ut,onAskAgent:(n,i)=>{mt({commitHash:n,filePath:i})}}),e(Qt,{dialog:Le,remotes:h?.remotes??[],currentBranch:h?.currentBranch??null,onClose:()=>ce(null),onRunAction:n=>{v(n)}}),e(en,{open:Ke,remotes:h?.remotes??[],repoSettings:$e,globalSettings:E,onClose:()=>it(!1),onRunGitAction:n=>{v(n)},onUpdateRepoSettings:n=>{F(n)},onUpdateGlobalSettings:n=>{L(n)},onExportRepoConfig:async()=>{try{let n=await r.call("exportRepoConfig",{projectId:l,subRepoRelPath:c});H({kind:"info",text:`Exported repository config to ${n.filePath}`})}catch(n){H({kind:"error",text:n instanceof Error?n.message:String(n)})}}})]})}var on="zcc-ext-git-tree-styles";function vn(){if(typeof document>"u"||document.getElementById(on))return;let o=document.createElement("style");o.id=on,o.textContent=_t,document.head.appendChild(o)}var jo=Et(o=>{vn(),o.slots.projectTab({id:"git-tree",label:"Git Tree",icon:"GitBranch",order:40,global:!1,header:"custom",detachable:!0,component:nn,detachedPlaceholder:tn}),o.slots.commandPaletteAction({id:"open-git-tree",title:"Git Tree: View Git Tree",isAvailable:s=>!!s.projectId,run:s=>{s.projectId&&s.toProject(s.projectId,{tabId:"git-tree"})}})});export{jo as default};
+// zcc-host-react:react
+var React = globalThis.__ZCC_HOST_REACT__;
+var react_default = React;
+var Children = React.Children;
+var Component = React.Component;
+var Fragment = React.Fragment;
+var StrictMode = React.StrictMode;
+var Suspense = React.Suspense;
+var cloneElement = React.cloneElement;
+var createContext = React.createContext;
+var createElement = React.createElement;
+var createRef = React.createRef;
+var forwardRef = React.forwardRef;
+var isValidElement = React.isValidElement;
+var lazy = React.lazy;
+var memo = React.memo;
+var startTransition = React.startTransition;
+var useCallback = React.useCallback;
+var useContext = React.useContext;
+var useDebugValue = React.useDebugValue;
+var useDeferredValue = React.useDeferredValue;
+var useEffect = React.useEffect;
+var useId = React.useId;
+var useImperativeHandle = React.useImperativeHandle;
+var useInsertionEffect = React.useInsertionEffect;
+var useLayoutEffect = React.useLayoutEffect;
+var useMemo = React.useMemo;
+var useReducer = React.useReducer;
+var useRef = React.useRef;
+var useState = React.useState;
+var useSyncExternalStore = React.useSyncExternalStore;
+var useTransition = React.useTransition;
+var version = React.version;
+
+// src/app/graph-layout.ts
+var DEFAULT_PALETTE = [
+  "#0085d9",
+  "#d9008f",
+  "#00d90a",
+  "#d98500",
+  "#a300d9",
+  "#ff0000",
+  "#00d9cc",
+  "#e138e8",
+  "#85d900",
+  "#dc5b23",
+  "#6f24d6",
+  "#ffcc00"
+];
+function computeGraphLayout(commits, headHash, colors = DEFAULT_PALETTE) {
+  const palette = colors.length > 0 ? colors : DEFAULT_PALETTE;
+  const rowByHash = /* @__PURE__ */ new Map();
+  commits.forEach((c, idx) => rowByHash.set(c.hash, idx));
+  const headAncestors = /* @__PURE__ */ new Set();
+  if (headHash && rowByHash.has(headHash)) {
+    const queue = [headHash];
+    headAncestors.add(headHash);
+    while (queue.length > 0) {
+      const current = queue.shift();
+      const idx = rowByHash.get(current);
+      if (idx === void 0) continue;
+      for (const parent of commits[idx].parents) {
+        if (!headAncestors.has(parent)) {
+          headAncestors.add(parent);
+          if (rowByHash.has(parent)) queue.push(parent);
+        }
+      }
+    }
+  }
+  const activeSlots = [];
+  const nodes = [];
+  const segments = [];
+  let colorCursor = 0;
+  let maxLane = 0;
+  const nextColor = () => {
+    const c = palette[colorCursor % palette.length];
+    colorCursor += 1;
+    return c;
+  };
+  const allocateEmptyLane = (slot) => {
+    const emptyIdx = activeSlots.findIndex((s) => s === null);
+    if (emptyIdx >= 0) {
+      activeSlots[emptyIdx] = slot;
+      if (emptyIdx > maxLane) maxLane = emptyIdx;
+      return emptyIdx;
+    }
+    const newLane = activeSlots.length;
+    activeSlots.push(slot);
+    if (newLane > maxLane) maxLane = newLane;
+    return newLane;
+  };
+  for (let row = 0; row < commits.length; row++) {
+    const commit = commits[row];
+    const matchingLanes = [];
+    for (let l = 0; l < activeSlots.length; l++) {
+      if (activeSlots[l]?.targetHash === commit.hash) {
+        matchingLanes.push(l);
+      }
+    }
+    let commitLane;
+    let commitColor;
+    if (matchingLanes.length > 0) {
+      commitLane = matchingLanes[0];
+      commitColor = commit.isUncommitted ? "#8a94a6" : activeSlots[commitLane].color;
+      for (const l of matchingLanes) {
+        const incoming = activeSlots[l];
+        segments.push({
+          fromRow: incoming.fromRow,
+          fromLane: incoming.fromLane,
+          toRow: row,
+          toLane: commitLane,
+          color: incoming.color,
+          isUncommitted: incoming.isUncommitted
+        });
+        activeSlots[l] = null;
+      }
+    } else {
+      commitColor = commit.isUncommitted ? "#8a94a6" : nextColor();
+      commitLane = allocateEmptyLane({
+        targetHash: commit.hash,
+        color: commitColor,
+        fromRow: row,
+        fromLane: 0,
+        isUncommitted: commit.isUncommitted
+      });
+      activeSlots[commitLane] = null;
+    }
+    nodes.push({
+      commit,
+      row,
+      lane: commitLane,
+      color: commitColor,
+      isAncestorOfHead: commit.isUncommitted || (headHash ? headAncestors.has(commit.hash) : true),
+      isMerge: commit.parents.length > 1
+    });
+    const visibleParents = commit.parents.filter((p) => rowByHash.has(p));
+    visibleParents.forEach((parentHash, pIdx) => {
+      if (pIdx === 0) {
+        activeSlots[commitLane] = {
+          targetHash: parentHash,
+          color: commit.isUncommitted ? nextColor() : commitColor,
+          fromRow: row,
+          fromLane: commitLane,
+          isUncommitted: commit.isUncommitted
+        };
+      } else {
+        const existingLane = activeSlots.findIndex((s) => s?.targetHash === parentHash);
+        const branchColor = existingLane >= 0 ? activeSlots[existingLane].color : nextColor();
+        allocateEmptyLane({
+          targetHash: parentHash,
+          color: branchColor,
+          fromRow: row,
+          fromLane: commitLane
+        });
+      }
+    });
+  }
+  return {
+    nodes,
+    segments,
+    maxLane
+  };
+}
+function buildSegmentSvgPath(args) {
+  const { segment, rowHeight, laneWidth, padX, style, expandedRow = -1, detailsHeight = 0 } = args;
+  const getY = (row) => {
+    if (expandedRow >= 0 && detailsHeight > 0 && row > expandedRow) {
+      return row * rowHeight + detailsHeight + rowHeight / 2;
+    }
+    return row * rowHeight + rowHeight / 2;
+  };
+  const x1 = padX + segment.fromLane * laneWidth;
+  const y1 = getY(segment.fromRow);
+  const x2 = padX + segment.toLane * laneWidth;
+  const y2 = getY(segment.toRow);
+  if (x1 === x2) {
+    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  }
+  if (style === "angular") {
+    const midY = y1 + rowHeight * 0.5;
+    if (midY >= y2) {
+      return `M ${x1} ${y1} L ${x2} ${y2}`;
+    }
+    return `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${y2}`;
+  }
+  const deltaRows = segment.toRow - segment.fromRow;
+  if (deltaRows <= 1) {
+    if (expandedRow >= 0 && detailsHeight > 0 && segment.fromRow <= expandedRow && segment.toRow > expandedRow) {
+      const turnY = y1 + rowHeight;
+      const cy12 = y1 + rowHeight * 0.45;
+      const cy22 = turnY - rowHeight * 0.45;
+      return `M ${x1} ${y1} C ${x1} ${cy12}, ${x2} ${cy22}, ${x2} ${turnY} L ${x2} ${y2}`;
+    }
+    const cy1 = y1 + rowHeight * 0.5;
+    const cy2 = y2 - rowHeight * 0.5;
+    return `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
+  }
+  if (segment.toLane > segment.fromLane) {
+    const turnY = y1 + rowHeight;
+    const cy1 = y1 + rowHeight * 0.45;
+    const cy2 = turnY - rowHeight * 0.45;
+    return `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${turnY} L ${x2} ${y2}`;
+  } else {
+    const turnY = y2 - rowHeight;
+    const cy1 = turnY + rowHeight * 0.45;
+    const cy2 = y2 - rowHeight * 0.45;
+    return `M ${x1} ${y1} L ${x1} ${turnY} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
+  }
+}
+var GITMOJI_MAP = {
+  ":art:": "\u{1F3A8}",
+  ":zap:": "\u26A1",
+  ":fire:": "\u{1F525}",
+  ":bug:": "\u{1F41B}",
+  ":ambulance:": "\u{1F691}\uFE0F",
+  ":sparkles:": "\u2728",
+  ":memo:": "\u{1F4DD}",
+  ":rocket:": "\u{1F680}",
+  ":lipstick:": "\u{1F484}",
+  ":tada:": "\u{1F389}",
+  ":white_check_mark:": "\u2705",
+  ":lock:": "\u{1F512}\uFE0F",
+  ":bookmark:": "\u{1F516}",
+  ":rotating_light:": "\u{1F6A8}",
+  ":construction:": "\u{1F6A7}",
+  ":green_heart:": "\u{1F49A}",
+  ":arrow_down:": "\u2B07\uFE0F",
+  ":arrow_up:": "\u2B06\uFE0F",
+  ":pushpin:": "\u{1F4CC}",
+  ":construction_worker:": "\u{1F477}",
+  ":chart_with_upwards_trend:": "\u{1F4C8}",
+  ":recycle:": "\u267B\uFE0F",
+  ":heavy_plus_sign:": "\u2795",
+  ":heavy_minus_sign:": "\u2796",
+  ":wrench:": "\u{1F527}",
+  ":hammer:": "\u{1F528}",
+  ":globe_with_meridians:": "\u{1F310}",
+  ":pencil2:": "\u270F\uFE0F",
+  ":rewind:": "\u23EA\uFE0F",
+  ":twisted_rightwards_arrows:": "\u{1F500}",
+  ":package:": "\u{1F4E6}\uFE0F",
+  ":alien:": "\u{1F47D}\uFE0F",
+  ":truck:": "\u{1F69A}",
+  ":page_facing_up:": "\u{1F4C4}",
+  ":boom:": "\u{1F4A5}",
+  ":bento:": "\u{1F371}",
+  ":wheelchair:": "\u267F\uFE0F",
+  ":bulb:": "\u{1F4A1}",
+  ":speech_balloon:": "\u{1F4AC}",
+  ":card_file_box:": "\u{1F5C3}\uFE0F",
+  ":loud_sound:": "\u{1F50A}",
+  ":mute:": "\u{1F507}",
+  ":Coffin:": "\u26B0\uFE0F",
+  ":test_tube:": "\u{1F9EA}",
+  ":necktie:": "\u{1F454}",
+  ":stethoscope:": "\u{1FA7A}",
+  ":bricks:": "\u{1F9F1}"
+};
+function replaceGitmojiShortcodes(text) {
+  return text.replace(/:[a-z0-9_+-]+:/gi, (shortcode) => {
+    const lower = shortcode.toLowerCase();
+    return GITMOJI_MAP[lower] ?? shortcode;
+  });
+}
+function tokenizeCommitMessage(rawText, issueRules = []) {
+  const withEmoji = replaceGitmojiShortcodes(rawText);
+  const tokens = [];
+  const baseRegex = /(`[^`]+`|https?:\/\/[^\s)]+)/g;
+  let lastIdx = 0;
+  let match;
+  const pushPlainWithIssues = (segment) => {
+    if (!segment) return;
+    if (issueRules.length === 0) {
+      tokens.push({ kind: "text", text: segment });
+      return;
+    }
+    for (const rule of issueRules) {
+      try {
+        const rx = new RegExp(rule.pattern, "g");
+        let subLast = 0;
+        let m;
+        const subTokens = [];
+        while ((m = rx.exec(segment)) !== null) {
+          if (m.index > subLast) {
+            subTokens.push({ kind: "text", text: segment.slice(subLast, m.index) });
+          }
+          let url = rule.urlTemplate;
+          m.forEach((group, idx) => {
+            if (group !== void 0) {
+              url = url.replace(new RegExp(`\\$${idx}`, "g"), group);
+            }
+          });
+          subTokens.push({ kind: "link", text: m[0], href: url });
+          subLast = m.index + m[0].length;
+          if (m[0].length === 0) break;
+        }
+        if (subTokens.length > 0) {
+          if (subLast < segment.length) {
+            subTokens.push({ kind: "text", text: segment.slice(subLast) });
+          }
+          tokens.push(...subTokens);
+          return;
+        }
+      } catch {
+      }
+    }
+    tokens.push({ kind: "text", text: segment });
+  };
+  while ((match = baseRegex.exec(withEmoji)) !== null) {
+    if (match.index > lastIdx) {
+      pushPlainWithIssues(withEmoji.slice(lastIdx, match.index));
+    }
+    const tokenStr = match[0];
+    if (tokenStr.startsWith("`") && tokenStr.endsWith("`")) {
+      tokens.push({ kind: "code", text: tokenStr.slice(1, -1) });
+    } else {
+      tokens.push({ kind: "link", text: tokenStr, href: tokenStr });
+    }
+    lastIdx = match.index + tokenStr.length;
+  }
+  if (lastIdx < withEmoji.length) {
+    pushPlainWithIssues(withEmoji.slice(lastIdx));
+  }
+  return tokens.length > 0 ? tokens : [{ kind: "text", text: withEmoji }];
+}
+function buildFileTree(files, compactFolders) {
+  const root = { name: "", path: "", kind: "folder", children: [] };
+  for (const change of files) {
+    const parts = change.newPath.split("/").filter(Boolean);
+    let current = root;
+    let currentPath = "";
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      const isLast = i === parts.length - 1;
+      if (isLast) {
+        current.children.push({
+          name: part,
+          path: change.newPath,
+          kind: "file",
+          children: [],
+          fileChange: change
+        });
+      } else {
+        let folder = current.children.find((c) => c.kind === "folder" && c.name === part);
+        if (!folder) {
+          folder = { name: part, path: currentPath, kind: "folder", children: [] };
+          current.children.push(folder);
+        }
+        current = folder;
+      }
+    }
+  }
+  function sortAndCompact(nodes) {
+    const processed = nodes.map((node) => {
+      if (node.kind === "file") return node;
+      let current = { ...node, children: sortAndCompact(node.children) };
+      while (compactFolders && current.children.length === 1 && current.children[0].kind === "folder") {
+        const onlyChild = current.children[0];
+        current = {
+          name: `${current.name}/${onlyChild.name}`,
+          path: onlyChild.path,
+          kind: "folder",
+          children: onlyChild.children
+        };
+      }
+      return current;
+    });
+    return processed.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+  return sortAndCompact(root.children);
+}
+function buildSplitDiffRows(hunk) {
+  const rows = [];
+  let i = 0;
+  const lines = hunk.lines;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.type === "context") {
+      rows.push({
+        leftLineNumber: line.oldLineNumber,
+        leftContent: line.content,
+        leftType: "context",
+        rightLineNumber: line.newLineNumber,
+        rightContent: line.content,
+        rightType: "context"
+      });
+      i += 1;
+      continue;
+    }
+    if (line.type === "meta") {
+      rows.push({
+        leftLineNumber: null,
+        leftContent: line.content,
+        leftType: "meta",
+        rightLineNumber: null,
+        rightContent: line.content,
+        rightType: "meta"
+      });
+      i += 1;
+      continue;
+    }
+    const dels = [];
+    const adds = [];
+    while (i < lines.length && lines[i].type === "del") {
+      dels.push(lines[i]);
+      i += 1;
+    }
+    while (i < lines.length && lines[i].type === "add") {
+      adds.push(lines[i]);
+      i += 1;
+    }
+    const maxLen = Math.max(dels.length, adds.length);
+    for (let k = 0; k < maxLen; k++) {
+      const d = dels[k];
+      const a = adds[k];
+      rows.push({
+        leftLineNumber: d ? d.oldLineNumber : null,
+        leftContent: d ? d.content : "",
+        leftType: d ? "del" : "empty",
+        rightLineNumber: a ? a.newLineNumber : null,
+        rightContent: a ? a.content : "",
+        rightType: a ? "add" : "empty"
+      });
+    }
+  }
+  return rows;
+}
+function formatCommitTimestamp(unixSeconds, format, nowMs = Date.now()) {
+  if (!unixSeconds) return "";
+  const date = new Date(unixSeconds * 1e3);
+  if (format === "iso") {
+    return date.toISOString().slice(0, 16).replace("T", " ");
+  }
+  if (format === "datetime") {
+    return date.toLocaleString();
+  }
+  const diffSec = Math.max(0, Math.floor((nowMs - unixSeconds * 1e3) / 1e3));
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays < 30) return `${diffDays}d ago`;
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+  return `${Math.floor(diffDays / 365)}y ago`;
+}
+
+// zcc-host-react:react/jsx-runtime
+var React2 = globalThis.__ZCC_HOST_REACT__;
+var Fragment2 = React2.Fragment;
+function jsx(type, props, key) {
+  return React2.createElement(type, key === void 0 ? props : { ...props, key });
+}
+var jsxs = jsx;
+
+// src/app/components/ControlBar.tsx
+function ControlBar(props) {
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
+  const [branchFilterQuery, setBranchFilterQuery] = useState("");
+  const {
+    repos,
+    selectedRepoRelPath,
+    onSelectRepo,
+    branches,
+    remoteBranches,
+    repoSettings,
+    globalSettings,
+    onUpdateRepoSettings,
+    onUpdateGlobalSettings,
+    onFetch,
+    onPush,
+    canPush,
+    onScrollToHead,
+    onToggleFind,
+    findOpen,
+    onOpenRepoSettings,
+    onRefresh,
+    projects,
+    selectedProjectId,
+    onSelectProject,
+    loading,
+    headerActions
+  } = props;
+  const selectedBranches = repoSettings.selectedBranches;
+  const allBranchesOption = selectedBranches.length === 0;
+  const combinedBranches = [
+    ...branches,
+    ...repoSettings.showRemoteBranches ? remoteBranches.map((r) => `remotes/${r}`) : []
+  ].filter((b) => !branchFilterQuery.trim() || b.toLowerCase().includes(branchFilterQuery.trim().toLowerCase()));
+  const toggleBranch = (branchName) => {
+    const set = new Set(selectedBranches);
+    if (set.has(branchName)) {
+      set.delete(branchName);
+    } else {
+      set.add(branchName);
+    }
+    onUpdateRepoSettings({ selectedBranches: [...set] });
+  };
+  return /* @__PURE__ */ jsxs("header", { className: "gg-control-bar git-graph-toolbar", role: "toolbar", "aria-label": "Git Tree controls", children: [
+    /* @__PURE__ */ jsxs("div", { className: "git-graph-toolbar-left", children: [
+      /* @__PURE__ */ jsx("span", { className: "git-graph-title", children: "\u2442 Git Tree" }),
+      projects && projects.length > 1 && /* @__PURE__ */ jsxs("label", { className: "gg-control-project-label", children: [
+        /* @__PURE__ */ jsx("span", { className: "gg-control-muted-label", children: "Project:" }),
+        /* @__PURE__ */ jsx(
+          "select",
+          {
+            "aria-label": "Select project",
+            className: "gg-select git-graph-select",
+            value: selectedProjectId,
+            onChange: (e) => onSelectProject?.(e.target.value),
+            children: projects.map((p) => /* @__PURE__ */ jsx("option", { value: p.id, children: p.name }, p.id))
+          }
+        )
+      ] }),
+      repos.length > 1 && /* @__PURE__ */ jsxs("label", { className: "gg-control-project-label", children: [
+        /* @__PURE__ */ jsx("span", { className: "gg-control-muted-label", children: "Repo:" }),
+        /* @__PURE__ */ jsx(
+          "select",
+          {
+            "aria-label": "Select repository",
+            className: "gg-select git-graph-select",
+            value: selectedRepoRelPath,
+            onChange: (e) => onSelectRepo(e.target.value),
+            children: repos.map((r) => /* @__PURE__ */ jsxs("option", { value: r.relPath, children: [
+              r.label,
+              " ",
+              r.currentBranch ? `(${r.currentBranch})` : ""
+            ] }, r.relPath || "root"))
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs("div", { style: { position: "relative", zIndex: branchMenuOpen ? 100 : 1 }, children: [
+        /* @__PURE__ */ jsx(
+          "button",
+          {
+            type: "button",
+            className: `gg-btn git-graph-btn ${!allBranchesOption ? "git-graph-btn--active" : ""}`,
+            "aria-label": "Filter branches",
+            "aria-expanded": branchMenuOpen,
+            onClick: () => setBranchMenuOpen((v) => !v),
+            "data-testid": "gg-branches-filter-btn",
+            children: /* @__PURE__ */ jsxs("span", { children: [
+              "\u2442 Branches:",
+              " ",
+              allBranchesOption ? "Show All" : selectedBranches.length === 1 ? selectedBranches[0] : `${selectedBranches.length} selected`,
+              " \u25BE"
+            ] })
+          }
+        ),
+        branchMenuOpen && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsx(
+            "div",
+            {
+              className: "gg-context-overlay-fixed",
+              onClick: () => setBranchMenuOpen(false)
+            }
+          ),
+          /* @__PURE__ */ jsxs(
+            "div",
+            {
+              className: "gg-popover git-graph-popover",
+              role: "dialog",
+              "aria-label": "Branch filter",
+              "data-testid": "gg-branches-popover",
+              children: [
+                /* @__PURE__ */ jsxs("div", { className: "gg-branch-filter-header", children: [
+                  /* @__PURE__ */ jsx("strong", { className: "gg-font-12", children: "Filter Branches" }),
+                  /* @__PURE__ */ jsx(
+                    "button",
+                    {
+                      type: "button",
+                      className: "gg-btn git-graph-btn",
+                      onClick: () => setBranchMenuOpen(false),
+                      children: "Close"
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "search",
+                    className: "git-graph-input",
+                    placeholder: "Filter branch list...",
+                    value: branchFilterQuery,
+                    onChange: (e) => setBranchFilterQuery(e.target.value)
+                  }
+                ),
+                /* @__PURE__ */ jsxs("label", { className: "git-graph-checkbox-row", children: [
+                  /* @__PURE__ */ jsx(
+                    "input",
+                    {
+                      type: "checkbox",
+                      checked: allBranchesOption,
+                      onChange: () => onUpdateRepoSettings({ selectedBranches: [] })
+                    }
+                  ),
+                  /* @__PURE__ */ jsx("span", { children: "Show All Branches" })
+                ] }),
+                /* @__PURE__ */ jsxs("label", { className: "git-graph-checkbox-row", children: [
+                  /* @__PURE__ */ jsx(
+                    "input",
+                    {
+                      type: "checkbox",
+                      checked: repoSettings.showRemoteBranches,
+                      onChange: (e) => onUpdateRepoSettings({ showRemoteBranches: e.target.checked })
+                    }
+                  ),
+                  /* @__PURE__ */ jsx("span", { children: "Show Remote Branches" })
+                ] }),
+                /* @__PURE__ */ jsxs("label", { className: "git-graph-checkbox-row", children: [
+                  /* @__PURE__ */ jsx(
+                    "input",
+                    {
+                      type: "checkbox",
+                      checked: repoSettings.showTags,
+                      onChange: (e) => onUpdateRepoSettings({ showTags: e.target.checked })
+                    }
+                  ),
+                  /* @__PURE__ */ jsx("span", { children: "Show Tags" })
+                ] }),
+                /* @__PURE__ */ jsxs("label", { className: "git-graph-checkbox-row", children: [
+                  /* @__PURE__ */ jsx(
+                    "input",
+                    {
+                      type: "checkbox",
+                      checked: repoSettings.showStashes,
+                      onChange: (e) => onUpdateRepoSettings({ showStashes: e.target.checked })
+                    }
+                  ),
+                  /* @__PURE__ */ jsx("span", { children: "Show Stashes" })
+                ] }),
+                /* @__PURE__ */ jsxs("label", { className: "git-graph-checkbox-row", children: [
+                  /* @__PURE__ */ jsx(
+                    "input",
+                    {
+                      type: "checkbox",
+                      checked: repoSettings.onlyFollowFirstParent,
+                      onChange: (e) => onUpdateRepoSettings({ onlyFollowFirstParent: e.target.checked })
+                    }
+                  ),
+                  /* @__PURE__ */ jsx("span", { children: "Only Follow First Parent" })
+                ] }),
+                /* @__PURE__ */ jsx("div", { className: "git-graph-context-sep" }),
+                /* @__PURE__ */ jsx("div", { className: "gg-branch-scroll-list", children: combinedBranches.map((branchName) => /* @__PURE__ */ jsxs("label", { className: "git-graph-checkbox-row", children: [
+                  /* @__PURE__ */ jsx(
+                    "input",
+                    {
+                      type: "checkbox",
+                      checked: selectedBranches.includes(branchName),
+                      onChange: () => toggleBranch(branchName)
+                    }
+                  ),
+                  /* @__PURE__ */ jsx("span", { className: "gg-ellipsis", children: branchName })
+                ] }, branchName)) })
+              ]
+            }
+          )
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs(
+        "select",
+        {
+          "aria-label": "Commit ordering",
+          className: "gg-select git-graph-select",
+          value: repoSettings.commitOrdering,
+          onChange: (e) => onUpdateRepoSettings({ commitOrdering: e.target.value }),
+          title: "Commit order",
+          children: [
+            /* @__PURE__ */ jsx("option", { value: "date", children: "Order: Commit Date" }),
+            /* @__PURE__ */ jsx("option", { value: "author-date", children: "Order: Author Date" }),
+            /* @__PURE__ */ jsx("option", { value: "topo", children: "Order: Topological" })
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxs(
+        "button",
+        {
+          type: "button",
+          className: "gg-btn git-graph-btn",
+          title: "Toggle rounded or angular graph lines",
+          onClick: () => onUpdateGlobalSettings({
+            graphStyle: globalSettings.graphStyle === "rounded" ? "angular" : "rounded"
+          }),
+          children: [
+            "Style: ",
+            globalSettings.graphStyle === "rounded" ? "Rounded" : "Angular"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxs(
+        "button",
+        {
+          type: "button",
+          className: "gg-btn git-graph-btn",
+          title: "Toggle Commit Details location (Docked split vs Inline row)",
+          onClick: () => onUpdateGlobalSettings({
+            commitDetailsLocation: globalSettings.commitDetailsLocation === "docked" ? "inline" : "docked"
+          }),
+          children: [
+            "Details: ",
+            globalSettings.commitDetailsLocation === "docked" ? "Docked" : "Inline"
+          ]
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "git-graph-toolbar-right", children: [
+      /* @__PURE__ */ jsx(
+        "button",
+        {
+          type: "button",
+          className: "gg-btn git-graph-btn",
+          onClick: onFetch,
+          disabled: loading,
+          title: "Fetch from Remote(s)",
+          children: "\u2B07 Fetch"
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        "button",
+        {
+          type: "button",
+          className: "gg-btn git-graph-btn",
+          onClick: onPush,
+          disabled: loading || !canPush,
+          title: "Push current branch to remote",
+          children: "\u2B06 Push"
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        "button",
+        {
+          type: "button",
+          className: "gg-btn git-graph-btn",
+          onClick: onScrollToHead,
+          title: "Scroll to HEAD (Ctrl/Cmd+H)",
+          children: "\u2316 HEAD"
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        "button",
+        {
+          type: "button",
+          className: `gg-btn git-graph-btn ${findOpen ? "git-graph-btn--active active" : ""}`,
+          onClick: onToggleFind,
+          title: "Find commits, branches, or tags (Ctrl/Cmd+F)",
+          "data-testid": "gg-find-btn",
+          children: "\u{1F50D} Find"
+        }
+      ),
+      /* @__PURE__ */ jsx(
+        "button",
+        {
+          type: "button",
+          className: "gg-btn git-graph-btn",
+          onClick: onOpenRepoSettings,
+          title: "Repository Settings (Remotes, Issue Linking, Pull Requests)",
+          "data-testid": "gg-repo-settings-btn",
+          children: "\u2699 Settings"
+        }
+      ),
+      /* @__PURE__ */ jsxs(
+        "button",
+        {
+          type: "button",
+          className: "gg-btn git-graph-btn",
+          onClick: onRefresh,
+          disabled: loading,
+          title: "Refresh Git Tree (Ctrl/Cmd+R)",
+          children: [
+            "\u21BB ",
+            loading ? "Loading\u2026" : "Refresh"
+          ]
+        }
+      ),
+      headerActions
+    ] })
+  ] });
+}
+
+// src/app/components/FindWidget.tsx
+function FindWidget(props) {
+  const {
+    query,
+    onChangeQuery,
+    matchCount,
+    activeMatchIndex,
+    onPrev,
+    onNext,
+    onClose
+  } = props;
+  return /* @__PURE__ */ jsxs("div", { className: "git-graph-find-bar", role: "search", "aria-label": "Find in Git Tree", "data-testid": "gg-find-widget", children: [
+    /* @__PURE__ */ jsx(
+      "input",
+      {
+        type: "search",
+        className: "git-graph-input gg-find-input-width",
+        "aria-label": "Find commits",
+        placeholder: "Find commit, hash, author, branch, tag...",
+        value: query,
+        autoFocus: true,
+        onChange: (e) => onChangeQuery(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (e.shiftKey) onPrev();
+            else onNext();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onClose();
+          }
+        },
+        "data-testid": "gg-find-input"
+      }
+    ),
+    /* @__PURE__ */ jsx("span", { className: "gg-find-count-badge", children: query.trim() ? matchCount > 0 ? `${activeMatchIndex + 1} / ${matchCount}` : "0 / 0" : "" }),
+    /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        className: "git-graph-btn",
+        disabled: matchCount === 0,
+        onClick: onPrev,
+        title: "Previous match (Shift+Enter)",
+        "data-testid": "gg-find-prev",
+        children: "\u2191"
+      }
+    ),
+    /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        className: "git-graph-btn",
+        disabled: matchCount === 0,
+        onClick: onNext,
+        title: "Next match (Enter)",
+        "data-testid": "gg-find-next",
+        children: "\u2193"
+      }
+    ),
+    /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        className: "git-graph-btn",
+        onClick: onClose,
+        "aria-label": "Close find widget",
+        children: "\u2715"
+      }
+    )
+  ] });
+}
+
+// src/app/components/CommitDetailsPane.tsx
+var STORAGE_FILES_WIDTH_KEY = "zcc.gitTree.commitDetailsFilesWidth";
+var STORAGE_FILES_HEIGHT_KEY = "zcc.gitTree.commitDetailsFilesHeight";
+var STORAGE_PANE_HEIGHT_KEY = "zcc.gitTree.commitDetailsHeight";
+var STORAGE_PANE_WIDTH_KEY = "zcc.gitTree.commitDetailsWidth";
+var MIN_FILES_WIDTH = 200;
+var MIN_FILES_HEIGHT = 100;
+var MIN_PANE_HEIGHT = 260;
+var MIN_PANE_WIDTH = 320;
+function loadStoredNumber(key) {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const val = Number(localStorage.getItem(key));
+    return Number.isFinite(val) && val > 0 ? val : null;
+  } catch {
+    return null;
+  }
+}
+function saveStoredNumber(key, val) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    if (val === null) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, String(val));
+    }
+  } catch {
+  }
+}
+function computeDefaultFilesWidth(fileChanges, fileViewType) {
+  if (!fileChanges.length) return 290;
+  let maxLen = 0;
+  for (const c of fileChanges) {
+    const text = fileViewType === "list" ? c.oldPath !== c.newPath ? `${c.oldPath} \u2192 ${c.newPath}` : c.newPath : c.newPath.split("/").pop() || c.newPath;
+    if (text.length > maxLen) maxLen = text.length;
+  }
+  return Math.max(260, Math.min(650, Math.round(maxLen * 7.8 + 120)));
+}
+function CommitDetailsPane({
+  mode,
+  details,
+  comparison,
+  loading,
+  inline,
+  fileViewType,
+  compactFolders,
+  diffViewMode,
+  dateFormat,
+  issueRules,
+  codeReview,
+  selectedFilePath,
+  fileDiff,
+  loadingDiff,
+  fileContent,
+  loadingContent,
+  onSelectFile,
+  onLoadFileContent,
+  onChangeFileViewType,
+  onToggleCompactFolders,
+  onChangeDiffViewMode,
+  onStartCodeReview,
+  onToggleReviewedFile,
+  onEndCodeReview,
+  onSelectParentHash,
+  onAskAgent,
+  onCopyText,
+  onClose
+}) {
+  const [collapsedFolders, setCollapsedFolders] = useState({});
+  const [viewMode, setViewMode] = useState("diff");
+  const diffViewerRef = useRef(null);
+  const containerRef = useRef(null);
+  const columnsRef = useRef(null);
+  const fileListRef = useRef(null);
+  const fileChanges = useMemo(() => {
+    if (mode === "comparison") return comparison?.fileChanges ?? [];
+    return details?.fileChanges ?? [];
+  }, [mode, details, comparison]);
+  const commitKey = mode === "comparison" ? `${comparison?.fromHash ?? ""}..${comparison?.toHash ?? ""}` : details?.hash ?? "";
+  const [paneHeight, setPaneHeight] = useState(() => {
+    return loadStoredNumber(STORAGE_PANE_HEIGHT_KEY);
+  });
+  const [paneWidth, setPaneWidth] = useState(() => {
+    return loadStoredNumber(STORAGE_PANE_WIDTH_KEY);
+  });
+  const [isStacked, setIsStacked] = useState(false);
+  const [isManualWidth, setIsManualWidth] = useState(false);
+  const [filesWidth, setFilesWidth] = useState(() => {
+    return computeDefaultFilesWidth(fileChanges, fileViewType);
+  });
+  const [isManualHeight, setIsManualHeight] = useState(false);
+  const [filesHeight, setFilesHeight] = useState(() => {
+    const est = fileChanges.length * 28 + 48;
+    return Math.min(260, Math.max(MIN_FILES_HEIGHT, est));
+  });
+  const prevCommitKeyRef = useRef(commitKey);
+  useEffect(() => {
+    if (prevCommitKeyRef.current !== commitKey) {
+      prevCommitKeyRef.current = commitKey;
+      setIsManualWidth(false);
+      setIsManualHeight(false);
+    }
+  }, [commitKey]);
+  const colDragCleanupRef = useRef(null);
+  const rowDragCleanupRef = useRef(null);
+  const heightDragCleanupRef = useRef(null);
+  const widthDragCleanupRef = useRef(null);
+  useEffect(() => {
+    return () => {
+      colDragCleanupRef.current?.();
+      rowDragCleanupRef.current?.();
+      heightDragCleanupRef.current?.();
+      widthDragCleanupRef.current?.();
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, []);
+  useEffect(() => {
+    const colEl = columnsRef.current;
+    if (!colEl) return;
+    const checkStacked = () => {
+      if (colEl && colEl.clientWidth > 0) {
+        setIsStacked(colEl.clientWidth <= 640);
+      }
+    };
+    checkStacked();
+    window.addEventListener("resize", checkStacked);
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(checkStacked);
+      ro.observe(colEl);
+      return () => {
+        window.removeEventListener("resize", checkStacked);
+        ro.disconnect();
+      };
+    }
+    return () => window.removeEventListener("resize", checkStacked);
+  }, []);
+  useLayoutEffect(() => {
+    if (fileChanges.length === 0) return;
+    const measure = () => {
+      const listEl = fileListRef.current;
+      const colEl = columnsRef.current;
+      if (!listEl || !colEl) return;
+      if (isStacked) {
+        if (isManualHeight) return;
+        const totalHeight = colEl.clientHeight > 0 ? colEl.clientHeight : 500;
+        const halfHeight = Math.floor(totalHeight * 0.5);
+        let actualItemsHeight = 0;
+        const items = listEl.querySelectorAll(".gg-file-row, .gg-folder-row");
+        if (items.length > 0) {
+          items.forEach((it) => {
+            actualItemsHeight += (it.offsetHeight || 26) + 2;
+          });
+          actualItemsHeight += 8;
+        } else {
+          actualItemsHeight = fileChanges.length * 26 + 8;
+        }
+        const neededHeight = Math.max(listEl.scrollHeight + 48, actualItemsHeight + 48);
+        const targetHeight = neededHeight > halfHeight ? halfHeight : Math.max(MIN_FILES_HEIGHT, neededHeight);
+        const clamped = Math.max(
+          MIN_FILES_HEIGHT,
+          Math.min(Math.floor(totalHeight * 0.8), targetHeight)
+        );
+        setFilesHeight(clamped);
+      } else {
+        if (isManualWidth) return;
+        let maxRowNeeded = 0;
+        const rows = listEl.querySelectorAll(".gg-file-row, .gg-folder-row");
+        rows.forEach((row) => {
+          const pathEl = row.querySelector(".gg-file-path");
+          if (pathEl) {
+            const pathDiff = Math.max(0, pathEl.scrollWidth - pathEl.clientWidth);
+            const needed = row.offsetWidth + pathDiff;
+            if (needed > maxRowNeeded) maxRowNeeded = needed;
+          } else {
+            if (row.scrollWidth > maxRowNeeded) maxRowNeeded = row.scrollWidth;
+          }
+        });
+        let calculated = maxRowNeeded > 0 ? maxRowNeeded + 24 : 0;
+        if (calculated <= 0) {
+          calculated = computeDefaultFilesWidth(fileChanges, fileViewType);
+        }
+        const maxAllowed = colEl.clientWidth > 0 ? Math.floor(colEl.clientWidth * 0.6) : 650;
+        const target = Math.max(
+          MIN_FILES_WIDTH,
+          Math.min(Math.max(MIN_FILES_WIDTH, maxAllowed), calculated)
+        );
+        setFilesWidth(target);
+      }
+    };
+    measure();
+    const rafId = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(rafId);
+  }, [fileChanges, fileViewType, compactFolders, isManualWidth, isManualHeight, isStacked]);
+  const handleRowResizeMouseDown = (e) => {
+    e.preventDefault();
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    const startY = e.clientY;
+    const startHeight = filesHeight;
+    let latestHeight = startHeight;
+    const onMouseMove = (ev) => {
+      const deltaY = ev.clientY - startY;
+      const colEl = columnsRef.current;
+      const totalH = colEl && colEl.clientHeight > 0 ? colEl.clientHeight : 600;
+      const maxAllowed = Math.floor(totalH * 0.8);
+      latestHeight = Math.max(MIN_FILES_HEIGHT, Math.min(maxAllowed, Math.round(startHeight + deltaY)));
+      setFilesHeight(latestHeight);
+      setIsManualHeight(true);
+    };
+    const cleanup = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      rowDragCleanupRef.current = null;
+    };
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_FILES_HEIGHT_KEY, latestHeight);
+    };
+    rowDragCleanupRef.current = cleanup;
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+  const handleRowResizeDoubleClick = () => {
+    setIsManualHeight(false);
+    saveStoredNumber(STORAGE_FILES_HEIGHT_KEY, null);
+  };
+  const handleColResizeMouseDown = (e) => {
+    e.preventDefault();
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const startX = e.clientX;
+    const startWidth = filesWidth;
+    let latestWidth = startWidth;
+    const onMouseMove = (ev) => {
+      const deltaX = ev.clientX - startX;
+      const colEl = columnsRef.current;
+      const maxAllowed = colEl && colEl.clientWidth > 0 ? Math.floor(colEl.clientWidth * 0.75) : 800;
+      latestWidth = Math.max(MIN_FILES_WIDTH, Math.min(maxAllowed, Math.round(startWidth + deltaX)));
+      setFilesWidth(latestWidth);
+      setIsManualWidth(true);
+    };
+    const cleanup = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      colDragCleanupRef.current = null;
+    };
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_FILES_WIDTH_KEY, latestWidth);
+    };
+    colDragCleanupRef.current = cleanup;
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+  const handleColResizeDoubleClick = () => {
+    setIsManualWidth(false);
+    saveStoredNumber(STORAGE_FILES_WIDTH_KEY, null);
+  };
+  const handleTopResizeMouseDown = (e) => {
+    e.preventDefault();
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    const startY = e.clientY;
+    const currentHeight = containerRef.current?.offsetHeight ?? (paneHeight || 480);
+    let latestHeight = currentHeight;
+    const onMouseMove = (ev) => {
+      const deltaY = startY - ev.clientY;
+      const maxHeight = typeof window !== "undefined" ? Math.round(window.innerHeight * 0.88) : 900;
+      latestHeight = Math.max(MIN_PANE_HEIGHT, Math.min(maxHeight, Math.round(currentHeight + deltaY)));
+      setPaneHeight(latestHeight);
+    };
+    const cleanup = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      heightDragCleanupRef.current = null;
+    };
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_PANE_HEIGHT_KEY, latestHeight);
+    };
+    heightDragCleanupRef.current = cleanup;
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+  const handleBottomResizeMouseDown = (e) => {
+    e.preventDefault();
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    const startY = e.clientY;
+    const currentHeight = containerRef.current?.offsetHeight ?? (paneHeight || 480);
+    let latestHeight = currentHeight;
+    const onMouseMove = (ev) => {
+      const deltaY = ev.clientY - startY;
+      const maxHeight = typeof window !== "undefined" ? Math.round(window.innerHeight * 0.88) : 900;
+      latestHeight = Math.max(MIN_PANE_HEIGHT, Math.min(maxHeight, Math.round(currentHeight + deltaY)));
+      setPaneHeight(latestHeight);
+    };
+    const cleanup = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      heightDragCleanupRef.current = null;
+    };
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_PANE_HEIGHT_KEY, latestHeight);
+    };
+    heightDragCleanupRef.current = cleanup;
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+  const handleHeightResizeDoubleClick = () => {
+    setPaneHeight(null);
+    saveStoredNumber(STORAGE_PANE_HEIGHT_KEY, null);
+  };
+  const handleLeftResizeMouseDown = (e) => {
+    e.preventDefault();
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const startX = e.clientX;
+    const currentWidth = containerRef.current?.offsetWidth ?? (paneWidth || 500);
+    let latestWidth = currentWidth;
+    const onMouseMove = (ev) => {
+      const deltaX = startX - ev.clientX;
+      const maxWidth = typeof window !== "undefined" ? Math.round(window.innerWidth * 0.8) : 1e3;
+      latestWidth = Math.max(MIN_PANE_WIDTH, Math.min(maxWidth, Math.round(currentWidth + deltaX)));
+      setPaneWidth(latestWidth);
+    };
+    const cleanup = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      widthDragCleanupRef.current = null;
+    };
+    const onMouseUp = () => {
+      cleanup();
+      saveStoredNumber(STORAGE_PANE_WIDTH_KEY, latestWidth);
+    };
+    widthDragCleanupRef.current = cleanup;
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+  const handleLeftResizeDoubleClick = () => {
+    setPaneWidth(null);
+    saveStoredNumber(STORAGE_PANE_WIDTH_KEY, null);
+  };
+  const containerStyle = useMemo(() => {
+    const style = {};
+    if (paneHeight) {
+      style.height = `${paneHeight}px`;
+      style.maxHeight = "88vh";
+    }
+    if (!inline && paneWidth) {
+      style.width = `${paneWidth}px`;
+      style.maxWidth = "80%";
+    }
+    return Object.keys(style).length > 0 ? style : void 0;
+  }, [inline, paneHeight, paneWidth]);
+  useEffect(() => {
+    if (selectedFilePath && diffViewerRef.current) {
+      diffViewerRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedFilePath]);
+  const fileTree = useMemo(
+    () => buildFileTree(fileChanges, compactFolders),
+    [fileChanges, compactFolders]
+  );
+  const reviewedSet = useMemo(
+    () => new Set(codeReview?.reviewedFiles ?? []),
+    [codeReview]
+  );
+  const toggleFolder = (folderPath) => {
+    setCollapsedFolders((prev) => ({
+      ...prev,
+      [folderPath]: !prev[folderPath]
+    }));
+  };
+  const renderTokens = (text) => {
+    const tokens = tokenizeCommitMessage(text, issueRules);
+    return tokens.map((tok, idx) => {
+      if (tok.kind === "code") {
+        return /* @__PURE__ */ jsx("code", { children: tok.text }, idx);
+      }
+      if (tok.kind === "link" && tok.href) {
+        return /* @__PURE__ */ jsx("a", { href: tok.href, target: "_blank", rel: "noreferrer", children: tok.text }, idx);
+      }
+      return /* @__PURE__ */ jsx(react_default.Fragment, { children: tok.text }, idx);
+    });
+  };
+  const renderFileItem = (change, label, depth = 0) => {
+    const isSelected = selectedFilePath === change.newPath;
+    const isReviewed = reviewedSet.has(change.newPath);
+    return /* @__PURE__ */ jsxs(
+      "div",
+      {
+        className: `gg-file-row ${isSelected ? "selected" : ""}`,
+        style: { paddingLeft: `${12 + depth * 14}px` },
+        onClick: () => {
+          onSelectFile(change);
+          if (viewMode === "source") {
+            onLoadFileContent?.(change.newPath);
+          }
+        },
+        "data-testid": `gg-file-row-${change.newPath}`,
+        children: [
+          codeReview && /* @__PURE__ */ jsx(
+            "input",
+            {
+              type: "checkbox",
+              checked: isReviewed,
+              onClick: (e) => e.stopPropagation(),
+              onChange: (e) => onToggleReviewedFile(change.newPath, e.target.checked),
+              title: "Mark file as reviewed"
+            }
+          ),
+          /* @__PURE__ */ jsx("span", { className: `gg-file-status gg-file-status-${change.status}`, children: change.status }),
+          /* @__PURE__ */ jsxs(
+            "span",
+            {
+              className: "gg-file-path",
+              style: {
+                textDecoration: isReviewed ? "line-through" : void 0,
+                opacity: isReviewed ? 0.65 : 1
+              },
+              title: change.oldPath !== change.newPath ? `${change.oldPath} \u2192 ${change.newPath}` : change.newPath,
+              children: [
+                label,
+                change.staged !== void 0 && /* @__PURE__ */ jsxs("span", { className: "gg-file-badge", children: [
+                  "(",
+                  change.staged ? "staged" : "unstaged",
+                  ")"
+                ] })
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxs("span", { className: "gg-file-stat", children: [
+            change.additions !== null && change.additions > 0 && /* @__PURE__ */ jsxs("span", { className: "gg-stat-add", children: [
+              "+",
+              change.additions
+            ] }),
+            change.deletions !== null && change.deletions > 0 && /* @__PURE__ */ jsxs("span", { className: "gg-stat-del", children: [
+              "-",
+              change.deletions
+            ] })
+          ] }),
+          /* @__PURE__ */ jsx(
+            "button",
+            {
+              type: "button",
+              className: "gg-btn gg-btn-icon gg-btn-compact-10",
+              title: "Copy File Path",
+              onClick: (e) => {
+                e.stopPropagation();
+                onCopyText(change.newPath, "File path");
+              },
+              children: "\u{1F4CB}"
+            }
+          )
+        ]
+      },
+      `${change.newPath}:${change.staged ? "staged" : "work"}`
+    );
+  };
+  const renderTreeNodes = (nodes, depth = 0) => {
+    return nodes.map((node) => {
+      if (node.kind === "file" && node.fileChange) {
+        return renderFileItem(node.fileChange, node.name, depth);
+      }
+      const isCollapsed = Boolean(collapsedFolders[node.path]);
+      return /* @__PURE__ */ jsxs(react_default.Fragment, { children: [
+        /* @__PURE__ */ jsxs(
+          "div",
+          {
+            className: "gg-folder-row",
+            style: { paddingLeft: `${12 + depth * 14}px` },
+            onClick: () => toggleFolder(node.path),
+            children: [
+              /* @__PURE__ */ jsx("span", { children: isCollapsed ? "\u25B8" : "\u25BE" }),
+              /* @__PURE__ */ jsxs("span", { children: [
+                "\u{1F4C1} ",
+                node.name
+              ] })
+            ]
+          }
+        ),
+        !isCollapsed && renderTreeNodes(node.children, depth + 1)
+      ] }, `folder:${node.path}`);
+    });
+  };
+  return /* @__PURE__ */ jsxs(
+    "div",
+    {
+      ref: containerRef,
+      className: `gg-details-pane ${inline ? "gg-details-inline inline" : ""}`,
+      style: containerStyle,
+      "data-testid": "gg-details-pane",
+      children: [
+        /* @__PURE__ */ jsx(
+          "div",
+          {
+            className: "gg-details-top-resizer",
+            onMouseDown: handleTopResizeMouseDown,
+            onDoubleClick: handleHeightResizeDoubleClick,
+            title: "Drag to resize height \xB7 Double-click to reset",
+            "data-testid": "gg-details-top-resizer"
+          }
+        ),
+        inline && /* @__PURE__ */ jsx(
+          "div",
+          {
+            className: "gg-details-bottom-resizer",
+            onMouseDown: handleBottomResizeMouseDown,
+            onDoubleClick: handleHeightResizeDoubleClick,
+            title: "Drag to resize height \xB7 Double-click to reset",
+            "data-testid": "gg-details-bottom-resizer"
+          }
+        ),
+        !inline && /* @__PURE__ */ jsx(
+          "div",
+          {
+            className: "gg-details-left-resizer",
+            onMouseDown: handleLeftResizeMouseDown,
+            onDoubleClick: handleLeftResizeDoubleClick,
+            title: "Drag to resize pane width \xB7 Double-click to reset",
+            "data-testid": "gg-details-left-resizer"
+          }
+        ),
+        /* @__PURE__ */ jsxs("div", { className: "gg-details-header", children: [
+          /* @__PURE__ */ jsx("div", { className: "gg-details-header-title", children: mode === "comparison" && comparison ? /* @__PURE__ */ jsxs(Fragment2, { children: [
+            /* @__PURE__ */ jsx("span", { children: "Comparing" }),
+            /* @__PURE__ */ jsx("span", { className: "gg-commit-hash gg-commit-hash-auto", children: comparison.fromHash.slice(0, 7) }),
+            /* @__PURE__ */ jsx("span", { children: "\u2194" }),
+            /* @__PURE__ */ jsx("span", { className: "gg-commit-hash gg-commit-hash-auto", children: comparison.toHash.slice(0, 7) })
+          ] }) : details ? /* @__PURE__ */ jsxs(Fragment2, { children: [
+            /* @__PURE__ */ jsx("span", { children: details.hash === "*" ? "Uncommitted Changes" : `Commit ${details.abbreviatedHash}` }),
+            details.signature && /* @__PURE__ */ jsxs(
+              "span",
+              {
+                className: "gg-ref-badge gg-ref-tag",
+                title: details.signature.signer || details.signature.label,
+                children: [
+                  "\u{1F512} ",
+                  details.signature.label
+                ]
+              }
+            )
+          ] }) : /* @__PURE__ */ jsx("span", { children: "Commit Details" }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-flex-row gg-gap-4 gg-flex-shrink-0", children: [
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => onAskAgent(selectedFilePath ?? void 0),
+                title: "Spawn a Zana Agent thread with this commit and diff context",
+                "data-testid": "gg-ask-agent-btn",
+                children: "\u2728 Ask Agent"
+              }
+            ),
+            codeReview ? /* @__PURE__ */ jsxs(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn",
+                onClick: onEndCodeReview,
+                title: "End Code Review",
+                "data-testid": "gg-end-review-btn",
+                children: [
+                  "\u2713 End Review (",
+                  reviewedSet.size,
+                  "/",
+                  fileChanges.length,
+                  ")"
+                ]
+              }
+            ) : /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn",
+                onClick: onStartCodeReview,
+                title: "Start Persistent Code Review",
+                "data-testid": "gg-start-review-btn",
+                children: "\u{1F441} Code Review"
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-icon",
+                onClick: onClose,
+                title: "Close Details (Esc)",
+                "data-testid": "gg-close-details-btn",
+                children: "\u2715"
+              }
+            )
+          ] })
+        ] }),
+        loading ? /* @__PURE__ */ jsx("div", { className: "gg-empty", children: "Loading commit details\u2026" }) : /* @__PURE__ */ jsxs("div", { className: "gg-details-body", children: [
+          mode === "single" && details && details.hash !== "*" && /* @__PURE__ */ jsxs("div", { className: "gg-details-meta", children: [
+            /* @__PURE__ */ jsxs("div", { className: "gg-details-meta-grid", children: [
+              /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Commit:" }),
+              /* @__PURE__ */ jsxs("span", { children: [
+                /* @__PURE__ */ jsx("code", { children: details.hash }),
+                " ",
+                /* @__PURE__ */ jsx(
+                  "button",
+                  {
+                    type: "button",
+                    className: "gg-btn gg-btn-icon gg-btn-compact-10",
+                    onClick: () => onCopyText(details.hash, "Commit hash"),
+                    children: "Copy"
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Parents:" }),
+              /* @__PURE__ */ jsx("span", { children: details.parents.length === 0 ? "None (root commit)" : details.parents.map((p, idx) => /* @__PURE__ */ jsxs(react_default.Fragment, { children: [
+                idx > 0 && ", ",
+                /* @__PURE__ */ jsx(
+                  "span",
+                  {
+                    className: "gg-parent-link",
+                    onClick: () => onSelectParentHash(p),
+                    children: p.slice(0, 8)
+                  }
+                )
+              ] }, p)) }),
+              /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Author:" }),
+              /* @__PURE__ */ jsxs("span", { children: [
+                details.authorName,
+                " <",
+                details.authorEmail,
+                "> (",
+                formatCommitTimestamp(details.authorDate, dateFormat),
+                ")"
+              ] }),
+              /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Committer:" }),
+              /* @__PURE__ */ jsxs("span", { children: [
+                details.committerName,
+                " <",
+                details.committerEmail,
+                "> (",
+                formatCommitTimestamp(details.commitDate, dateFormat),
+                ")"
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: "gg-details-message", children: [
+              /* @__PURE__ */ jsx("strong", { children: renderTokens(details.subject) }),
+              details.body ? `
+
+${details.body}` : ""
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs(
+            "div",
+            {
+              ref: columnsRef,
+              className: `gg-details-columns ${isStacked ? "stacked" : "side-by-side"}`,
+              "data-testid": "gg-details-columns",
+              children: [
+                /* @__PURE__ */ jsxs(
+                  "div",
+                  {
+                    className: "gg-details-col-files",
+                    style: isStacked ? {
+                      height: `${filesHeight}px`,
+                      flexBasis: `${filesHeight}px`,
+                      width: "100%"
+                    } : {
+                      width: `${filesWidth}px`,
+                      flexBasis: `${filesWidth}px`
+                    },
+                    children: [
+                      /* @__PURE__ */ jsxs("div", { className: "gg-files-toolbar", children: [
+                        /* @__PURE__ */ jsxs("span", { children: [
+                          "Changed Files (",
+                          fileChanges.length,
+                          ")",
+                          codeReview ? ` \u2022 Reviewed ${reviewedSet.size}/${fileChanges.length}` : ""
+                        ] }),
+                        /* @__PURE__ */ jsxs("div", { className: "gg-flex-row gg-gap-4", children: [
+                          /* @__PURE__ */ jsx(
+                            "button",
+                            {
+                              type: "button",
+                              className: `gg-btn gg-btn-compact-11 ${fileViewType === "tree" ? "gg-btn-active" : ""}`,
+                              onClick: () => onChangeFileViewType("tree"),
+                              "data-testid": "gg-view-tree-btn",
+                              children: "Tree"
+                            }
+                          ),
+                          /* @__PURE__ */ jsx(
+                            "button",
+                            {
+                              type: "button",
+                              className: `gg-btn gg-btn-compact-11 ${fileViewType === "list" ? "gg-btn-active" : ""}`,
+                              onClick: () => onChangeFileViewType("list"),
+                              "data-testid": "gg-view-list-btn",
+                              children: "List"
+                            }
+                          ),
+                          fileViewType === "tree" && /* @__PURE__ */ jsx(
+                            "button",
+                            {
+                              type: "button",
+                              className: `gg-btn gg-btn-compact-11 ${compactFolders ? "gg-btn-active" : ""}`,
+                              onClick: onToggleCompactFolders,
+                              title: "Compact single-child folders",
+                              children: "Compact"
+                            }
+                          )
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ jsx(
+                        "div",
+                        {
+                          ref: fileListRef,
+                          className: "gg-file-list",
+                          "data-testid": "gg-file-list",
+                          children: fileChanges.length === 0 ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-12", children: "No file changes in this commit." }) : fileViewType === "tree" ? renderTreeNodes(fileTree) : fileChanges.map(
+                            (change) => renderFileItem(
+                              change,
+                              change.oldPath !== change.newPath ? `${change.oldPath} \u2192 ${change.newPath}` : change.newPath,
+                              0
+                            )
+                          )
+                        }
+                      )
+                    ]
+                  }
+                ),
+                isStacked ? /* @__PURE__ */ jsx(
+                  "div",
+                  {
+                    className: "gg-details-row-resizer",
+                    onMouseDown: handleRowResizeMouseDown,
+                    onDoubleClick: handleRowResizeDoubleClick,
+                    title: "Drag to resize \xB7 Double-click to auto-split",
+                    "data-testid": "gg-details-row-resizer"
+                  }
+                ) : /* @__PURE__ */ jsx(
+                  "div",
+                  {
+                    className: "gg-details-col-resizer",
+                    onMouseDown: handleColResizeMouseDown,
+                    onDoubleClick: handleColResizeDoubleClick,
+                    title: "Drag to resize column \xB7 Double-click to auto-fit",
+                    "data-testid": "gg-details-col-resizer"
+                  }
+                ),
+                /* @__PURE__ */ jsx("div", { className: "gg-details-col-diff", children: selectedFilePath ? /* @__PURE__ */ jsxs("div", { className: "gg-diff-viewer", "data-testid": "gg-diff-viewer", ref: diffViewerRef, children: [
+                  /* @__PURE__ */ jsxs("div", { className: "gg-diff-toolbar", children: [
+                    /* @__PURE__ */ jsx(
+                      "span",
+                      {
+                        style: {
+                          fontFamily: "var(--font-mono, monospace)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          fontWeight: 600
+                        },
+                        title: selectedFilePath,
+                        children: selectedFilePath
+                      }
+                    ),
+                    /* @__PURE__ */ jsxs("div", { className: "gg-flex-row gg-gap-4", children: [
+                      /* @__PURE__ */ jsx(
+                        "button",
+                        {
+                          type: "button",
+                          className: `gg-btn gg-btn-pad-8 ${viewMode === "diff" ? "gg-btn-active" : ""}`,
+                          onClick: () => setViewMode("diff"),
+                          "data-testid": "gg-view-diff-btn",
+                          title: "View diff changes",
+                          children: "Diff"
+                        }
+                      ),
+                      /* @__PURE__ */ jsx(
+                        "button",
+                        {
+                          type: "button",
+                          className: `gg-btn gg-btn-pad-8 ${viewMode === "source" ? "gg-btn-active" : ""}`,
+                          onClick: () => {
+                            setViewMode("source");
+                            if (selectedFilePath && !fileContent) {
+                              onLoadFileContent?.(selectedFilePath);
+                            }
+                          },
+                          "data-testid": "gg-view-source-btn",
+                          title: "View full source code",
+                          children: "Source Code"
+                        }
+                      ),
+                      viewMode === "diff" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+                        /* @__PURE__ */ jsx(
+                          "button",
+                          {
+                            type: "button",
+                            className: `gg-btn gg-btn-compact-11 ${diffViewMode === "unified" ? "gg-btn-active" : ""}`,
+                            onClick: () => onChangeDiffViewMode("unified"),
+                            "data-testid": "gg-diff-unified-btn",
+                            children: "Unified"
+                          }
+                        ),
+                        /* @__PURE__ */ jsx(
+                          "button",
+                          {
+                            type: "button",
+                            className: `gg-btn gg-btn-compact-11 ${diffViewMode === "split" ? "gg-btn-active" : ""}`,
+                            onClick: () => onChangeDiffViewMode("split"),
+                            "data-testid": "gg-diff-split-btn",
+                            children: "Split"
+                          }
+                        )
+                      ] }),
+                      /* @__PURE__ */ jsx(
+                        "button",
+                        {
+                          type: "button",
+                          className: "gg-btn gg-btn-icon gg-btn-compact-11",
+                          title: viewMode === "source" ? "Copy file content" : "Copy diff",
+                          onClick: () => onCopyText(
+                            viewMode === "source" ? fileContent?.content ?? "" : fileDiff?.rawDiff ?? "",
+                            viewMode === "source" ? "Source code" : "Diff"
+                          ),
+                          children: "\u{1F4CB}"
+                        }
+                      )
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ jsx("div", { className: "gg-diff-content-scroll", children: viewMode === "source" ? loadingContent ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-16", children: "Loading source code\u2026" }) : !fileContent ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-16", children: "No source code available for this file." }) : fileContent.isBinary ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-16", children: "Binary file \u2014 cannot display text content." }) : /* @__PURE__ */ jsx("table", { className: "gg-source-table", "data-testid": "gg-source-code-table", children: /* @__PURE__ */ jsx("tbody", { children: fileContent.content.split(/\r?\n/).map((line, idx) => /* @__PURE__ */ jsxs("tr", { className: "gg-source-line", children: [
+                    /* @__PURE__ */ jsx("td", { className: "gg-diff-gutter", children: idx + 1 }),
+                    /* @__PURE__ */ jsx("td", { className: "gg-diff-code", children: line || " " })
+                  ] }, idx)) }) }) : loadingDiff ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-16", children: "Loading diff\u2026" }) : !fileDiff ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-16", children: "Select a file to inspect its diff." }) : fileDiff.isBinary ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-16", children: "Binary file changed \u2014 inline text diff not available." }) : fileDiff.hunks.length === 0 ? /* @__PURE__ */ jsx("div", { className: "gg-empty gg-pad-16", children: "No textual diff hunks (empty file or mode-only change)." }) : diffViewMode === "unified" ? /* @__PURE__ */ jsx("table", { className: "gg-diff-table", "data-testid": "gg-diff-unified-table", children: /* @__PURE__ */ jsx("tbody", { children: fileDiff.hunks.map((hunk, hIdx) => /* @__PURE__ */ jsxs(react_default.Fragment, { children: [
+                    /* @__PURE__ */ jsx("tr", { className: "gg-diff-hunk-header", children: /* @__PURE__ */ jsx("td", { colSpan: 3, className: "gg-diff-code", children: hunk.header }) }),
+                    hunk.lines.map((line, lIdx) => /* @__PURE__ */ jsxs(
+                      "tr",
+                      {
+                        className: line.type === "add" ? "gg-diff-line-add" : line.type === "del" ? "gg-diff-line-del" : "",
+                        children: [
+                          /* @__PURE__ */ jsx("td", { className: "gg-diff-gutter", children: line.oldLineNumber ?? "" }),
+                          /* @__PURE__ */ jsx("td", { className: "gg-diff-gutter", children: line.newLineNumber ?? "" }),
+                          /* @__PURE__ */ jsx("td", { className: "gg-diff-code", children: line.type === "add" ? `+${line.content}` : line.type === "del" ? `-${line.content}` : ` ${line.content}` })
+                        ]
+                      },
+                      `${hIdx}-${lIdx}`
+                    ))
+                  ] }, hIdx)) }) }) : /* @__PURE__ */ jsx("table", { className: "gg-diff-table", "data-testid": "gg-diff-split-table", children: /* @__PURE__ */ jsx("tbody", { children: fileDiff.hunks.map((hunk, hIdx) => {
+                    const splitRows = buildSplitDiffRows(hunk);
+                    return /* @__PURE__ */ jsxs(react_default.Fragment, { children: [
+                      /* @__PURE__ */ jsx("tr", { className: "gg-diff-hunk-header", children: /* @__PURE__ */ jsx("td", { colSpan: 4, className: "gg-diff-code", children: hunk.header }) }),
+                      splitRows.map((row, rIdx) => /* @__PURE__ */ jsxs("tr", { children: [
+                        /* @__PURE__ */ jsx(
+                          "td",
+                          {
+                            className: `gg-diff-gutter ${row.leftType === "del" ? "gg-diff-line-del" : ""}`,
+                            children: row.leftLineNumber ?? ""
+                          }
+                        ),
+                        /* @__PURE__ */ jsx(
+                          "td",
+                          {
+                            className: `gg-diff-code gg-diff-half-width ${row.leftType === "del" ? "gg-diff-line-del" : ""}`,
+                            children: row.leftContent
+                          }
+                        ),
+                        /* @__PURE__ */ jsx(
+                          "td",
+                          {
+                            className: `gg-diff-gutter ${row.rightType === "add" ? "gg-diff-line-add" : ""}`,
+                            children: row.rightLineNumber ?? ""
+                          }
+                        ),
+                        /* @__PURE__ */ jsx(
+                          "td",
+                          {
+                            className: `gg-diff-code gg-diff-half-width ${row.rightType === "add" ? "gg-diff-line-add" : ""}`,
+                            children: row.rightContent
+                          }
+                        )
+                      ] }, `${hIdx}-${rIdx}`))
+                    ] }, hIdx);
+                  }) }) }) })
+                ] }) : /* @__PURE__ */ jsx(
+                  "div",
+                  {
+                    className: "gg-empty",
+                    style: {
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "24px"
+                    },
+                    children: "Select a file from the list to inspect changes."
+                  }
+                ) })
+              ]
+            }
+          )
+        ] })
+      ]
+    }
+  );
+}
+
+// src/app/clipboard.ts
+function copyViaTextarea(text) {
+  if (typeof document === "undefined") return false;
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.top = "-9999px";
+  ta.setAttribute("readonly", "");
+  document.body.appendChild(ta);
+  try {
+    ta.select();
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(ta);
+  }
+}
+async function copyText(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+  }
+  return copyViaTextarea(text);
+}
+
+// src/app/components/ContextMenuAndDialogs.tsx
+function ContextMenuOverlay({
+  target,
+  currentBranch,
+  hasCommits = true,
+  onClose,
+  onRunAction,
+  onOpenDialog,
+  onOpenPullRequest,
+  onViewTagDetails,
+  onCopyText,
+  onAskAgent
+}) {
+  if (!target) return null;
+  const style = {
+    left: `${Math.min(target.x, window.innerWidth - 220)}px`,
+    top: `${Math.min(target.y, window.innerHeight - 320)}px`
+  };
+  return /* @__PURE__ */ jsx(
+    "div",
+    {
+      className: "gg-context-overlay-fixed",
+      onClick: onClose,
+      onContextMenu: (e) => {
+        e.preventDefault();
+        onClose();
+      },
+      children: /* @__PURE__ */ jsxs(
+        "div",
+        {
+          className: "gg-context-menu",
+          style,
+          onClick: (e) => e.stopPropagation(),
+          "data-testid": "gg-context-menu",
+          children: [
+            target.kind === "branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsxs("div", { className: "gg-context-menu-header", children: [
+                "Branch: ",
+                target.ref.name
+              ] }),
+              target.ref.name !== currentBranch && /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "checkout-branch",
+                      branchName: target.ref.name
+                    });
+                  },
+                  children: "Checkout Branch"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "rename-branch", branchName: target.ref.name });
+                  },
+                  children: "Rename Branch\u2026"
+                }
+              ),
+              target.ref.name !== currentBranch && /* @__PURE__ */ jsxs(Fragment2, { children: [
+                /* @__PURE__ */ jsx(
+                  "button",
+                  {
+                    type: "button",
+                    className: "gg-context-menu-item",
+                    onClick: () => {
+                      onClose();
+                      onOpenDialog({ kind: "merge-branch", branchName: target.ref.name });
+                    },
+                    children: "Merge into Current Branch\u2026"
+                  }
+                ),
+                /* @__PURE__ */ jsxs(
+                  "button",
+                  {
+                    type: "button",
+                    className: "gg-context-menu-item",
+                    onClick: () => {
+                      onClose();
+                      onOpenDialog({ kind: "rebase-branch", ontoBranch: target.ref.name });
+                    },
+                    children: [
+                      "Rebase Current Branch onto ",
+                      target.ref.name,
+                      "\u2026"
+                    ]
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "push-branch", branchName: target.ref.name });
+                  },
+                  children: "Push Branch\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "pull-branch", branchName: target.ref.name });
+                  },
+                  children: "Pull into Branch\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenPullRequest(target.ref.name);
+                  },
+                  children: "Create Pull Request\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-sep" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onCopyText(target.ref.name, "Branch name");
+                  },
+                  children: "Copy Branch Name"
+                }
+              ),
+              target.ref.name !== currentBranch && /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "delete-branch", branchName: target.ref.name });
+                  },
+                  children: "Delete Branch\u2026"
+                }
+              )
+            ] }),
+            target.kind === "remote-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsxs("div", { className: "gg-context-menu-header", children: [
+                "Remote Branch: ",
+                target.ref.remote,
+                "/",
+                target.ref.name
+              ] }),
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "checkout-branch",
+                      branchName: target.ref.name,
+                      createAndTrackFrom: `${target.ref.remote}/${target.ref.name}`
+                    });
+                  },
+                  children: [
+                    "Checkout Branch (Track ",
+                    target.ref.remote,
+                    "/",
+                    target.ref.name,
+                    ")"
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "fetch-into-local-branch",
+                      remote: target.ref.remote || "origin",
+                      remoteBranch: target.ref.name,
+                      localBranch: target.ref.name,
+                      force: false
+                    });
+                  },
+                  children: [
+                    "Fetch into Local Branch (",
+                    target.ref.name,
+                    ")"
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({
+                      kind: "merge-branch",
+                      branchName: `${target.ref.remote}/${target.ref.name}`
+                    });
+                  },
+                  children: "Merge into Current Branch\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-sep" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onCopyText(`${target.ref.remote}/${target.ref.name}`, "Remote branch name");
+                  },
+                  children: "Copy Remote Branch Name"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "delete-remote-branch",
+                      remote: target.ref.remote || "origin",
+                      branchName: target.ref.name
+                    });
+                  },
+                  children: "Delete Remote Branch"
+                }
+              )
+            ] }),
+            target.kind === "tag" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsxs("div", { className: "gg-context-menu-header", children: [
+                "Tag: ",
+                target.ref.name
+              ] }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onViewTagDetails(target.ref.name);
+                  },
+                  children: "View Tag Details"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "push-tag",
+                      tagName: target.ref.name,
+                      remote: "origin"
+                    });
+                  },
+                  children: "Push Tag to origin"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onCopyText(target.ref.name, "Tag name");
+                  },
+                  children: "Copy Tag Name"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-sep" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "delete-tag",
+                      tagName: target.ref.name,
+                      deleteFromRemote: null
+                    });
+                  },
+                  children: "Delete Tag"
+                }
+              )
+            ] }),
+            target.kind === "stash" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsxs("div", { className: "gg-context-menu-header", children: [
+                "Stash: ",
+                target.selector
+              ] }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "stash-apply",
+                      selector: target.selector,
+                      reinstateIndex: false
+                    });
+                  },
+                  children: "Apply Stash"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "stash-pop",
+                      selector: target.selector,
+                      reinstateIndex: false
+                    });
+                  },
+                  children: "Pop Stash"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "stash-branch", selector: target.selector });
+                  },
+                  children: "Create Branch from Stash\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-sep" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "stash-drop",
+                      selector: target.selector
+                    });
+                  },
+                  children: "Drop Stash"
+                }
+              )
+            ] }),
+            target.kind === "uncommitted" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-header", children: "Uncommitted Changes" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "commit-uncommitted" });
+                  },
+                  children: "Commit\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  disabled: !hasCommits,
+                  title: !hasCommits ? "Cannot stash: Git requires an initial commit before stashing" : void 0,
+                  onClick: () => {
+                    if (!hasCommits) return;
+                    onClose();
+                    onOpenDialog({ kind: "stash-push" });
+                  },
+                  children: "Stash Uncommitted Changes\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "discard-all" });
+                  },
+                  children: "Discard All Changes\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onAskAgent?.("*");
+                  },
+                  children: "\u2728 Ask Agent to Review Working Tree\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-sep" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({ kind: "reset-uncommitted", mode: "hard" });
+                  },
+                  children: "Reset Working Tree (Hard)"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "clean-untracked" });
+                  },
+                  children: "Clean Untracked Files\u2026"
+                }
+              )
+            ] }),
+            target.kind === "commit" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsxs("div", { className: "gg-context-menu-header", children: [
+                "Commit: ",
+                target.commit.abbreviatedHash
+              ] }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "create-branch", commit: target.commit });
+                  },
+                  children: "Create Branch\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "add-tag", commit: target.commit });
+                  },
+                  children: "Add Tag\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onRunAction({
+                      kind: "checkout-commit",
+                      commitHash: target.commit.hash
+                    });
+                  },
+                  children: "Checkout Commit (Detached HEAD)"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-sep" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "cherry-pick", commit: target.commit });
+                  },
+                  children: "Cherry-Pick Commit\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({ kind: "revert-commit", commit: target.commit });
+                  },
+                  children: "Revert Commit\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onOpenDialog({
+                      kind: "reset-commit",
+                      commit: target.commit,
+                      defaultMode: "mixed"
+                    });
+                  },
+                  children: "Reset Current Branch to Here\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item danger",
+                  disabled: target.commit.parents.length === 0,
+                  title: target.commit.parents.length === 0 ? "Cannot drop the initial (root) commit" : void 0,
+                  onClick: () => {
+                    if (target.commit.parents.length === 0) return;
+                    onClose();
+                    onOpenDialog({ kind: "drop-commit", commit: target.commit });
+                  },
+                  children: "Drop Commit\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx("div", { className: "gg-context-menu-sep" }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onAskAgent?.(target.commit.hash);
+                  },
+                  children: "\u2728 Ask Agent about Commit\u2026"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onCopyText(target.commit.hash, "Commit hash");
+                  },
+                  children: "Copy Commit Hash"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-context-menu-item",
+                  onClick: () => {
+                    onClose();
+                    onCopyText(target.commit.subject, "Commit subject");
+                  },
+                  children: "Copy Commit Subject"
+                }
+              )
+            ] })
+          ]
+        }
+      )
+    }
+  );
+}
+function GitActionDialogModal({
+  dialog,
+  remotes,
+  currentBranch,
+  onClose,
+  onRunAction
+}) {
+  const defaultRemote = remotes[0]?.name ?? "origin";
+  const [textA, setTextA] = useState("");
+  const [textB, setTextB] = useState("");
+  const [flagA, setFlagA] = useState(true);
+  const [flagB, setFlagB] = useState(false);
+  const [flagC, setFlagC] = useState(false);
+  const [resetMode, setResetMode] = useState("mixed");
+  if (!dialog) return null;
+  return /* @__PURE__ */ jsx("div", { className: "gg-modal-backdrop", onClick: onClose, children: /* @__PURE__ */ jsxs(
+    "div",
+    {
+      className: "gg-modal",
+      onClick: (e) => e.stopPropagation(),
+      "data-testid": `gg-dialog-${dialog.kind}`,
+      children: [
+        dialog.kind === "create-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Create Branch at ",
+              dialog.commit.abbreviatedHash
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-body", children: [
+            /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+              /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Branch Name" }),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  placeholder: "feature/my-branch",
+                  value: textA,
+                  onChange: (e) => setTextA(e.target.value),
+                  autoFocus: true
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagA,
+                  onChange: (e) => setFlagA(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Check out branch after creation" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                disabled: !textA.trim(),
+                onClick: () => {
+                  onRunAction({
+                    kind: "create-branch",
+                    branchName: textA.trim(),
+                    startPoint: dialog.commit.hash,
+                    checkout: flagA
+                  });
+                  onClose();
+                },
+                children: "Create Branch"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "rename-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Rename Branch ",
+              dialog.branchName
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "New Branch Name" }),
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                type: "text",
+                className: "gg-input",
+                value: textA,
+                placeholder: dialog.branchName,
+                onChange: (e) => setTextA(e.target.value),
+                autoFocus: true
+              }
+            )
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                disabled: !textA.trim(),
+                onClick: () => {
+                  onRunAction({
+                    kind: "rename-branch",
+                    oldName: dialog.branchName,
+                    newName: textA.trim()
+                  });
+                  onClose();
+                },
+                children: "Rename"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "delete-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Delete Branch ",
+              dialog.branchName
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                type: "checkbox",
+                checked: flagB,
+                onChange: (e) => setFlagB(e.target.checked)
+              }
+            ),
+            /* @__PURE__ */ jsx("span", { children: "Force delete (-D) even if unmerged" })
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "delete-branch",
+                    branchName: dialog.branchName,
+                    force: flagB
+                  });
+                  onClose();
+                },
+                children: "Delete Branch"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "merge-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Merge ",
+              dialog.branchName,
+              " into Current Branch"
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-body", children: [
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagB,
+                  onChange: (e) => setFlagB(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Create a new commit even if fast-forward is possible (--no-ff)" })
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagC,
+                  onChange: (e) => setFlagC(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Squash commits (--squash)" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "merge",
+                    target: dialog.branchName,
+                    noFastForward: flagB,
+                    squash: flagC,
+                    noCommit: false
+                  });
+                  onClose();
+                },
+                children: "Merge"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "rebase-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Rebase Current Branch onto ",
+              dialog.ontoBranch
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                type: "checkbox",
+                checked: flagA,
+                onChange: (e) => setFlagA(e.target.checked)
+              }
+            ),
+            /* @__PURE__ */ jsx("span", { children: "Auto-stash uncommitted changes before rebase (--autostash)" })
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "rebase",
+                    onto: dialog.ontoBranch,
+                    autostash: flagA
+                  });
+                  onClose();
+                },
+                children: "Rebase"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "push-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Push Branch ",
+              dialog.branchName
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-body", children: [
+            /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+              /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Remote" }),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  value: textA || defaultRemote,
+                  onChange: (e) => setTextA(e.target.value)
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagA,
+                  onChange: (e) => setFlagA(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Set upstream (-u)" })
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagB,
+                  onChange: (e) => setFlagB(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Force with lease (--force-with-lease)" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "push-branch",
+                    branchName: dialog.branchName,
+                    remote: (textA || defaultRemote).trim(),
+                    setUpstream: flagA,
+                    forceMode: flagB ? "force-with-lease" : "none"
+                  });
+                  onClose();
+                },
+                children: "Push"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "pull-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Pull Branch ",
+              dialog.branchName
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-body", children: [
+            /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+              /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Remote" }),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  value: textA || defaultRemote,
+                  onChange: (e) => setTextA(e.target.value)
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagB,
+                  onChange: (e) => setFlagB(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Rebase instead of merge (--rebase)" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "pull-branch",
+                    remote: (textA || defaultRemote).trim(),
+                    branchName: dialog.branchName,
+                    noFastForward: false,
+                    squash: false,
+                    rebase: flagB
+                  });
+                  onClose();
+                },
+                children: "Pull"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "cherry-pick" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Cherry-Pick Commit ",
+              dialog.commit.abbreviatedHash
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-body", children: [
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagA,
+                  onChange: (e) => setFlagA(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Record origin commit hash in message (-x)" })
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagB,
+                  onChange: (e) => setFlagB(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Stage changes without committing (--no-commit)" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "cherry-pick",
+                    commitHash: dialog.commit.hash,
+                    parentIndex: dialog.commit.parents.length > 1 ? 1 : void 0,
+                    recordOrigin: flagA,
+                    noCommit: flagB
+                  });
+                  onClose();
+                },
+                children: "Cherry-Pick"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "revert-commit" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Revert Commit ",
+              dialog.commit.abbreviatedHash
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                type: "checkbox",
+                checked: flagB,
+                onChange: (e) => setFlagB(e.target.checked)
+              }
+            ),
+            /* @__PURE__ */ jsx("span", { children: "Stage revert changes without committing (--no-commit)" })
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "revert-commit",
+                    commitHash: dialog.commit.hash,
+                    parentIndex: dialog.commit.parents.length > 1 ? 1 : void 0,
+                    noCommit: flagB
+                  });
+                  onClose();
+                },
+                children: "Revert"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "reset-commit" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Reset Current Branch to ",
+              dialog.commit.abbreviatedHash
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Reset Mode" }),
+            /* @__PURE__ */ jsxs(
+              "select",
+              {
+                className: "gg-select",
+                value: resetMode,
+                onChange: (e) => setResetMode(e.target.value),
+                children: [
+                  /* @__PURE__ */ jsx("option", { value: "soft", children: "Soft \u2014 Keep all changes staged" }),
+                  /* @__PURE__ */ jsx("option", { value: "mixed", children: "Mixed \u2014 Keep working tree, unstage index" }),
+                  /* @__PURE__ */ jsx("option", { value: "hard", children: "Hard \u2014 Discard all uncommitted changes" })
+                ]
+              }
+            )
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsxs(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "reset-to-commit",
+                    commitHash: dialog.commit.hash,
+                    mode: resetMode
+                  });
+                  onClose();
+                },
+                children: [
+                  "Reset (",
+                  resetMode,
+                  ")"
+                ]
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "drop-commit" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Drop Commit ",
+              dialog.commit.abbreviatedHash,
+              "?"
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("p", { className: "gg-margin-0 gg-font-12", children: [
+            "This will rebase ",
+            /* @__PURE__ */ jsx("code", { children: "HEAD" }),
+            " onto the parent of",
+            " ",
+            /* @__PURE__ */ jsx("code", { children: dialog.commit.abbreviatedHash }),
+            ", removing this commit from the current branch history."
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "drop-commit",
+                    commitHash: dialog.commit.hash,
+                    branch: currentBranch ?? void 0
+                  });
+                  onClose();
+                },
+                children: "Drop Commit"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "add-tag" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Add Tag at ",
+              dialog.commit.abbreviatedHash
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-body", children: [
+            /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+              /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Tag Name" }),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  placeholder: "v1.0.0",
+                  value: textA,
+                  onChange: (e) => setTextA(e.target.value),
+                  autoFocus: true
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagA,
+                  onChange: (e) => setFlagA(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Annotated Tag (-a)" })
+            ] }),
+            flagA && /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+              /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Tag Message" }),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  placeholder: "Release v1.0.0",
+                  value: textB,
+                  onChange: (e) => setTextB(e.target.value)
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagB,
+                  onChange: (e) => setFlagB(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsxs("span", { children: [
+                "Push tag to ",
+                defaultRemote,
+                " immediately"
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                disabled: !textA.trim(),
+                onClick: () => {
+                  onRunAction({
+                    kind: "create-tag",
+                    tagName: textA.trim(),
+                    commitHash: dialog.commit.hash,
+                    annotated: flagA,
+                    message: textB.trim() || textA.trim(),
+                    pushToRemote: flagB ? defaultRemote : null
+                  });
+                  onClose();
+                },
+                children: "Create Tag"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "tag-details" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Tag Details: ",
+              dialog.tagName
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: !dialog.details ? /* @__PURE__ */ jsx("div", { children: "Loading tag details\u2026" }) : /* @__PURE__ */ jsxs("div", { className: "gg-details-meta-grid", children: [
+            /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Name:" }),
+            /* @__PURE__ */ jsx("span", { children: dialog.details.name }),
+            /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Type:" }),
+            /* @__PURE__ */ jsx("span", { children: dialog.details.isAnnotated ? "Annotated" : "Lightweight" }),
+            /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Target:" }),
+            /* @__PURE__ */ jsx("code", { children: dialog.details.hash }),
+            dialog.details.taggerName && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Tagger:" }),
+              /* @__PURE__ */ jsxs("span", { children: [
+                dialog.details.taggerName,
+                " <",
+                dialog.details.taggerEmail,
+                ">"
+              ] })
+            ] }),
+            dialog.details.message && /* @__PURE__ */ jsxs(Fragment2, { children: [
+              /* @__PURE__ */ jsx("span", { className: "gg-details-meta-label", children: "Message:" }),
+              /* @__PURE__ */ jsx("span", { children: dialog.details.message })
+            ] })
+          ] }) }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-footer", children: /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Close" }) })
+        ] }),
+        dialog.kind === "commit-uncommitted" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsx("span", { children: "Commit Uncommitted Changes" }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Commit Message" }),
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                type: "text",
+                className: "gg-input",
+                placeholder: "Describe your changes",
+                value: textA,
+                onChange: (e) => setTextA(e.target.value),
+                autoFocus: true
+              }
+            )
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                disabled: !textA.trim(),
+                onClick: () => {
+                  onRunAction({ kind: "commit-uncommitted", message: textA.trim() });
+                  onClose();
+                },
+                children: "Commit"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "stash-push" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsx("span", { children: "Stash Uncommitted Changes" }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-body", children: [
+            /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+              /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Stash Message (optional)" }),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  placeholder: "WIP: feature changes",
+                  value: textA,
+                  onChange: (e) => setTextA(e.target.value),
+                  autoFocus: true
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: flagA,
+                  onChange: (e) => setFlagA(e.target.checked)
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Include untracked files (-u)" })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "stash-push",
+                    message: textA.trim() || void 0,
+                    includeUntracked: flagA
+                  });
+                  onClose();
+                },
+                children: "Stash Changes"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "stash-branch" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsxs("span", { children: [
+              "Create Branch from ",
+              dialog.selector
+            ] }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Branch Name" }),
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                type: "text",
+                className: "gg-input",
+                placeholder: "stash-recovery",
+                value: textA,
+                onChange: (e) => setTextA(e.target.value),
+                autoFocus: true
+              }
+            )
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                disabled: !textA.trim(),
+                onClick: () => {
+                  onRunAction({
+                    kind: "stash-branch",
+                    selector: dialog.selector,
+                    branchName: textA.trim()
+                  });
+                  onClose();
+                },
+                children: "Create Branch"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "clean-untracked" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsx("span", { children: "Clean Untracked Files" }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                type: "checkbox",
+                checked: flagA,
+                onChange: (e) => setFlagA(e.target.checked)
+              }
+            ),
+            /* @__PURE__ */ jsx("span", { children: "Include untracked directories (-d)" })
+          ] }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-primary",
+                onClick: () => {
+                  onRunAction({
+                    kind: "clean-untracked",
+                    includeDirectories: flagA
+                  });
+                  onClose();
+                },
+                children: "Clean Files"
+              }
+            )
+          ] })
+        ] }),
+        dialog.kind === "discard-all" && /* @__PURE__ */ jsxs(Fragment2, { children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+            /* @__PURE__ */ jsx("span", { children: "Discard All Changes" }),
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "gg-modal-body", children: /* @__PURE__ */ jsx("p", { children: "This resets all tracked files to HEAD and deletes all untracked files and directories. This cannot be undone." }) }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+            /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: onClose, children: "Cancel" }),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                type: "button",
+                className: "gg-btn gg-btn-danger",
+                onClick: () => {
+                  onRunAction({ kind: "discard-all" });
+                  onClose();
+                },
+                children: "Discard All"
+              }
+            )
+          ] })
+        ] })
+      ]
+    }
+  ) });
+}
+
+// src/app/components/RepoSettingsWidget.tsx
+function RepoSettingsWidget({
+  open,
+  remotes,
+  repoSettings,
+  globalSettings,
+  onClose,
+  onRunGitAction,
+  onUpdateRepoSettings,
+  onUpdateGlobalSettings,
+  onExportRepoConfig
+}) {
+  const [newRemoteName, setNewRemoteName] = useState("");
+  const [newRemoteUrl, setNewRemoteUrl] = useState("");
+  const [newIssuePattern, setNewIssuePattern] = useState("");
+  const [newIssueUrl, setNewIssueUrl] = useState("");
+  if (!open) return null;
+  return /* @__PURE__ */ jsx("div", { className: "gg-modal-backdrop", onClick: onClose, children: /* @__PURE__ */ jsxs(
+    "div",
+    {
+      className: "gg-modal gg-modal-width-settings",
+      onClick: (e) => e.stopPropagation(),
+      "data-testid": "gg-repo-settings-modal",
+      children: [
+        /* @__PURE__ */ jsxs("div", { className: "gg-modal-header", children: [
+          /* @__PURE__ */ jsx("span", { children: "Repository & Graph Settings" }),
+          /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-icon", onClick: onClose, children: "\u2715" })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: "gg-modal-body gg-gap-16", children: [
+          /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsxs("label", { className: "gg-field-label", children: [
+              "Git Remotes (",
+              remotes.length,
+              ")"
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: "gg-flex-col gg-gap-6", children: [
+              remotes.map((r) => /* @__PURE__ */ jsxs("div", { className: "gg-remote-card", children: [
+                /* @__PURE__ */ jsxs("div", { className: "gg-overflow-hidden", children: [
+                  /* @__PURE__ */ jsx("strong", { children: r.name }),
+                  /* @__PURE__ */ jsx("div", { className: "gg-font-11 gg-text-secondary gg-ellipsis", children: r.fetchUrl })
+                ] }),
+                /* @__PURE__ */ jsxs("div", { className: "gg-flex-row gg-gap-4 gg-flex-shrink-0", children: [
+                  /* @__PURE__ */ jsx(
+                    "button",
+                    {
+                      type: "button",
+                      className: "gg-btn",
+                      onClick: () => onRunGitAction({ kind: "remote-prune", name: r.name }),
+                      title: "Prune stale remote-tracking branches",
+                      children: "Prune"
+                    }
+                  ),
+                  /* @__PURE__ */ jsx(
+                    "button",
+                    {
+                      type: "button",
+                      className: "gg-btn",
+                      onClick: () => onRunGitAction({ kind: "remote-delete", name: r.name }),
+                      title: "Remove Remote",
+                      children: "Delete"
+                    }
+                  )
+                ] })
+              ] }, r.name)),
+              /* @__PURE__ */ jsxs("div", { className: "gg-flex-row gg-gap-6", children: [
+                /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "text",
+                    className: "gg-input gg-remote-name-width",
+                    placeholder: "upstream",
+                    value: newRemoteName,
+                    onChange: (e) => setNewRemoteName(e.target.value)
+                  }
+                ),
+                /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "text",
+                    className: "gg-input gg-flex-1",
+                    placeholder: "https://github.com/org/repo.git",
+                    value: newRemoteUrl,
+                    onChange: (e) => setNewRemoteUrl(e.target.value)
+                  }
+                ),
+                /* @__PURE__ */ jsx(
+                  "button",
+                  {
+                    type: "button",
+                    className: "gg-btn gg-btn-primary",
+                    disabled: !newRemoteName.trim() || !newRemoteUrl.trim(),
+                    onClick: () => {
+                      onRunGitAction({
+                        kind: "remote-add",
+                        name: newRemoteName.trim(),
+                        url: newRemoteUrl.trim(),
+                        fetch: true
+                      });
+                      setNewRemoteName("");
+                      setNewRemoteUrl("");
+                    },
+                    children: "Add Remote"
+                  }
+                )
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Pull Request Creation" }),
+            /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: "8px" }, children: [
+              /* @__PURE__ */ jsxs(
+                "select",
+                {
+                  className: "gg-select",
+                  value: repoSettings.pullRequestConfig.provider,
+                  onChange: (e) => onUpdateRepoSettings({
+                    pullRequestConfig: {
+                      ...repoSettings.pullRequestConfig,
+                      provider: e.target.value
+                    }
+                  }),
+                  children: [
+                    /* @__PURE__ */ jsx("option", { value: "github", children: "GitHub" }),
+                    /* @__PURE__ */ jsx("option", { value: "gitlab", children: "GitLab" }),
+                    /* @__PURE__ */ jsx("option", { value: "bitbucket", children: "Bitbucket" }),
+                    /* @__PURE__ */ jsx("option", { value: "custom", children: "Custom URL Template" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  placeholder: "Remote (origin)",
+                  value: repoSettings.pullRequestConfig.remoteName,
+                  onChange: (e) => onUpdateRepoSettings({
+                    pullRequestConfig: {
+                      ...repoSettings.pullRequestConfig,
+                      remoteName: e.target.value
+                    }
+                  })
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "text",
+                  className: "gg-input",
+                  placeholder: "Target branch (main)",
+                  value: repoSettings.pullRequestConfig.targetBranch,
+                  onChange: (e) => onUpdateRepoSettings({
+                    pullRequestConfig: {
+                      ...repoSettings.pullRequestConfig,
+                      targetBranch: e.target.value
+                    }
+                  })
+                }
+              )
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsxs("label", { className: "gg-field-label", children: [
+              "Issue Linking Rules (",
+              repoSettings.issueLinkingRules.length,
+              ")"
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: "gg-flex-col gg-gap-6", children: [
+              repoSettings.issueLinkingRules.map((rule) => /* @__PURE__ */ jsxs("div", { className: "gg-issue-rule-row", children: [
+                /* @__PURE__ */ jsxs("code", { children: [
+                  "/",
+                  rule.pattern,
+                  "/ \u2192 ",
+                  rule.urlTemplate
+                ] }),
+                /* @__PURE__ */ jsx(
+                  "button",
+                  {
+                    type: "button",
+                    className: "gg-btn",
+                    onClick: () => onUpdateRepoSettings({
+                      issueLinkingRules: repoSettings.issueLinkingRules.filter(
+                        (r) => r.id !== rule.id
+                      )
+                    }),
+                    children: "Remove"
+                  }
+                )
+              ] }, rule.id)),
+              /* @__PURE__ */ jsxs("div", { className: "gg-flex-row gg-gap-6", children: [
+                /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "text",
+                    className: "gg-input gg-issue-prefix-width",
+                    placeholder: "#(\\d+)",
+                    value: newIssuePattern,
+                    onChange: (e) => setNewIssuePattern(e.target.value)
+                  }
+                ),
+                /* @__PURE__ */ jsx(
+                  "input",
+                  {
+                    type: "text",
+                    className: "gg-input gg-flex-1",
+                    placeholder: "https://github.com/org/repo/issues/$1",
+                    value: newIssueUrl,
+                    onChange: (e) => setNewIssueUrl(e.target.value)
+                  }
+                ),
+                /* @__PURE__ */ jsx(
+                  "button",
+                  {
+                    type: "button",
+                    className: "gg-btn",
+                    disabled: !newIssuePattern.trim() || !newIssueUrl.trim(),
+                    onClick: () => {
+                      const nextRule = {
+                        id: `rule-${Date.now()}`,
+                        pattern: newIssuePattern.trim(),
+                        urlTemplate: newIssueUrl.trim()
+                      };
+                      onUpdateRepoSettings({
+                        issueLinkingRules: [...repoSettings.issueLinkingRules, nextRule]
+                      });
+                      setNewIssuePattern("");
+                      setNewIssueUrl("");
+                    },
+                    children: "Add Rule"
+                  }
+                )
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "gg-field", children: [
+            /* @__PURE__ */ jsx("label", { className: "gg-field-label", children: "Graph Display & Muting" }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: globalSettings.muteNonAncestors,
+                  onChange: (e) => onUpdateGlobalSettings({ muteNonAncestors: e.target.checked })
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Dim commits that are not ancestors of HEAD" })
+            ] }),
+            /* @__PURE__ */ jsxs("label", { className: "gg-checkbox-row", children: [
+              /* @__PURE__ */ jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: globalSettings.muteMergeCommits,
+                  onChange: (e) => onUpdateGlobalSettings({ muteMergeCommits: e.target.checked })
+                }
+              ),
+              /* @__PURE__ */ jsx("span", { children: "Dim merge commits (commits with >1 parent)" })
+            ] }),
+            /* @__PURE__ */ jsxs("div", { className: "gg-flex-row gg-gap-8 gg-margin-top-6", children: [
+              /* @__PURE__ */ jsxs(
+                "select",
+                {
+                  className: "gg-select",
+                  value: globalSettings.dateFormat,
+                  onChange: (e) => onUpdateGlobalSettings({
+                    dateFormat: e.target.value
+                  }),
+                  children: [
+                    /* @__PURE__ */ jsx("option", { value: "relative", children: "Date Format: Relative" }),
+                    /* @__PURE__ */ jsx("option", { value: "iso", children: "Date Format: ISO" }),
+                    /* @__PURE__ */ jsx("option", { value: "datetime", children: "Date Format: Local Date/Time" })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxs(
+                "select",
+                {
+                  className: "gg-select",
+                  value: globalSettings.dateType,
+                  onChange: (e) => onUpdateGlobalSettings({
+                    dateType: e.target.value
+                  }),
+                  children: [
+                    /* @__PURE__ */ jsx("option", { value: "author", children: "Show Author Date" }),
+                    /* @__PURE__ */ jsx("option", { value: "commit", children: "Show Commit Date" })
+                  ]
+                }
+              )
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: "gg-modal-footer", children: [
+          /* @__PURE__ */ jsx(
+            "button",
+            {
+              type: "button",
+              className: "gg-btn",
+              onClick: onExportRepoConfig,
+              title: "Write .git-tree.json into the repository root",
+              children: "Export .git-tree.json"
+            }
+          ),
+          /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-primary", onClick: onClose, children: "Done" })
+        ] })
+      ]
+    }
+  ) });
+}
+
+// src/app/GitTreeProjectTab.tsx
+var DEFAULT_COLUMN_WIDTHS = {
+  date: 125,
+  author: 130,
+  commit: 74
+};
+var ROW_HEIGHT = 28;
+var LANE_WIDTH = 14;
+var PAD_X = 14;
+function GitTreeDetachedPlaceholder({
+  focusWindow,
+  bringBack
+}) {
+  return /* @__PURE__ */ jsx("div", { className: "gg-root", "data-testid": "gg-detached-placeholder", children: /* @__PURE__ */ jsxs("div", { className: "gg-empty", style: { gap: "12px" }, children: [
+    /* @__PURE__ */ jsx("div", { style: { fontSize: "14px", fontWeight: 600 }, children: "Git Tree is open in its own window" }),
+    /* @__PURE__ */ jsxs("div", { style: { display: "flex", gap: "8px" }, children: [
+      /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn gg-btn-primary", onClick: focusWindow, children: "Focus Window" }),
+      /* @__PURE__ */ jsx("button", { type: "button", className: "gg-btn", onClick: bringBack, children: "Bring Back Here" })
+    ] })
+  ] }) });
+}
+function GitTreeProjectTab({
+  projectId: propProjectId,
+  headerActions
+}) {
+  const rpc = useRpc();
+  let zccCtx = { projectId: null };
+  try {
+    zccCtx = useZccContext();
+  } catch {
+  }
+  const [projectList, setProjectList] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(
+    propProjectId || zccCtx.projectId || ""
+  );
+  const projectId = propProjectId || selectedProjectId || zccCtx.projectId || "";
+  let navigate = null;
+  try {
+    navigate = useZccNavigate();
+  } catch {
+    navigate = null;
+  }
+  useEffect(() => {
+    if (!propProjectId && !selectedProjectId) {
+      void rpc.call("listProjects").then((raw) => {
+        const list = Array.isArray(raw) ? raw : [];
+        setProjectList(list);
+        if (list.length > 0 && !selectedProjectId) {
+          setSelectedProjectId(list[0].id);
+        }
+      }).catch(() => {
+      });
+    }
+  }, [propProjectId, selectedProjectId, rpc]);
+  const [repos, setRepos] = useState([]);
+  const [selectedRepoRelPath, setSelectedRepoRelPath] = useState("");
+  const [graphData, setGraphData] = useState(null);
+  const [maxCommits, setMaxCommits] = useState(300);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [banner, setBanner] = useState(
+    null
+  );
+  const [selectedHash, setSelectedHash] = useState(null);
+  const [compareWithHash, setCompareWithHash] = useState(null);
+  const [commitDetails, setCommitDetails] = useState(null);
+  const [comparison, setComparison] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [codeReview, setCodeReview] = useState(null);
+  const [selectedFilePath, setSelectedFilePath] = useState(null);
+  const [fileDiff, setFileDiff] = useState(null);
+  const [loadingDiff, setLoadingDiff] = useState(false);
+  const [fileContent, setFileContent] = useState(null);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [activeMatchIdx, setActiveMatchIdx] = useState(0);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [activeDialog, setActiveDialog] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [initializingRepo, setInitializingRepo] = useState(false);
+  const tableScrollRef = useRef(null);
+  const headerScrollRef = useRef(null);
+  const loadReposAndGraph = useCallback(
+    async (repoRelPathOverride, maxCountOverride, projectIdOverride) => {
+      const activePid = projectIdOverride ?? projectId;
+      if (!activePid) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setErrorMessage(null);
+      try {
+        const rawDiscovered = await rpc.call("discoverRepos", {
+          projectId: activePid
+        });
+        const discovered = Array.isArray(rawDiscovered) ? rawDiscovered : rawDiscovered?.repos ?? [];
+        setRepos(discovered);
+        if (discovered.length === 0) {
+          setGraphData(null);
+          setLoading(false);
+          return;
+        }
+        const effectiveRelPath = repoRelPathOverride !== void 0 ? repoRelPathOverride : discovered.some((r) => r.relPath === selectedRepoRelPath) ? selectedRepoRelPath : discovered[0].relPath;
+        if (effectiveRelPath !== selectedRepoRelPath) {
+          setSelectedRepoRelPath(effectiveRelPath);
+        }
+        const data = await rpc.call("loadGraph", {
+          projectId: activePid,
+          subRepoRelPath: effectiveRelPath,
+          maxCommits: maxCountOverride ?? maxCommits
+        });
+        setGraphData(data);
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath, maxCommits]
+  );
+  useEffect(() => {
+    void loadReposAndGraph();
+  }, [projectId]);
+  const onDataChanged = (payload) => {
+    const evt = payload;
+    if (!evt?.projectId || evt.projectId === projectId) {
+      void loadReposAndGraph(selectedRepoRelPath, maxCommits);
+    }
+  };
+  useRealtime("git-tree:changed", onDataChanged);
+  useRealtime("git-graph:changed", onDataChanged);
+  useEffect(() => {
+    if (!projectId || !selectedHash) {
+      setCommitDetails(null);
+      setComparison(null);
+      setCodeReview(null);
+      setSelectedFilePath(null);
+      setFileDiff(null);
+      setFileContent(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingDetails(true);
+    setSelectedFilePath(null);
+    setFileDiff(null);
+    setFileContent(null);
+    const fetchDetails = async () => {
+      try {
+        if (compareWithHash && compareWithHash !== selectedHash) {
+          const res = await rpc.call("compareCommits", {
+            projectId,
+            subRepoRelPath: selectedRepoRelPath,
+            fromHash: selectedHash,
+            toHash: compareWithHash
+          });
+          if (cancelled) return;
+          setComparison(res.comparison);
+          setCommitDetails(null);
+          setCodeReview(res.codeReview);
+          if (res.comparison.fileChanges.length > 0) {
+            void handleSelectFile(
+              res.comparison.fileChanges[0],
+              compareWithHash,
+              selectedHash
+            );
+          }
+        } else {
+          const res = await rpc.call("getCommitDetails", {
+            projectId,
+            subRepoRelPath: selectedRepoRelPath,
+            commitHash: selectedHash
+          });
+          if (cancelled) return;
+          setCommitDetails(res.details);
+          setComparison(null);
+          setCodeReview(res.codeReview);
+          if (res.details.fileChanges.length > 0) {
+            void handleSelectFile(res.details.fileChanges[0], selectedHash, void 0);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBanner({
+            kind: "error",
+            text: err instanceof Error ? err.message : String(err)
+          });
+        }
+      } finally {
+        if (!cancelled) setLoadingDetails(false);
+      }
+    };
+    void fetchDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, selectedRepoRelPath, selectedHash, compareWithHash]);
+  const handleLoadFileContent = useCallback(
+    async (filePath, commitHashOverride) => {
+      const targetCommit = commitHashOverride ?? compareWithHash ?? selectedHash;
+      if (!targetCommit) return;
+      setLoadingContent(true);
+      try {
+        const res = await rpc.call("getFileContent", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          commitHash: targetCommit,
+          filePath
+        });
+        setFileContent(res);
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      } finally {
+        setLoadingContent(false);
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath, selectedHash, compareWithHash]
+  );
+  const handleSelectFile = useCallback(
+    async (file, commitHashOverride, fromHashOverride) => {
+      const targetCommit = commitHashOverride ?? compareWithHash ?? selectedHash;
+      if (!targetCommit) return;
+      const effectiveFrom = fromHashOverride !== void 0 ? fromHashOverride : compareWithHash ? selectedHash ?? void 0 : void 0;
+      setSelectedFilePath(file.newPath);
+      setLoadingDiff(true);
+      setFileContent(null);
+      void handleLoadFileContent(file.newPath, targetCommit);
+      try {
+        const diff = await rpc.call("getFileDiff", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          commitHash: targetCommit,
+          fromHash: effectiveFrom,
+          filePath: file.newPath,
+          oldPath: file.oldPath !== file.newPath ? file.oldPath : void 0,
+          staged: file.staged,
+          untracked: file.untracked
+        });
+        setFileDiff(diff);
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      } finally {
+        setLoadingDiff(false);
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath, selectedHash, compareWithHash, handleLoadFileContent]
+  );
+  const commits = graphData?.commits ?? [];
+  const headHash = graphData?.headHash ?? null;
+  const globalSettings = graphData?.globalSettings ?? {
+    graphStyle: "rounded",
+    initialLoadCommits: 300,
+    loadMoreCommits: 100,
+    muteNonAncestors: false,
+    muteMergeCommits: false,
+    commitDetailsLocation: "docked",
+    fileViewType: "tree",
+    compactFolders: true,
+    diffViewMode: "unified",
+    maxDepthOfRepoSearch: 2,
+    dateType: "author",
+    dateFormat: "relative",
+    fetchAndPrune: false,
+    fetchAndPruneTags: false,
+    signCommits: false,
+    signTags: false,
+    useMailmap: true,
+    graphColors: [],
+    columnWidths: DEFAULT_COLUMN_WIDTHS
+  };
+  const repoSettings = graphData?.repoSettings ?? {
+    selectedBranches: [],
+    showRemoteBranches: true,
+    showStashes: true,
+    showTags: true,
+    showUncommittedChanges: true,
+    showUntrackedFiles: true,
+    onlyFollowFirstParent: false,
+    commitOrdering: "date",
+    issueLinkingRules: [],
+    pullRequestConfig: {
+      provider: "github",
+      remoteName: "origin",
+      targetBranch: "main"
+    }
+  };
+  const layout = useMemo(
+    () => computeGraphLayout(commits, headHash, globalSettings.graphColors),
+    [commits, headHash, globalSettings.graphColors]
+  );
+  const graphColumnWidth = useMemo(
+    () => Math.max(48, PAD_X * 2 + (layout.maxLane + 1) * LANE_WIDTH),
+    [layout.maxLane]
+  );
+  const matchingCommitIndices = useMemo(() => {
+    const q = findQuery.trim().toLowerCase();
+    if (!q) return [];
+    const indices = [];
+    commits.forEach((c, idx) => {
+      const hay = [
+        c.hash,
+        c.abbreviatedHash,
+        c.subject,
+        c.authorName,
+        c.authorEmail,
+        ...c.refs.map((r) => r.remote ? `${r.remote}/${r.name}` : r.name)
+      ].join(" ").toLowerCase();
+      if (hay.includes(q)) indices.push(idx);
+    });
+    return indices;
+  }, [commits, findQuery]);
+  const scrollToRow = useCallback((rowIdx) => {
+    const container = tableScrollRef.current;
+    if (!container) return;
+    const targetTop = Math.max(0, rowIdx * ROW_HEIGHT - container.clientHeight / 3);
+    container.scrollTo?.({ top: targetTop, behavior: "smooth" });
+  }, []);
+  const handleScrollToHead = useCallback(() => {
+    if (!headHash) return;
+    const idx = commits.findIndex((c) => c.hash === headHash);
+    if (idx >= 0) {
+      setSelectedHash(headHash);
+      setCompareWithHash(null);
+      scrollToRow(idx);
+    }
+  }, [commits, headHash, scrollToRow]);
+  const handleRunGitAction = useCallback(
+    async (action) => {
+      try {
+        setBanner(null);
+        const outcome = await rpc.call("runGitAction", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          action
+        });
+        await loadReposAndGraph(selectedRepoRelPath, maxCommits);
+        if (outcome?.notice) setBanner({ kind: "info", text: outcome.notice });
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath, loadReposAndGraph, maxCommits]
+  );
+  const handleInitRepo = useCallback(async () => {
+    if (!projectId || initializingRepo) return;
+    setInitializingRepo(true);
+    setBanner(null);
+    try {
+      await rpc.call("runGitAction", {
+        projectId,
+        subRepoRelPath: "",
+        action: "init"
+      });
+      await loadReposAndGraph();
+    } catch (err) {
+      setBanner({
+        kind: "error",
+        text: err instanceof Error ? err.message : String(err)
+      });
+    } finally {
+      setInitializingRepo(false);
+    }
+  }, [projectId, initializingRepo, rpc, loadReposAndGraph]);
+  const handleUpdateRepoSettings = useCallback(
+    async (patch) => {
+      try {
+        await rpc.call("updateRepoSettings", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          patch
+        });
+        await loadReposAndGraph(selectedRepoRelPath, maxCommits);
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath, loadReposAndGraph, maxCommits]
+  );
+  const handleUpdateGlobalSettings = useCallback(
+    async (patch) => {
+      try {
+        await rpc.call("updateGlobalSettings", { patch });
+        setGraphData(
+          (prev) => prev ? {
+            ...prev,
+            globalSettings: { ...prev.globalSettings, ...patch }
+          } : prev
+        );
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    [rpc]
+  );
+  const [colWidths, setColWidths] = useState(() => ({
+    description: globalSettings.columnWidths?.description,
+    date: globalSettings.columnWidths?.date ?? DEFAULT_COLUMN_WIDTHS.date,
+    author: globalSettings.columnWidths?.author ?? DEFAULT_COLUMN_WIDTHS.author,
+    commit: globalSettings.columnWidths?.commit ?? DEFAULT_COLUMN_WIDTHS.commit
+  }));
+  const [activeResizeCol, setActiveResizeCol] = useState(null);
+  const colWidthsRef = useRef(colWidths);
+  colWidthsRef.current = colWidths;
+  const isResizingRef = useRef(false);
+  const descHeaderRef = useRef(null);
+  useEffect(() => {
+    if (!isResizingRef.current && globalSettings.columnWidths) {
+      setColWidths({
+        description: globalSettings.columnWidths.description,
+        date: globalSettings.columnWidths.date ?? DEFAULT_COLUMN_WIDTHS.date,
+        author: globalSettings.columnWidths.author ?? DEFAULT_COLUMN_WIDTHS.author,
+        commit: globalSettings.columnWidths.commit ?? DEFAULT_COLUMN_WIDTHS.commit
+      });
+    }
+  }, [globalSettings.columnWidths]);
+  const startResize = useCallback(
+    (e, column) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isResizingRef.current = true;
+      setActiveResizeCol(column);
+      const startX = e.clientX;
+      const startWidth = column === "description" ? colWidthsRef.current.description ?? descHeaderRef.current?.getBoundingClientRect().width ?? 260 : colWidthsRef.current[column];
+      let latestWidth = startWidth;
+      const prevUserSelect = document.body.style.userSelect;
+      const prevCursor = document.body.style.cursor;
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+      const minWidth = column === "commit" ? 50 : column === "description" ? 150 : 60;
+      const maxWidth = column === "description" ? 1200 : 500;
+      const onPointerMove = (moveEvt) => {
+        const deltaX = moveEvt.clientX - startX;
+        const nextWidth = Math.max(minWidth, Math.min(maxWidth, Math.round(startWidth + deltaX)));
+        latestWidth = nextWidth;
+        setColWidths((prev) => ({
+          ...prev,
+          [column]: nextWidth
+        }));
+      };
+      const onPointerUp = () => {
+        window.removeEventListener("mousemove", onPointerMove);
+        window.removeEventListener("mouseup", onPointerUp);
+        document.body.style.userSelect = prevUserSelect;
+        document.body.style.cursor = prevCursor;
+        isResizingRef.current = false;
+        setActiveResizeCol(null);
+        const nextAll = {
+          ...colWidthsRef.current,
+          [column]: latestWidth
+        };
+        void handleUpdateGlobalSettings({
+          columnWidths: nextAll
+        });
+      };
+      window.addEventListener("mousemove", onPointerMove);
+      window.addEventListener("mouseup", onPointerUp);
+    },
+    [handleUpdateGlobalSettings]
+  );
+  const resetColumnWidth = useCallback(
+    (column) => {
+      if (column === "description") {
+        const nextAll2 = { ...colWidthsRef.current };
+        delete nextAll2.description;
+        setColWidths(nextAll2);
+        void handleUpdateGlobalSettings({
+          columnWidths: nextAll2
+        });
+        return;
+      }
+      const nextWidth = DEFAULT_COLUMN_WIDTHS[column];
+      const nextAll = {
+        ...colWidthsRef.current,
+        [column]: nextWidth
+      };
+      setColWidths(nextAll);
+      void handleUpdateGlobalSettings({
+        columnWidths: nextAll
+      });
+    },
+    [handleUpdateGlobalSettings]
+  );
+  const handleCopyText = useCallback(async (text, label) => {
+    if (!text) {
+      setBanner({ kind: "info", text: `Nothing to copy: ${label} is empty.` });
+      return;
+    }
+    if (await copyText(text)) {
+      setBanner({ kind: "info", text: `${label} copied to clipboard.` });
+    } else {
+      setBanner({ kind: "error", text: `Could not copy ${label.toLowerCase()}.` });
+    }
+  }, []);
+  const handleViewTagDetails = useCallback(
+    async (tagName) => {
+      setActiveDialog({ kind: "tag-details", tagName, details: null });
+      try {
+        const details = await rpc.call("getTagDetails", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          tagName
+        });
+        setActiveDialog({ kind: "tag-details", tagName, details });
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath]
+  );
+  const handleOpenPullRequest = useCallback(
+    async (branchName) => {
+      try {
+        const res = await rpc.call("buildPullRequestUrl", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          sourceBranch: branchName
+        });
+        if (res.url) {
+          window.open(res.url, "_blank", "noopener,noreferrer");
+        } else {
+          setBanner({
+            kind: "error",
+            text: "Could not derive a Pull Request URL from the configured remote."
+          });
+        }
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath]
+  );
+  const handleAskAgent = useCallback(
+    async (target) => {
+      const { commitHash, fromHash, filePath } = target;
+      try {
+        setBanner({
+          kind: "info",
+          text: "Preparing agent draft\u2026"
+        });
+        const res = await rpc.call("draftAgentAboutCommit", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          commitHash,
+          fromHash,
+          filePath
+        });
+        const targetTitle = res.title;
+        const targetView = filePath ? `${commitHash}:${filePath}` : commitHash;
+        if (navigate?.openPanelAgent) {
+          const opened = navigate.openPanelAgent({
+            draft: {
+              prompt: res.prompt,
+              view: targetView,
+              ...projectId ? { projectId } : {}
+            },
+            title: targetTitle
+          });
+          if (opened) {
+            setBanner({
+              kind: "info",
+              text: `Draft opened in side panel: ${targetTitle}`
+            });
+            return;
+          }
+        }
+        const fallback = await rpc.call("askAgentAboutCommit", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          commitHash,
+          fromHash,
+          filePath
+        });
+        setBanner({
+          kind: "info",
+          text: `Spawned Agent thread: ${fallback.title}`
+        });
+        navigate?.toThread?.(fallback.threadId);
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath, navigate]
+  );
+  const handleStartCodeReview = useCallback(async () => {
+    if (!selectedHash) return;
+    const fromHash = compareWithHash ? selectedHash : null;
+    const toHash = compareWithHash ?? selectedHash;
+    try {
+      const review = await rpc.call("codeReviewStart", {
+        projectId,
+        subRepoRelPath: selectedRepoRelPath,
+        fromHash,
+        toHash
+      });
+      setCodeReview(review);
+    } catch (err) {
+      setBanner({
+        kind: "error",
+        text: err instanceof Error ? err.message : String(err)
+      });
+    }
+  }, [projectId, rpc, selectedRepoRelPath, selectedHash, compareWithHash]);
+  const handleToggleReviewedFile = useCallback(
+    async (filePath, reviewed) => {
+      if (!selectedHash) return;
+      const fromHash = compareWithHash ? selectedHash : null;
+      const toHash = compareWithHash ?? selectedHash;
+      try {
+        const review = await rpc.call("codeReviewToggleFile", {
+          projectId,
+          subRepoRelPath: selectedRepoRelPath,
+          fromHash,
+          toHash,
+          filePath,
+          reviewed
+        });
+        setCodeReview(review);
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          text: err instanceof Error ? err.message : String(err)
+        });
+      }
+    },
+    [projectId, rpc, selectedRepoRelPath, selectedHash, compareWithHash]
+  );
+  const handleEndCodeReview = useCallback(async () => {
+    if (!selectedHash) return;
+    const fromHash = compareWithHash ? selectedHash : null;
+    const toHash = compareWithHash ?? selectedHash;
+    try {
+      await rpc.call("codeReviewEnd", {
+        projectId,
+        subRepoRelPath: selectedRepoRelPath,
+        fromHash,
+        toHash
+      });
+      setCodeReview(null);
+    } catch (err) {
+      setBanner({
+        kind: "error",
+        text: err instanceof Error ? err.message : String(err)
+      });
+    }
+  }, [projectId, rpc, selectedRepoRelPath, selectedHash, compareWithHash]);
+  const handleKeyDown = useCallback(
+    (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFindOpen(true);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        handleScrollToHead();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        void loadReposAndGraph(selectedRepoRelPath, maxCommits);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (contextMenu) {
+          setContextMenu(null);
+        } else if (activeDialog) {
+          setActiveDialog(null);
+        } else if (findOpen) {
+          setFindOpen(false);
+        } else if (selectedHash) {
+          setSelectedHash(null);
+          setCompareWithHash(null);
+        }
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (commits.length === 0) return;
+        const currentIdx = selectedHash ? commits.findIndex((c) => c.hash === selectedHash) : -1;
+        const nextIdx = e.key === "ArrowDown" ? Math.min(commits.length - 1, currentIdx + 1) : Math.max(0, currentIdx <= 0 ? 0 : currentIdx - 1);
+        const nextCommit = commits[nextIdx];
+        if (nextCommit) {
+          e.preventDefault();
+          setSelectedHash(nextCommit.hash);
+          setCompareWithHash(null);
+        }
+      }
+    },
+    [
+      commits,
+      selectedHash,
+      contextMenu,
+      activeDialog,
+      findOpen,
+      handleScrollToHead,
+      loadReposAndGraph,
+      selectedRepoRelPath,
+      maxCommits
+    ]
+  );
+  const renderRefBadge = (commit, ref, idx) => {
+    const className = ref.type === "head" ? `gg-ref-badge gg-ref-head ${ref.isHead ? "is-current" : ""}` : ref.type === "remote" ? "gg-ref-badge gg-ref-remote" : ref.type === "tag" ? "gg-ref-badge gg-ref-tag" : "gg-ref-badge gg-ref-stash";
+    const icon = ref.type === "remote" ? "\u2601" : ref.type === "tag" ? "\u{1F3F7}" : ref.type === "stash" ? "\u{1F4E6}" : ref.isHead ? "\u25CF" : "\u2442";
+    const displayName = ref.type === "remote" && ref.remote ? `${ref.remote}/${ref.name}` : ref.name;
+    return /* @__PURE__ */ jsxs(
+      "span",
+      {
+        className,
+        title: ref.type === "head" ? ref.isHead ? `Current branch: ${ref.name}` : `Branch: ${ref.name} (Double-click to checkout)` : ref.type === "remote" ? `Remote branch: ${displayName}` : ref.type === "tag" ? `Tag: ${ref.name}` : `Stash: ${ref.name}`,
+        onContextMenu: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (ref.type === "head") {
+            setContextMenu({
+              kind: "branch",
+              commit,
+              ref,
+              x: e.clientX,
+              y: e.clientY
+            });
+          } else if (ref.type === "remote") {
+            setContextMenu({
+              kind: "remote-branch",
+              commit,
+              ref,
+              x: e.clientX,
+              y: e.clientY
+            });
+          } else if (ref.type === "tag") {
+            setContextMenu({
+              kind: "tag",
+              commit,
+              ref,
+              x: e.clientX,
+              y: e.clientY
+            });
+          } else if (ref.type === "stash") {
+            setContextMenu({
+              kind: "stash",
+              commit,
+              selector: ref.selector || ref.name,
+              x: e.clientX,
+              y: e.clientY
+            });
+          }
+        },
+        onDoubleClick: (e) => {
+          e.stopPropagation();
+          if (ref.type === "head" && !ref.isHead) {
+            void handleRunGitAction({
+              kind: "checkout-branch",
+              branchName: ref.name
+            });
+          }
+        },
+        children: [
+          /* @__PURE__ */ jsx("span", { className: "gg-ref-icon", children: icon }),
+          /* @__PURE__ */ jsx("span", { className: "gg-ref-name", children: displayName })
+        ]
+      },
+      `${ref.type}:${ref.remote ?? ""}:${ref.name}:${idx}`
+    );
+  };
+  const renderCommitSubject = (subject) => {
+    const tokens = tokenizeCommitMessage(subject, repoSettings.issueLinkingRules);
+    return tokens.map((tok, idx) => {
+      if (tok.kind === "code") {
+        return /* @__PURE__ */ jsx(
+          "code",
+          {
+            style: {
+              background: "rgba(255,255,255,0.08)",
+              padding: "0 4px",
+              borderRadius: "3px",
+              fontSize: "11px"
+            },
+            children: tok.text
+          },
+          idx
+        );
+      }
+      if (tok.kind === "link" && tok.href) {
+        return /* @__PURE__ */ jsx(
+          "a",
+          {
+            href: tok.href,
+            target: "_blank",
+            rel: "noreferrer",
+            onClick: (e) => e.stopPropagation(),
+            style: { color: "var(--accent-color, #4da3ff)" },
+            children: tok.text
+          },
+          idx
+        );
+      }
+      return /* @__PURE__ */ jsx(react_default.Fragment, { children: tok.text }, idx);
+    });
+  };
+  const detailsOpen = Boolean(selectedHash);
+  const isInlineDetails = globalSettings.commitDetailsLocation === "inline";
+  const [inlineDetailsHeight, setInlineDetailsHeight] = useState(340);
+  const [visibleWidth, setVisibleWidth] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const inlineDetailsRef = useRef(null);
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      if (el) {
+        setVisibleWidth(el.clientWidth);
+        setScrollLeft(el.scrollLeft);
+      }
+    };
+    updateSize();
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(updateSize);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+  }, [graphData, loading, commits.length]);
+  const inlineMarginLeft = Math.max(graphColumnWidth + 8, scrollLeft + 8);
+  const inlineWidth = visibleWidth > 0 ? Math.max(280, scrollLeft + visibleWidth - inlineMarginLeft - 16) : void 0;
+  const expandedRow = useMemo(() => {
+    if (!detailsOpen || !isInlineDetails) return -1;
+    const targetHash = compareWithHash ?? selectedHash;
+    if (!targetHash) return -1;
+    return commits.findIndex((c) => c.hash === targetHash);
+  }, [detailsOpen, isInlineDetails, compareWithHash, selectedHash, commits]);
+  useEffect(() => {
+    const el = inlineDetailsRef.current;
+    if (!el) return;
+    const update = () => {
+      if (el) {
+        const h = el.offsetHeight;
+        if (h > 0) setInlineDetailsHeight(h);
+      }
+    };
+    update();
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+  }, [
+    isInlineDetails,
+    detailsOpen,
+    selectedHash,
+    compareWithHash,
+    commitDetails,
+    comparison,
+    fileDiff,
+    loadingDetails,
+    loadingDiff
+  ]);
+  const svgHeight = useMemo(() => {
+    const base = commits.length * ROW_HEIGHT;
+    if (isInlineDetails && detailsOpen && expandedRow >= 0) {
+      return base + inlineDetailsHeight + 12;
+    }
+    return base;
+  }, [commits.length, isInlineDetails, detailsOpen, expandedRow, inlineDetailsHeight]);
+  const getNodeY = useCallback(
+    (row) => {
+      if (isInlineDetails && detailsOpen && expandedRow >= 0 && row > expandedRow) {
+        return row * ROW_HEIGHT + inlineDetailsHeight + 12 + ROW_HEIGHT / 2;
+      }
+      return row * ROW_HEIGHT + ROW_HEIGHT / 2;
+    },
+    [isInlineDetails, detailsOpen, expandedRow, inlineDetailsHeight]
+  );
+  return /* @__PURE__ */ jsxs(
+    "div",
+    {
+      className: "gg-root",
+      tabIndex: 0,
+      onKeyDown: handleKeyDown,
+      "data-testid": "gg-project-tab",
+      children: [
+        /* @__PURE__ */ jsx(
+          ControlBar,
+          {
+            projects: projectList,
+            selectedProjectId: projectId,
+            onSelectProject: (pId) => {
+              setSelectedProjectId(pId);
+              setSelectedHash(null);
+              setCompareWithHash(null);
+              void loadReposAndGraph(void 0, void 0, pId);
+            },
+            repos,
+            selectedRepoRelPath,
+            onSelectRepo: (relPath) => {
+              setSelectedHash(null);
+              setCompareWithHash(null);
+              setSelectedRepoRelPath(relPath);
+              void loadReposAndGraph(relPath, maxCommits);
+            },
+            branches: graphData?.branches ?? [],
+            remoteBranches: graphData?.remoteBranches ?? [],
+            repoSettings,
+            globalSettings,
+            loading,
+            findOpen,
+            headerActions,
+            onUpdateRepoSettings: (patch) => void handleUpdateRepoSettings(patch),
+            onUpdateGlobalSettings: (patch) => void handleUpdateGlobalSettings(patch),
+            onFetch: () => void handleRunGitAction({
+              kind: "fetch",
+              all: true,
+              prune: globalSettings.fetchAndPrune,
+              pruneTags: globalSettings.fetchAndPruneTags
+            }),
+            onPush: () => {
+              const branch = graphData?.currentBranch;
+              if (branch) setActiveDialog({ kind: "push-branch", branchName: branch });
+            },
+            canPush: Boolean(graphData?.currentBranch),
+            onScrollToHead: handleScrollToHead,
+            onToggleFind: () => setFindOpen((prev) => !prev),
+            onOpenRepoSettings: () => setSettingsOpen(true),
+            onRefresh: () => void loadReposAndGraph(selectedRepoRelPath, maxCommits)
+          }
+        ),
+        banner && /* @__PURE__ */ jsxs(
+          "div",
+          {
+            className: `gg-banner ${banner.kind === "error" ? "gg-banner-error" : "gg-banner-info"}`,
+            "data-testid": "gg-banner",
+            children: [
+              /* @__PURE__ */ jsx("span", { children: banner.text }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-btn gg-btn-icon",
+                  onClick: () => setBanner(null),
+                  children: "\u2715"
+                }
+              )
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxs("div", { className: "gg-workspace", children: [
+          findOpen && /* @__PURE__ */ jsx(
+            FindWidget,
+            {
+              query: findQuery,
+              matchCount: matchingCommitIndices.length,
+              activeMatchIndex: activeMatchIdx,
+              onChangeQuery: (q) => {
+                setFindQuery(q);
+                setActiveMatchIdx(0);
+              },
+              onNext: () => {
+                if (matchingCommitIndices.length === 0) return;
+                const next = (activeMatchIdx + 1) % matchingCommitIndices.length;
+                setActiveMatchIdx(next);
+                const rowIdx = matchingCommitIndices[next];
+                setSelectedHash(commits[rowIdx].hash);
+                scrollToRow(rowIdx);
+              },
+              onPrev: () => {
+                if (matchingCommitIndices.length === 0) return;
+                const prev = (activeMatchIdx - 1 + matchingCommitIndices.length) % matchingCommitIndices.length;
+                setActiveMatchIdx(prev);
+                const rowIdx = matchingCommitIndices[prev];
+                setSelectedHash(commits[rowIdx].hash);
+                scrollToRow(rowIdx);
+              },
+              onClose: () => setFindOpen(false)
+            }
+          ),
+          /* @__PURE__ */ jsxs("div", { className: "gg-table-container", children: [
+            /* @__PURE__ */ jsx("div", { className: "gg-table-header-scroll", ref: headerScrollRef, children: /* @__PURE__ */ jsxs("div", { className: "gg-table-header", children: [
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  style: {
+                    width: `${graphColumnWidth}px`,
+                    minWidth: `${graphColumnWidth}px`,
+                    maxWidth: `${graphColumnWidth}px`,
+                    flex: `0 0 ${graphColumnWidth}px`,
+                    paddingLeft: "8px",
+                    boxSizing: "border-box"
+                  },
+                  children: "Graph"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  ref: descHeaderRef,
+                  style: {
+                    ...colWidths.description !== void 0 ? {
+                      width: `${colWidths.description}px`,
+                      minWidth: `${colWidths.description}px`,
+                      maxWidth: `${colWidths.description}px`,
+                      flex: `0 0 ${colWidths.description}px`
+                    } : {
+                      flex: "1 1 0px",
+                      minWidth: "150px"
+                    },
+                    padding: "0 8px",
+                    boxSizing: "border-box"
+                  },
+                  children: "Description"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  className: `gg-col-resizer ${activeResizeCol === "description" ? "active" : ""}`,
+                  title: "Resize Description \xB7 Double-click to auto-fit",
+                  "data-testid": "gg-col-resizer-description",
+                  onMouseDown: (e) => startResize(e, "description"),
+                  onDoubleClick: () => resetColumnWidth("description")
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  style: {
+                    width: `${colWidths.date}px`,
+                    minWidth: `${colWidths.date}px`,
+                    maxWidth: `${colWidths.date}px`,
+                    flex: `0 0 ${colWidths.date}px`,
+                    padding: "0 6px",
+                    boxSizing: "border-box"
+                  },
+                  children: "Date"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  className: `gg-col-resizer ${activeResizeCol === "date" ? "active" : ""}`,
+                  title: "Resize Date \xB7 Double-click to reset",
+                  "data-testid": "gg-col-resizer-date",
+                  onMouseDown: (e) => startResize(e, "date"),
+                  onDoubleClick: () => resetColumnWidth("date")
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  style: {
+                    width: `${colWidths.author}px`,
+                    minWidth: `${colWidths.author}px`,
+                    maxWidth: `${colWidths.author}px`,
+                    flex: `0 0 ${colWidths.author}px`,
+                    padding: "0 6px",
+                    boxSizing: "border-box"
+                  },
+                  children: "Author"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  className: `gg-col-resizer ${activeResizeCol === "author" ? "active" : ""}`,
+                  title: "Resize Author \xB7 Double-click to reset",
+                  "data-testid": "gg-col-resizer-author",
+                  onMouseDown: (e) => startResize(e, "author"),
+                  onDoubleClick: () => resetColumnWidth("author")
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  style: {
+                    width: `${colWidths.commit}px`,
+                    minWidth: `${colWidths.commit}px`,
+                    maxWidth: `${colWidths.commit}px`,
+                    flex: `0 0 ${colWidths.commit}px`,
+                    textAlign: "right",
+                    padding: "0 6px",
+                    boxSizing: "border-box"
+                  },
+                  children: "Commit"
+                }
+              ),
+              /* @__PURE__ */ jsx(
+                "div",
+                {
+                  className: `gg-col-resizer ${activeResizeCol === "commit" ? "active" : ""}`,
+                  title: "Resize Commit \xB7 Double-click to reset",
+                  "data-testid": "gg-col-resizer-commit",
+                  onMouseDown: (e) => startResize(e, "commit"),
+                  onDoubleClick: () => resetColumnWidth("commit")
+                }
+              )
+            ] }) }),
+            loading && !graphData ? /* @__PURE__ */ jsx("div", { className: "gg-empty", children: "Loading Git Tree\u2026" }) : errorMessage ? /* @__PURE__ */ jsxs("div", { className: "gg-empty", children: [
+              /* @__PURE__ */ jsxs("div", { children: [
+                "Failed to load Git Tree: ",
+                errorMessage
+              ] }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-btn",
+                  style: { marginTop: "8px" },
+                  onClick: () => void loadReposAndGraph(selectedRepoRelPath, maxCommits),
+                  children: "Retry"
+                }
+              )
+            ] }) : repos.length === 0 ? /* @__PURE__ */ jsxs("div", { className: "gg-empty", style: { gap: "12px" }, children: [
+              /* @__PURE__ */ jsx("div", { children: "No Git repositories found in this project." }),
+              /* @__PURE__ */ jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "gg-btn gg-btn-primary",
+                  "data-testid": "gg-init-repo-btn",
+                  disabled: initializingRepo,
+                  onClick: () => void handleInitRepo(),
+                  children: initializingRepo ? "Initializing\u2026" : "Initialize Git Repository"
+                }
+              )
+            ] }) : commits.length === 0 ? /* @__PURE__ */ jsx("div", { className: "gg-empty", children: headHash ? "No commits match the current branch filters." : "Repository initialized with no commits or uncommitted changes yet." }) : /* @__PURE__ */ jsxs(
+              "div",
+              {
+                className: "gg-table-scroll",
+                ref: tableScrollRef,
+                onScroll: (e) => {
+                  const sl = e.currentTarget.scrollLeft;
+                  if (sl !== scrollLeft) {
+                    setScrollLeft(sl);
+                  }
+                  if (headerScrollRef.current) {
+                    headerScrollRef.current.scrollLeft = sl;
+                  }
+                },
+                children: [
+                  /* @__PURE__ */ jsxs("div", { className: "gg-rows-wrapper", children: [
+                    /* @__PURE__ */ jsxs(
+                      "svg",
+                      {
+                        className: "gg-svg-overlay",
+                        width: graphColumnWidth,
+                        height: svgHeight,
+                        "data-testid": "gg-svg-dag",
+                        children: [
+                          layout.segments.map((seg, idx) => /* @__PURE__ */ jsx(
+                            "path",
+                            {
+                              d: buildSegmentSvgPath({
+                                segment: seg,
+                                rowHeight: ROW_HEIGHT,
+                                laneWidth: LANE_WIDTH,
+                                padX: PAD_X,
+                                style: globalSettings.graphStyle,
+                                expandedRow: isInlineDetails && detailsOpen ? expandedRow : -1,
+                                detailsHeight: isInlineDetails && detailsOpen ? inlineDetailsHeight + 12 : 0
+                              }),
+                              fill: "none",
+                              stroke: seg.color,
+                              strokeWidth: 2,
+                              strokeDasharray: seg.isUncommitted ? "3 3" : void 0
+                            },
+                            idx
+                          )),
+                          layout.nodes.map((node) => {
+                            const cx = PAD_X + node.lane * LANE_WIDTH;
+                            const cy = getNodeY(node.row);
+                            const isSelected = selectedHash === node.commit.hash;
+                            if (node.commit.isUncommitted) {
+                              return /* @__PURE__ */ jsx(
+                                "circle",
+                                {
+                                  cx,
+                                  cy,
+                                  r: isSelected ? 5.5 : 4.5,
+                                  fill: "var(--bg-primary, #12151a)",
+                                  stroke: node.color,
+                                  strokeWidth: isSelected ? 2.5 : 2,
+                                  strokeDasharray: "2 2"
+                                },
+                                node.commit.hash
+                              );
+                            }
+                            if (node.commit.isStash) {
+                              return /* @__PURE__ */ jsx(
+                                "rect",
+                                {
+                                  x: cx - (isSelected ? 5 : 4),
+                                  y: cy - (isSelected ? 5 : 4),
+                                  width: isSelected ? 10 : 8,
+                                  height: isSelected ? 10 : 8,
+                                  rx: 2,
+                                  fill: "var(--bg-primary, #12151a)",
+                                  stroke: node.color,
+                                  strokeWidth: isSelected ? 2.5 : 2
+                                },
+                                node.commit.hash
+                              );
+                            }
+                            if (node.isMerge) {
+                              return /* @__PURE__ */ jsxs("g", { children: [
+                                /* @__PURE__ */ jsx(
+                                  "circle",
+                                  {
+                                    cx,
+                                    cy,
+                                    r: isSelected ? 5.5 : 4.5,
+                                    fill: "var(--bg-primary, #12151a)",
+                                    stroke: isSelected ? "#ffffff" : node.color,
+                                    strokeWidth: isSelected ? 2.5 : 2
+                                  }
+                                ),
+                                /* @__PURE__ */ jsx("circle", { cx, cy, r: 2, fill: node.color })
+                              ] }, node.commit.hash);
+                            }
+                            return /* @__PURE__ */ jsx(
+                              "circle",
+                              {
+                                cx,
+                                cy,
+                                r: isSelected ? 5.5 : node.commit.isHead ? 5 : 4,
+                                fill: node.color,
+                                stroke: isSelected || node.commit.isHead ? "#ffffff" : "var(--bg-primary, #12151a)",
+                                strokeWidth: isSelected ? 2 : node.commit.isHead ? 1.5 : 1
+                              },
+                              node.commit.hash
+                            );
+                          })
+                        ]
+                      }
+                    ),
+                    layout.nodes.map((node) => {
+                      const { commit } = node;
+                      const isSelected = selectedHash === commit.hash;
+                      const isCompared = compareWithHash === commit.hash;
+                      const isMatch = findQuery.trim().length > 0 && matchingCommitIndices.includes(node.row);
+                      const isMuted = globalSettings.muteNonAncestors && !node.isAncestorOfHead || globalSettings.muteMergeCommits && node.isMerge;
+                      const displayDate = globalSettings.dateType === "commit" ? commit.commitDate : commit.authorDate;
+                      return /* @__PURE__ */ jsxs(react_default.Fragment, { children: [
+                        /* @__PURE__ */ jsxs(
+                          "div",
+                          {
+                            className: [
+                              "gg-commit-row",
+                              isSelected ? "selected" : "",
+                              isCompared ? "compared" : "",
+                              isMuted ? "muted" : "",
+                              isMatch ? "search-match" : "",
+                              commit.isUncommitted ? "uncommitted" : ""
+                            ].filter(Boolean).join(" "),
+                            onClick: (e) => {
+                              if ((e.ctrlKey || e.metaKey) && selectedHash && selectedHash !== commit.hash) {
+                                setCompareWithHash(commit.hash);
+                              } else {
+                                setSelectedHash(
+                                  (prev) => prev === commit.hash && !compareWithHash ? null : commit.hash
+                                );
+                                setCompareWithHash(null);
+                              }
+                            },
+                            onContextMenu: (e) => {
+                              e.preventDefault();
+                              if (commit.isUncommitted) {
+                                setContextMenu({
+                                  kind: "uncommitted",
+                                  commit,
+                                  x: e.clientX,
+                                  y: e.clientY
+                                });
+                              } else if (commit.isStash && commit.stashSelector) {
+                                setContextMenu({
+                                  kind: "stash",
+                                  commit,
+                                  selector: commit.stashSelector,
+                                  x: e.clientX,
+                                  y: e.clientY
+                                });
+                              } else {
+                                setContextMenu({
+                                  kind: "commit",
+                                  commit,
+                                  x: e.clientX,
+                                  y: e.clientY
+                                });
+                              }
+                            },
+                            "data-testid": `gg-commit-row-${commit.abbreviatedHash}`,
+                            children: [
+                              /* @__PURE__ */ jsx(
+                                "div",
+                                {
+                                  className: "gg-graph-spacer",
+                                  style: {
+                                    width: `${graphColumnWidth}px`,
+                                    minWidth: `${graphColumnWidth}px`,
+                                    maxWidth: `${graphColumnWidth}px`,
+                                    flex: `0 0 ${graphColumnWidth}px`,
+                                    boxSizing: "border-box"
+                                  }
+                                }
+                              ),
+                              /* @__PURE__ */ jsxs(
+                                "div",
+                                {
+                                  className: "gg-commit-desc",
+                                  style: {
+                                    ...colWidths.description !== void 0 ? {
+                                      width: `${colWidths.description}px`,
+                                      minWidth: `${colWidths.description}px`,
+                                      maxWidth: `${colWidths.description}px`,
+                                      flex: `0 0 ${colWidths.description}px`
+                                    } : {
+                                      flex: "1 1 0px",
+                                      minWidth: "150px"
+                                    },
+                                    padding: "0 8px",
+                                    boxSizing: "border-box"
+                                  },
+                                  children: [
+                                    commit.refs.map((ref, rIdx) => renderRefBadge(commit, ref, rIdx)),
+                                    /* @__PURE__ */ jsx("span", { className: "gg-commit-subject", children: renderCommitSubject(commit.subject) })
+                                  ]
+                                }
+                              ),
+                              /* @__PURE__ */ jsx(
+                                "div",
+                                {
+                                  className: "gg-commit-date",
+                                  style: {
+                                    width: `${colWidths.date}px`,
+                                    minWidth: `${colWidths.date}px`,
+                                    maxWidth: `${colWidths.date}px`,
+                                    flex: `0 0 ${colWidths.date}px`,
+                                    padding: "0 6px",
+                                    boxSizing: "border-box"
+                                  },
+                                  children: commit.isUncommitted ? "Working Tree" : formatCommitTimestamp(displayDate, globalSettings.dateFormat)
+                                }
+                              ),
+                              /* @__PURE__ */ jsx(
+                                "div",
+                                {
+                                  className: "gg-commit-author",
+                                  style: {
+                                    width: `${colWidths.author}px`,
+                                    minWidth: `${colWidths.author}px`,
+                                    maxWidth: `${colWidths.author}px`,
+                                    flex: `0 0 ${colWidths.author}px`,
+                                    padding: "0 6px",
+                                    boxSizing: "border-box"
+                                  },
+                                  title: commit.authorEmail,
+                                  children: commit.authorName
+                                }
+                              ),
+                              /* @__PURE__ */ jsx(
+                                "div",
+                                {
+                                  className: "gg-commit-hash",
+                                  style: {
+                                    width: `${colWidths.commit}px`,
+                                    minWidth: `${colWidths.commit}px`,
+                                    maxWidth: `${colWidths.commit}px`,
+                                    flex: `0 0 ${colWidths.commit}px`,
+                                    textAlign: "right",
+                                    padding: "0 6px",
+                                    boxSizing: "border-box"
+                                  },
+                                  children: commit.abbreviatedHash
+                                }
+                              )
+                            ]
+                          }
+                        ),
+                        isInlineDetails && detailsOpen && (!compareWithHash && isSelected || compareWithHash && isCompared) && /* @__PURE__ */ jsx(
+                          "div",
+                          {
+                            ref: inlineDetailsRef,
+                            className: "gg-inline-details-wrapper",
+                            style: {
+                              marginLeft: `${inlineMarginLeft}px`,
+                              width: inlineWidth !== void 0 ? `${inlineWidth}px` : void 0,
+                              maxWidth: inlineWidth !== void 0 ? `${inlineWidth}px` : "100%",
+                              marginBottom: "8px",
+                              boxSizing: "border-box"
+                            },
+                            children: /* @__PURE__ */ jsx(
+                              CommitDetailsPane,
+                              {
+                                mode: compareWithHash ? "comparison" : "single",
+                                details: commitDetails,
+                                comparison,
+                                loading: loadingDetails,
+                                inline: true,
+                                fileViewType: globalSettings.fileViewType,
+                                compactFolders: globalSettings.compactFolders,
+                                diffViewMode: globalSettings.diffViewMode,
+                                dateFormat: globalSettings.dateFormat,
+                                issueRules: repoSettings.issueLinkingRules,
+                                codeReview,
+                                selectedFilePath,
+                                fileDiff,
+                                loadingDiff,
+                                fileContent,
+                                loadingContent,
+                                onSelectFile: (f) => void handleSelectFile(f),
+                                onLoadFileContent: (fp) => void handleLoadFileContent(fp),
+                                onChangeFileViewType: (vt) => void handleUpdateGlobalSettings({ fileViewType: vt }),
+                                onToggleCompactFolders: () => void handleUpdateGlobalSettings({
+                                  compactFolders: !globalSettings.compactFolders
+                                }),
+                                onChangeDiffViewMode: (dm) => void handleUpdateGlobalSettings({ diffViewMode: dm }),
+                                onStartCodeReview: () => void handleStartCodeReview(),
+                                onToggleReviewedFile: (fp, rev) => void handleToggleReviewedFile(fp, rev),
+                                onEndCodeReview: () => void handleEndCodeReview(),
+                                onSelectParentHash: (hash) => {
+                                  setSelectedHash(hash);
+                                  setCompareWithHash(null);
+                                  const idx = commits.findIndex((c) => c.hash === hash);
+                                  if (idx >= 0) scrollToRow(idx);
+                                },
+                                onAskAgent: (fp) => {
+                                  const fromHash = compareWithHash ? selectedHash : null;
+                                  const toHash = compareWithHash ?? selectedHash ?? "*";
+                                  void handleAskAgent({
+                                    commitHash: toHash,
+                                    fromHash: fromHash ?? void 0,
+                                    filePath: fp
+                                  });
+                                },
+                                onCopyText: handleCopyText,
+                                onClose: () => {
+                                  setSelectedHash(null);
+                                  setCompareWithHash(null);
+                                }
+                              }
+                            )
+                          }
+                        )
+                      ] }, commit.hash);
+                    })
+                  ] }),
+                  graphData?.hasMore && /* @__PURE__ */ jsx("div", { className: "gg-load-more-row", children: /* @__PURE__ */ jsxs(
+                    "button",
+                    {
+                      type: "button",
+                      className: "gg-btn",
+                      onClick: () => {
+                        const nextMax = maxCommits + (globalSettings.loadMoreCommits || 100);
+                        setMaxCommits(nextMax);
+                        void loadReposAndGraph(selectedRepoRelPath, nextMax);
+                      },
+                      "data-testid": "gg-load-more-btn",
+                      children: [
+                        "Load ",
+                        globalSettings.loadMoreCommits || 100,
+                        " More Commits"
+                      ]
+                    }
+                  ) })
+                ]
+              }
+            )
+          ] }),
+          !isInlineDetails && detailsOpen && /* @__PURE__ */ jsx(
+            CommitDetailsPane,
+            {
+              mode: compareWithHash ? "comparison" : "single",
+              details: commitDetails,
+              comparison,
+              loading: loadingDetails,
+              inline: false,
+              fileViewType: globalSettings.fileViewType,
+              compactFolders: globalSettings.compactFolders,
+              diffViewMode: globalSettings.diffViewMode,
+              dateFormat: globalSettings.dateFormat,
+              issueRules: repoSettings.issueLinkingRules,
+              codeReview,
+              selectedFilePath,
+              fileDiff,
+              loadingDiff,
+              fileContent,
+              loadingContent,
+              onSelectFile: (f) => void handleSelectFile(f),
+              onLoadFileContent: (fp) => void handleLoadFileContent(fp),
+              onChangeFileViewType: (vt) => void handleUpdateGlobalSettings({ fileViewType: vt }),
+              onToggleCompactFolders: () => void handleUpdateGlobalSettings({
+                compactFolders: !globalSettings.compactFolders
+              }),
+              onChangeDiffViewMode: (dm) => void handleUpdateGlobalSettings({ diffViewMode: dm }),
+              onStartCodeReview: () => void handleStartCodeReview(),
+              onToggleReviewedFile: (fp, rev) => void handleToggleReviewedFile(fp, rev),
+              onEndCodeReview: () => void handleEndCodeReview(),
+              onSelectParentHash: (hash) => {
+                setSelectedHash(hash);
+                setCompareWithHash(null);
+                const idx = commits.findIndex((c) => c.hash === hash);
+                if (idx >= 0) scrollToRow(idx);
+              },
+              onAskAgent: (fp) => {
+                const fromHash = compareWithHash ? selectedHash : null;
+                const toHash = compareWithHash ?? selectedHash ?? "*";
+                void handleAskAgent({
+                  commitHash: toHash,
+                  fromHash: fromHash ?? void 0,
+                  filePath: fp
+                });
+              },
+              onCopyText: handleCopyText,
+              onClose: () => {
+                setSelectedHash(null);
+                setCompareWithHash(null);
+              }
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsx(
+          ContextMenuOverlay,
+          {
+            target: contextMenu,
+            currentBranch: graphData?.currentBranch ?? null,
+            hasCommits: commits.some((c) => !c.isUncommitted),
+            onClose: () => setContextMenu(null),
+            onRunAction: (action) => void handleRunGitAction(action),
+            onOpenDialog: (dialog) => setActiveDialog(dialog),
+            onOpenPullRequest: (branch) => void handleOpenPullRequest(branch),
+            onViewTagDetails: (tag) => void handleViewTagDetails(tag),
+            onCopyText: handleCopyText,
+            onAskAgent: (commitHash, filePath) => {
+              void handleAskAgent({ commitHash, filePath });
+            }
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          GitActionDialogModal,
+          {
+            dialog: activeDialog,
+            remotes: graphData?.remotes ?? [],
+            currentBranch: graphData?.currentBranch ?? null,
+            onClose: () => setActiveDialog(null),
+            onRunAction: (action) => void handleRunGitAction(action)
+          }
+        ),
+        /* @__PURE__ */ jsx(
+          RepoSettingsWidget,
+          {
+            open: settingsOpen,
+            remotes: graphData?.remotes ?? [],
+            repoSettings,
+            globalSettings,
+            onClose: () => setSettingsOpen(false),
+            onRunGitAction: (action) => void handleRunGitAction(action),
+            onUpdateRepoSettings: (patch) => void handleUpdateRepoSettings(patch),
+            onUpdateGlobalSettings: (patch) => void handleUpdateGlobalSettings(patch),
+            onExportRepoConfig: async () => {
+              try {
+                const res = await rpc.call("exportRepoConfig", {
+                  projectId,
+                  subRepoRelPath: selectedRepoRelPath
+                });
+                setBanner({
+                  kind: "info",
+                  text: `Exported repository config to ${res.filePath}`
+                });
+              } catch (err) {
+                setBanner({
+                  kind: "error",
+                  text: err instanceof Error ? err.message : String(err)
+                });
+              }
+            }
+          }
+        )
+      ]
+    }
+  );
+}
+
+// app.tsx
+var STYLE_ELEMENT_ID = "zcc-ext-git-tree-styles";
+function ensureStylesInjected() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(STYLE_ELEMENT_ID)) return;
+  const styleEl = document.createElement("style");
+  styleEl.id = STYLE_ELEMENT_ID;
+  styleEl.textContent = GIT_GRAPH_STYLES;
+  document.head.appendChild(styleEl);
+}
+var app_default = definePluginApp((app) => {
+  ensureStylesInjected();
+  app.slots.projectTab({
+    id: "git-tree",
+    label: "Git Tree",
+    icon: "GitBranch",
+    order: 40,
+    global: false,
+    header: "custom",
+    detachable: true,
+    component: GitTreeProjectTab,
+    detachedPlaceholder: GitTreeDetachedPlaceholder
+  });
+  app.slots.commandPaletteAction({
+    id: "open-git-tree",
+    title: "Git Tree: View Git Tree",
+    isAvailable: (ctx) => Boolean(ctx.projectId),
+    run: (ctx) => {
+      if (ctx.projectId) {
+        ctx.toProject(ctx.projectId, { tabId: "git-tree" });
+      }
+    }
+  });
+});
+export {
+  app_default as default
+};
+//# sourceMappingURL=app.js.map

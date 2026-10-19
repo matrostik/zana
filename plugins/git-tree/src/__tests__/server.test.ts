@@ -239,6 +239,58 @@ describe('git-tree server unit & contract tests', () => {
     });
   });
 
+  describe('push with no new commits', () => {
+    const pushParams = { remote: 'origin', branch: 'main' };
+
+    it('returns a notice and skips git push when the branch has no commits ahead of its remote', async () => {
+      const calls: string[][] = [];
+      const git = async (req: GitExecRequest) => {
+        calls.push(req.args);
+        if (req.args[0] === 'rev-list') return { code: 0, stdout: '0\n', stderr: '' };
+        return { code: 0, stdout: '', stderr: '' };
+      };
+      const res = await executeGitAction({ cwd: '/repo', git, action: 'push', params: pushParams });
+      expect(res.ok).toBe(true);
+      expect(res.notice).toContain('Nothing to push');
+      expect(calls.some((args) => args[0] === 'push')).toBe(false);
+    });
+
+    it('pushes when the branch is ahead of its remote', async () => {
+      const calls: string[][] = [];
+      const git = async (req: GitExecRequest) => {
+        calls.push(req.args);
+        if (req.args[0] === 'rev-list') return { code: 0, stdout: '2\n', stderr: '' };
+        return { code: 0, stdout: '', stderr: '' };
+      };
+      const res = await executeGitAction({ cwd: '/repo', git, action: 'push', params: pushParams });
+      expect(res.notice).toBeUndefined();
+      expect(calls.some((args) => args[0] === 'push')).toBe(true);
+    });
+
+    it('pushes when the remote branch does not exist yet', async () => {
+      const calls: string[][] = [];
+      const git = async (req: GitExecRequest) => {
+        calls.push(req.args);
+        if (req.args[0] === 'rev-parse') return { code: 1, stdout: '', stderr: '' };
+        return { code: 0, stdout: '', stderr: '' };
+      };
+      const res = await executeGitAction({ cwd: '/repo', git, action: 'push', params: pushParams });
+      expect(res.notice).toBeUndefined();
+      expect(calls.some((args) => args[0] === 'push')).toBe(true);
+    });
+
+    it('always pushes with set-upstream', async () => {
+      const calls: string[][] = [];
+      const git = async (req: GitExecRequest) => {
+        calls.push(req.args);
+        return { code: 0, stdout: '', stderr: '' };
+      };
+      await executeGitAction({ cwd: '/repo', git, action: 'push', params: { ...pushParams, setUpstream: true } });
+      expect(calls.some((args) => args[0] === 'rev-list')).toBe(false);
+      expect(calls.some((args) => args[0] === 'push')).toBe(true);
+    });
+  });
+
   describe('executeGitAction all mutation kinds', () => {
     it('builds exact git argv for every branch, commit, tag, stash, uncommitted, and remote action', async () => {
       const calls: string[][] = [];
@@ -276,6 +328,7 @@ describe('git-tree server unit & contract tests', () => {
         { action: 'stashBranch', params: { branch: 'from-stash', selector: 'stash@{0}' } },
         { action: 'resetUncommitted', params: { mode: 'hard' } },
         { action: 'cleanUntracked', params: { includeDirectories: true } },
+        { action: 'discardAll', params: {} },
         { action: 'addRemote', params: { name: 'upstream', url: 'https://github.com/org/repo.git', fetch: true } },
         { action: 'editRemote', params: { oldName: 'upstream', newName: 'up', url: 'https://github.com/org/repo2.git' } },
         { action: 'deleteRemote', params: { name: 'up' } },
@@ -314,6 +367,21 @@ describe('git-tree server unit & contract tests', () => {
         action: 'stashPush',
         params: { message: 'wip', includeUntracked: false }
       });
+      const discardCalls: string[][] = [];
+      const discardFailGit = async (req: GitExecRequest) => {
+        discardCalls.push(req.args);
+        return req.args[0] === 'reset'
+          ? { code: 1, stdout: '', stderr: 'fatal: reset failed' }
+          : { code: 0, stdout: '', stderr: '' };
+      };
+      const discardRes = await executeGitAction({
+        cwd: '/repo',
+        git: discardFailGit,
+        action: 'discardAll',
+        params: {}
+      });
+      expect(discardRes.ok).toBe(false);
+      expect(discardCalls).toEqual([['reset', '--hard', 'HEAD']]);
       // Test dropCommit on root commit (parent does not exist)
       const dropRootGit = async (req: GitExecRequest) => {
         if (req.args[0] === 'rev-parse') return { code: 1, stdout: '', stderr: 'fatal' };

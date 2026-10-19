@@ -17,6 +17,8 @@ export interface ControlBarProps {
   onUpdateRepoSettings: (patch: Partial<RepoSettings>) => void;
   onUpdateGlobalSettings: (patch: Partial<GitGraphGlobalSettings>) => void;
   onFetch: () => void;
+  onPush: () => void;
+  canPush: boolean;
   onScrollToHead: () => void;
   onToggleFind: () => void;
   findOpen: boolean;
@@ -44,6 +46,8 @@ export function ControlBar(props: ControlBarProps) {
     onUpdateRepoSettings,
     onUpdateGlobalSettings,
     onFetch,
+    onPush,
+    canPush,
     onScrollToHead,
     onToggleFind,
     findOpen,
@@ -273,6 +277,15 @@ export function ControlBar(props: ControlBarProps) {
           title="Fetch from Remote(s)"
         >
           ⬇ Fetch
+        </button>
+        <button
+          type="button"
+          className="gg-btn git-graph-btn"
+          onClick={onPush}
+          disabled={loading || !canPush}
+          title="Push current branch to remote"
+        >
+          ⬆ Push
         </button>
         <button
           type="button"
