@@ -1,0 +1,24 @@
+{
+  "id": "git-tree",
+  "displayName": "Git Tree",
+  "description": "Interactive Git Tree for each project: commit DAG visualization, branch/tag/stash actions, commit details & diff viewer, two-commit comparisons, code reviews, and agent tools.",
+  "overview": "View an interactive Git Tree of your project repository in Zana Command Center.\n\n## What you get\n\n- A per-project Git Tree tab. It can open in its own window or split pane.\n- A commit DAG with local and remote branches, tags, stashes, HEAD, and uncommitted changes.\n- Commit details, changed files, inline or side-by-side diffs, and two-commit comparison.\n- Persistent code review. Track which files you reviewed across Zana sessions.\n- Git actions from the context menu: branches, merge, rebase, cherry-pick, revert, reset, tags, stashes, and remotes.\n- Agent and CLI integration: start a thread with commit context, run `zcc git-tree` from the terminal, or let agents inspect history with `git_tree_inspect`.\n\n## How it works\n\nThe plugin reads your project's Git repository on the host. Mutating actions run `git` only when you choose them from the tree.\n\n## Requirements\n\nA Git repository in the project. The plugin uses your local `git` installation.",
+  "icon": {
+    "lucide": "GitBranch"
+  },
+  "tags": [
+    "official"
+  ],
+  "author": {
+    "name": "Zana",
+    "github": "salesforce",
+    "url": "https://github.com/salesforce/zana"
+  },
+  "source": {
+    "git": {
+      "url": "https://github.com/salesforce/zana",
+      "subdir": "plugins/git-tree",
+      "ref": "HEAD"
+    }
+  }
+}
