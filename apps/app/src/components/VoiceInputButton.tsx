@@ -186,7 +186,7 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
 
           if (!result.ok || !result.text.trim()) {
             pushToast(result.error || 'No speech detected', 'error');
-            if (!result.ok) void useVoiceStatus.getState().refresh();
+            if (!result.ok) void useVoiceStatus.getState().refresh({ force: true });
             return;
           }
 
@@ -214,7 +214,7 @@ export function VoiceInputButton({ value, onChange, className, textareaRef, icon
         } catch (err) {
           pushToast(`Transcription failed: ${(err as Error).message}`, 'error');
           // The host login may have changed; re-check so the button reflects it.
-          void useVoiceStatus.getState().refresh();
+          void useVoiceStatus.getState().refresh({ force: true });
         } finally {
           setTranscribing(false);
           stopRecording();

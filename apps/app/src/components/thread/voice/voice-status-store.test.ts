@@ -132,3 +132,19 @@ it('a refresh in flight when dictation turns off cannot overwrite the reset', as
   await useVoiceStatus.getState().refresh();
   expect(useVoiceStatus.getState().availability).toEqual({ state: 'unavailable', reason: 'disabled' });
 });
+
+it('re-fetches after a mid-flight roster change so a host that connected is not missed', async () => {
+  const resolvers: Array<(v: { enabled: boolean; reason?: string }) => void> = [];
+  mocks.fetchVoiceStatus.mockImplementation(() => new Promise((r) => { resolvers.push(r); }));
+  const { startVoiceStatusSync, useVoiceStatus } = await load();
+  startVoiceStatusSync();
+  const first = useVoiceStatus.getState().refresh();
+  expect(mocks.fetchVoiceStatus).toHaveBeenCalledTimes(1);
+  for (const fn of mocks.hostListeners) fn();
+  resolvers[0]({ enabled: false, reason: 'no_host' });
+  await first;
+  await vi.waitFor(() => expect(mocks.fetchVoiceStatus).toHaveBeenCalledTimes(2));
+  resolvers[1]({ enabled: true });
+  await vi.waitFor(() => expect(useVoiceStatus.getState().availability).toEqual({ state: 'ready', reason: null }));
+});
+

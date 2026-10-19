@@ -64,7 +64,7 @@ export function useVoiceInput({ onTranscript, enabled = true, ownerKey }: UseVoi
           onError: message => {
             pushToast(message, 'error');
             // A failed attempt may mean the host login changed; re-check so the button reflects it.
-            void useVoiceStatus.getState().refresh();
+            void useVoiceStatus.getState().refresh({ force: true });
           }
         }
       );

@@ -120,7 +120,21 @@ describe('composer sessions', () => {
     session.setContent({ document: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Seed' }] }] } });
     session.setSeed({ text: 'Seed', revision: session.getSnapshot().revision });
     expect(session.clearIfRevision(session.getSnapshot().revision)).toBe(true);
-    expect(session.getSnapshot().seed?.text).toBe('Seed');
+    expect(session.getSeed()?.text).toBe('Seed');
     expect(session.reclaimable).toBe(true);
+  });
+
+  it('stores selection and seed without publishing a new snapshot', () => {
+    const session = composerSession('quiet-selection');
+    const before = session.getSnapshot();
+    const listener = vi.fn();
+    const unsubscribe = session.subscribe(listener);
+    session.setSelection({ from: 2, to: 4 });
+    session.setSeed({ text: 'Quiet', revision: before.revision });
+    expect(session.getSnapshot()).toBe(before);
+    expect(listener).not.toHaveBeenCalled();
+    expect(session.getSelection()).toEqual({ from: 2, to: 4 });
+    expect(session.getSeed()).toEqual({ text: 'Quiet', revision: before.revision });
+    unsubscribe();
   });
 });

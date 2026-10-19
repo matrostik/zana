@@ -358,7 +358,7 @@ export function useComposerPromptField({
   useEffect(() => {
     if (!editor || selectionRestoredFor.current === draft) return;
     selectionRestoredFor.current = draft;
-    const selection = draft.getSnapshot().selection;
+    const selection = draft.getSelection();
     if (selection) editor.commands.setTextSelection({ from: Math.min(selection.from, editor.state.doc.content.size), to: Math.min(selection.to, editor.state.doc.content.size) });
   }, [draft, editor]);
 
@@ -371,10 +371,10 @@ export function useComposerPromptField({
     if (seededFor.current?.draft === draft && seededFor.current.text === initialText) return;
     seededFor.current = { draft, text: initialText };
     const current = draft.getSnapshot();
-    if (current.seed?.text === initialText && current.document !== undefined) return;
+    if (draft.getSeed()?.text === initialText && current.document !== undefined) return;
     const replaceable = current.document === undefined
       || isEmptyComposerDocument(current.document)
-      || current.seed?.revision === current.revision;
+      || draft.getSeed()?.revision === current.revision;
     if (!replaceable) return;
     const chain = editor.chain().clearContent().insertContent(initialText);
     if (autoFocus) chain.focus();

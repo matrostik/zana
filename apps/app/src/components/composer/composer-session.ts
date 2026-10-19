@@ -8,14 +8,15 @@ const EMPTY_DOCUMENT: JSONContent = { type: 'doc', content: [{ type: 'paragraph'
 
 export interface ComposerSessionSnapshot {
   document?: JSONContent;
-  selection?: { from: number; to: number };
   images: ComposerImageAttachment[];
   attachments: PromptInput[];
   settings: Record<string, unknown>;
-  /** Last `initialText` applied and the revision it produced; an equal revision means the seed is unedited. */
-  seed?: { text: string; revision: number };
   revision: number;
 }
+
+type ComposerSelection = { from: number; to: number };
+/** Last `initialText` applied and the revision it produced; an equal revision means the seed is unedited. */
+type ComposerSeed = { text: string; revision: number };
 
 export function isEmptyComposerDocument(document: JSONContent | undefined): boolean {
   return JSON.stringify(document ?? EMPTY_DOCUMENT) === JSON.stringify(EMPTY_DOCUMENT);
@@ -32,8 +33,13 @@ export class ComposerSession {
   private users = 0;
   /** Settings holding typed text (e.g. a Squad title) count as an unsent draft. */
   private contentSettingKeys = new Set<string>();
+  // Not render inputs: kept out of the published snapshot so they never trigger re-renders.
+  private selection: ComposerSelection | undefined;
+  private seed: ComposerSeed | undefined;
   constructor(readonly retentionError?: string) {}
   getSnapshot = () => this.snapshot;
+  getSelection = () => this.selection;
+  getSeed = () => this.seed;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
@@ -68,11 +74,11 @@ export class ComposerSession {
     }
     this.publish({ ...this.snapshot, ...patch, revision: this.snapshot.revision + 1 });
   }
-  setSelection(selection: ComposerSessionSnapshot['selection']) {
-    this.snapshot = { ...this.snapshot, selection };
+  setSelection(selection: ComposerSelection | undefined) {
+    this.selection = selection;
   }
-  setSeed(seed: ComposerSessionSnapshot['seed']) {
-    this.snapshot = { ...this.snapshot, seed };
+  setSeed(seed: ComposerSeed | undefined) {
+    this.seed = seed;
   }
   setSetting(key: string, value: unknown, options?: { content?: boolean }) {
     if (options?.content) this.contentSettingKeys.add(key);

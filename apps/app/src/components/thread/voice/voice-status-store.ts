@@ -8,25 +8,36 @@ const FOCUS_REFRESH_MIN_MS = 5_000;
 
 interface VoiceStatusState {
   availability: VoiceAvailability;
-  /** Re-reads host readiness. No-op while dictation is off in Experimental. */
-  refresh: () => Promise<void>;
+  /** Re-reads host readiness. No-op while dictation is off in Experimental. `force` re-fetches after an in-flight request instead of joining it. */
+  refresh: (options?: { force?: boolean }) => Promise<void>;
 }
 
 let inflight: Promise<void> | null = null;
+// Set when a refresh is requested mid-fetch (e.g. a host connects while a
+// `no_host` probe is pending). The stale reply is applied, then one more fetch
+// runs so the final state reflects the latest roster instead of the old one.
+let dirty = false;
 // Bumped whenever a result must be discarded (toggle turned off, test reset) so a
 // fetch that was in flight at that moment cannot overwrite the reset state.
 let generation = 0;
 
-export const useVoiceStatus = create<VoiceStatusState>((set) => ({
+export const useVoiceStatus = create<VoiceStatusState>((set, get) => ({
   availability: { state: 'unknown', reason: null },
-  refresh() {
+  refresh({ force = false } = {}) {
     if (!useData.getState().voiceInputEnabled) {
       generation += 1;
       inflight = null;
+      dirty = false;
       set({ availability: { state: 'unknown', reason: null } });
       return Promise.resolve();
     }
-    if (inflight) return inflight;
+    if (inflight) {
+      // Focus and duplicate triggers only join; a state-changing trigger must
+      // observe the world after the in-flight probe started.
+      if (!force) return inflight;
+      dirty = true;
+      return inflight;
+    }
     const mine = generation;
     const apply = (availability: VoiceAvailability) => {
       if (mine === generation) set({ availability });
@@ -38,7 +49,14 @@ export const useVoiceStatus = create<VoiceStatusState>((set) => ({
       // An unreachable status route is not proof voice is broken: keep the
       // mic usable and let a real attempt report the precise error.
       .catch(() => apply({ state: 'ready', reason: null }))
-      .finally(() => { if (inflight === request) inflight = null; });
+      .finally(() => {
+        if (inflight !== request) return;
+        inflight = null;
+        if (dirty) {
+          dirty = false;
+          void get().refresh();
+        }
+      });
     inflight = request;
     return request;
   }
@@ -62,12 +80,12 @@ export function startVoiceStatusSync(): void {
   releases.push(useData.subscribe((state) => {
     if (state.voiceInputEnabled === wasEnabled) return;
     wasEnabled = state.voiceInputEnabled;
-    void useVoiceStatus.getState().refresh();
+    void useVoiceStatus.getState().refresh({ force: true });
   }));
   // A host connecting or leaving changes no_host / ambiguous_host / auth state.
   releases.push(product.hosts.onChanged(() => {
     if (!useData.getState().voiceInputEnabled) return;
-    void useVoiceStatus.getState().refresh();
+    void useVoiceStatus.getState().refresh({ force: true });
   }));
   if (typeof window !== 'undefined') {
     const onFocus = () => {
@@ -90,6 +108,7 @@ export function resetVoiceStatusForTests(): void {
   syncStarted = false;
   lastFocusRefresh = 0;
   inflight = null;
+  dirty = false;
   useVoiceStatus.setState({ availability: { state: 'unknown', reason: null } });
 }
 

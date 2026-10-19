@@ -1706,6 +1706,14 @@ describe('product HTTP', () => {
       body: originForm
     });
     expect(originDenied.status).toBe(403);
+
+    const oversized = await fetch(`${server.url}api/v1/system/voice-transcription`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: Buffer.alloc(26 * 1024 * 1024, 1)
+    });
+    expect(oversized.status).toBe(403);
+    await expect(oversized.json()).resolves.toMatchObject({ error: 'voice_disabled' });
   });
 
   it('serves environment diff file TOC and per-file patches', async () => {
