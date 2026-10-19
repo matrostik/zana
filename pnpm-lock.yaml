@@ -1404,6 +1404,43 @@ importers:
         specifier: ^19.2.4
         version: 19.3.0(react@19.3.0)
 
+  plugins/git-tree:
+    dependencies:
+      '@zana-ai/zcc-ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      lucide-react:
+        specifier: ^1.35.0
+        version: 1.47.0(react@19.3.0)
+    devDependencies:
+      '@testing-library/dom':
+        specifier: ^10.4.1
+        version: 10.4.2
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/react':
+        specifier: ^19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.4
+        version: 19.3.0(@types/react@19.2.18)
+      '@zana-ai/zcc-plugin-build':
+        specifier: workspace:*
+        version: link:../../packages/plugin-build
+      '@zana-ai/zcc-plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      happy-dom:
+        specifier: ^20.10.6
+        version: 20.14.5
+      react:
+        specifier: ^19.2.4
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.2.4
+        version: 19.3.0(react@19.3.0)
+
   plugins/github: {}
 
   plugins/google-analytics: {}
