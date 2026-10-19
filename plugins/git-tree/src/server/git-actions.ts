@@ -309,7 +309,7 @@ export async function executeGitAction(args: {
     // --- Stash & Uncommitted Actions ---
     case 'commitUncommitted': {
       const message = str('message');
-      if (!message) return { ok: false, error: 'Commit message is required.' };
+      if (!message) return { ok: false, stdout: '', stderr: '', error: 'Commit message is required.' };
       const staged = await runGitMutation(cwd, git, ['add', '-A']);
       if (!staged.ok) return staged;
       return runGitMutation(cwd, git, ['commit', '-m', message]);
