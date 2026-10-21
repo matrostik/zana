@@ -2490,6 +2490,18 @@ export interface AppConfig {
    */
   threadSessionReleaseMinutes?: number;
   /**
+   * Code minimap in the Explorer file preview (see {@link EXPLORER_MINIMAP_DEFAULTS}).
+   * `explorerMinimapEnabled` shows/hides it; `explorerMinimap` is its width.
+   * Absent ⇒ the default. Unknown values are dropped in {@link normalizeConfig};
+   * read live by the Explorer viewer and editable from its right-click menu.
+   */
+  explorerMinimapEnabled?: boolean;
+  explorerMinimap?: ExplorerMinimapWidth;
+  explorerMinimapRenderCharacters?: boolean;
+  explorerMinimapVerticalSize?: ExplorerMinimapVerticalSize;
+  explorerMinimapSlider?: ExplorerMinimapSlider;
+  explorerMinimapSide?: ExplorerMinimapSide;
+  /**
    * When an idle agent is auto-closed (see {@link autoCloseIdleEnabled}), also
    * drop a folded breadcrumb into the inbox's collapsed "Agent closed" section.
    * Default OFF — an idle auto-close is routine bookkeeping already recorded in
@@ -2936,6 +2948,82 @@ export function threadSessionReleaseLabel(minutes: number): string {
   if (minutes <= 0) return 'Never';
   if (minutes % 60 === 0) return `After ${minutes / 60} hour${minutes === 60 ? '' : 's'}`;
   return `After ${minutes} minutes`;
+}
+
+/** Explorer preview minimap options; see {@link AppConfig.explorerMinimap}. */
+export type ExplorerMinimapWidth = 'narrow' | 'default' | 'wide';
+export type ExplorerMinimapVerticalSize = 'proportional' | 'fill' | 'fit';
+export type ExplorerMinimapSlider = 'mouseover' | 'always';
+export type ExplorerMinimapSide = 'right' | 'left';
+
+export const EXPLORER_MINIMAP_WIDTH_CHOICES = ['narrow', 'default', 'wide'] as const;
+export const EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES = ['proportional', 'fill', 'fit'] as const;
+export const EXPLORER_MINIMAP_SLIDER_CHOICES = ['mouseover', 'always'] as const;
+export const EXPLORER_MINIMAP_SIDE_CHOICES = ['right', 'left'] as const;
+
+/** Resolved minimap preferences (every field filled). */
+export interface ExplorerMinimapPrefs {
+  enabled: boolean;
+  width: ExplorerMinimapWidth;
+  renderCharacters: boolean;
+  verticalSize: ExplorerMinimapVerticalSize;
+  slider: ExplorerMinimapSlider;
+  side: ExplorerMinimapSide;
+}
+
+export const EXPLORER_MINIMAP_DEFAULTS: ExplorerMinimapPrefs = {
+  enabled: true,
+  width: 'default',
+  renderCharacters: true,
+  verticalSize: 'proportional',
+  slider: 'mouseover',
+  side: 'right'
+};
+
+/** Monaco `minimap.maxColumn` per width. */
+export const EXPLORER_MINIMAP_MAX_COLUMN: Record<ExplorerMinimapWidth, number> = {
+  narrow: 60,
+  default: 120,
+  wide: 200
+};
+
+/** The minimap is hidden when the editor is narrower than this many px. */
+export const EXPLORER_MINIMAP_MIN_EDITOR_WIDTH = 480;
+
+export const EXPLORER_MINIMAP_LABELS = {
+  narrow: 'Narrow',
+  default: 'Default',
+  wide: 'Wide',
+  proportional: 'Proportional',
+  fill: 'Fill',
+  fit: 'Fit',
+  mouseover: 'Mouse Over',
+  always: 'Always',
+  right: 'Right',
+  left: 'Left'
+} as const;
+
+/** The `AppConfig.explorerMinimap*` keys. */
+export type ExplorerMinimapConfig = Pick<
+  AppConfig,
+  | 'explorerMinimapEnabled'
+  | 'explorerMinimap'
+  | 'explorerMinimapRenderCharacters'
+  | 'explorerMinimapVerticalSize'
+  | 'explorerMinimapSlider'
+  | 'explorerMinimapSide'
+>;
+
+export function resolveExplorerMinimap(config: ExplorerMinimapConfig): ExplorerMinimapPrefs {
+  const d = EXPLORER_MINIMAP_DEFAULTS;
+  return {
+    enabled: config.explorerMinimapEnabled ?? d.enabled,
+    width: config.explorerMinimap ?? d.width,
+    renderCharacters: config.explorerMinimapRenderCharacters ?? d.renderCharacters,
+    verticalSize: config.explorerMinimapVerticalSize ?? d.verticalSize,
+    slider: config.explorerMinimapSlider ?? d.slider,
+    side: config.explorerMinimapSide ?? d.side
+  };
 }
 
 /** Launch-surface default revision. See {@link AppConfig.composerLaunchSurfacesRev}. */

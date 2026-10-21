@@ -1,4 +1,4 @@
-import { isAgentsViewId, type AgentsViewId } from '@zana-ai/zcc-domain/product';
+import { EXPLORER_MINIMAP_DEFAULTS, isAgentsViewId, resolveExplorerMinimap, type AgentsViewId, type ExplorerMinimapConfig, type ExplorerMinimapPrefs } from '@zana-ai/zcc-domain/product';
 import { subscribeClientRecovery } from './lib/client-recovery.js';
 import { create } from 'zustand';
 import type {
@@ -784,6 +784,9 @@ export function bindSystemThemeListener() {
  * lingering until reload. Purely config→flag; no side effects (theme /
  * pane-width / workspace-mode application stays at the call sites).
  */
+/** The `AppConfig.explorerMinimap*` keys, as written by the Explorer minimap menu. */
+export type ExplorerMinimapPatch = ExplorerMinimapConfig;
+
 function mirroredConfigFlags(config: AppConfig) {
   return {
     defaultHarness: config.defaultHarness ?? null,
@@ -798,6 +801,7 @@ function mirroredConfigFlags(config: AppConfig) {
     terminalTheme: config.terminalTheme ?? DEFAULT_TERMINAL_THEME,
     inboxGuidanceEnabled: config.inboxGuidanceEnabled ?? true,
     terminalWheelArrowsEnabled: config.terminalWheelArrowsEnabled ?? true,
+    explorerMinimap: resolveExplorerMinimap(config),
     heartbeatEnabled: config.heartbeatEnabled ?? false,
     goalsEnabled: config.goalsEnabled ?? false,
     cliRemoteToolProxyEnabled: config.cliRemoteToolProxyEnabled ?? false,
@@ -1533,6 +1537,8 @@ interface DataState {
    *  translation on (default true). Read live by TerminalView's custom wheel
    *  handler so a flip takes effect on open terminals without reopening them. */
   terminalWheelArrowsEnabled: boolean;
+  /** Resolved mirror of AppConfig.explorerMinimap* — read live by the Explorer FileViewer. */
+  explorerMinimap: ExplorerMinimapPrefs;
   /** Mirror of AppConfig.heartbeatEnabled — gates the per-agent Heartbeat
    *  toggle in the agent inspector. Hydrated on init, kept live by the Settings
    *  toggle. Default off. */
@@ -1685,6 +1691,9 @@ interface DataState {
   setTerminalTheme: (id: TerminalThemeId) => void;
   setInboxGuidanceEnabled: (on: boolean) => void;
   setTerminalWheelArrowsEnabled: (on: boolean) => void;
+  setExplorerMinimap: (prefs: ExplorerMinimapPrefs) => void;
+  /** Optimistically apply and persist a minimap change (from the editor's right-click menu). */
+  updateExplorerMinimap: (patch: ExplorerMinimapPatch) => void;
   setHeartbeatEnabled: (on: boolean) => void;
   setGoalsEnabled: (on: boolean) => void;
   setCliRemoteToolProxyEnabled: (on: boolean) => void;
@@ -2038,6 +2047,7 @@ export const useData = create<DataState>((set, get) => ({
   terminalTheme: DEFAULT_TERMINAL_THEME,
   inboxGuidanceEnabled: true,
   terminalWheelArrowsEnabled: true,
+  explorerMinimap: EXPLORER_MINIMAP_DEFAULTS,
   heartbeatEnabled: false,
   goalsEnabled: false,
   cliRemoteToolProxyEnabled: false,
@@ -2104,6 +2114,26 @@ export const useData = create<DataState>((set, get) => ({
 
   setTerminalWheelArrowsEnabled(on) {
     set({ terminalWheelArrowsEnabled: on });
+  },
+
+  setExplorerMinimap(prefs) {
+    set({ explorerMinimap: prefs });
+  },
+
+  updateExplorerMinimap(patch) {
+    const cur = get().explorerMinimap;
+    set({
+      explorerMinimap: resolveExplorerMinimap({
+        explorerMinimapEnabled: cur.enabled,
+        explorerMinimap: cur.width,
+        explorerMinimapRenderCharacters: cur.renderCharacters,
+        explorerMinimapVerticalSize: cur.verticalSize,
+        explorerMinimapSlider: cur.slider,
+        explorerMinimapSide: cur.side,
+        ...patch
+      })
+    });
+    product.config.set(patch).catch(() => set({ explorerMinimap: cur }));
   },
 
   setHeartbeatEnabled(on) {

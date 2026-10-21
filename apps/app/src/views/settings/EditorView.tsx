@@ -1,10 +1,19 @@
 import { useContext, useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, RefreshCw, Code2, ChevronRight, FolderOpen, TerminalSquare } from 'lucide-react';
 import type { AppConfig, EditorVerifyResult, OpenTarget } from '@zana-ai/zcc-domain/product';
+import {
+  EXPLORER_MINIMAP_LABELS,
+  EXPLORER_MINIMAP_SIDE_CHOICES,
+  EXPLORER_MINIMAP_SLIDER_CHOICES,
+  EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES,
+  EXPLORER_MINIMAP_WIDTH_CHOICES,
+  resolveExplorerMinimap
+} from '@zana-ai/zcc-domain/product';
 import { useData } from '@/store';
 import { CursorIcon } from '@/components/icons/CursorIcon';
 import { IntelliJIcon } from '@/components/icons/IntelliJIcon';
 import { Section, Field, ToggleSwitch } from '@/components/settings/FormFields';
+import { PopoverPicklist } from '@/components/ui/PopoverPicklist';
 import { RevealContext } from '@/lib/settings-search/reveal';
 import { fileManagerBlurb, fileManagerTitle } from '@/lib/file-manager';
 
@@ -178,7 +187,10 @@ export function EditorView({
     </Field>
   );
 
+  const minimap = resolveExplorerMinimap(config);
+
   return (
+    <>
     <Section
       anchorId="editor-status"
       searchId="editor.bar-intro"
@@ -272,6 +284,74 @@ export function EditorView({
         </button>
       </div>
     </Section>
+
+    <Section
+      anchorId="editor-explorer-preview"
+      searchId="editor.explorer-preview"
+      title="Explorer preview"
+      help="How the Explorer shows file contents."
+    >
+      <Field
+        label="Minimap"
+        searchId="editor.explorer-minimap"
+        help="Show a zoomed-out overview of the file on the edge of the Explorer preview. It scrolls with the file; click or drag it to jump. You can also right-click the minimap or the scrollbar in the editor. It is hidden automatically when the preview is narrow."
+      >
+        <ToggleSwitch
+          checked={minimap.enabled}
+          onChange={(v) => onUpdate({ explorerMinimapEnabled: v })}
+          label="Minimap"
+        />
+      </Field>
+      <Field label="Minimap width" searchId="editor.explorer-minimap-width" help="How wide the minimap is. Default: Default.">
+        <PopoverPicklist
+          value={minimap.width}
+          ariaLabel="Minimap width"
+          searchable={false}
+          disabled={!minimap.enabled}
+          onChange={(width) => onUpdate({ explorerMinimap: width as typeof minimap.width })}
+          options={EXPLORER_MINIMAP_WIDTH_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
+        />
+      </Field>
+      <Field label="Render characters" searchId="editor.explorer-minimap-characters" help="Draw the actual characters in the minimap instead of plain color blocks.">
+        <ToggleSwitch
+          checked={minimap.renderCharacters}
+          disabled={!minimap.enabled}
+          onChange={(v) => onUpdate({ explorerMinimapRenderCharacters: v })}
+          label="Render characters"
+        />
+      </Field>
+      <Field label="Minimap vertical size" searchId="editor.explorer-minimap-vertical-size" help="Proportional keeps each line a fixed height, Fill stretches the minimap to the full editor height, and Fit shrinks it to fit short files.">
+        <PopoverPicklist
+          value={minimap.verticalSize}
+          ariaLabel="Minimap vertical size"
+          searchable={false}
+          disabled={!minimap.enabled}
+          onChange={(size) => onUpdate({ explorerMinimapVerticalSize: size as typeof minimap.verticalSize })}
+          options={EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
+        />
+      </Field>
+      <Field label="Minimap slider" searchId="editor.explorer-minimap-slider" help="When the viewport slider is drawn over the minimap.">
+        <PopoverPicklist
+          value={minimap.slider}
+          ariaLabel="Minimap slider"
+          searchable={false}
+          disabled={!minimap.enabled}
+          onChange={(slider) => onUpdate({ explorerMinimapSlider: slider as typeof minimap.slider })}
+          options={EXPLORER_MINIMAP_SLIDER_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
+        />
+      </Field>
+      <Field label="Minimap side" searchId="editor.explorer-minimap-side" help="Which edge of the editor the minimap sits on.">
+        <PopoverPicklist
+          value={minimap.side}
+          ariaLabel="Minimap side"
+          searchable={false}
+          disabled={!minimap.enabled}
+          onChange={(side) => onUpdate({ explorerMinimapSide: side as typeof minimap.side })}
+          options={EXPLORER_MINIMAP_SIDE_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
+        />
+      </Field>
+    </Section>
+    </>
   );
 }
 

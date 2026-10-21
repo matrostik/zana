@@ -84,3 +84,22 @@ describe('afcode harness setting mirror', () => {
     expect(configSet).not.toHaveBeenCalled();
   });
 });
+
+describe('useData.updateExplorerMinimap', () => {
+  beforeEach(() => {
+    useData.setState({ explorerMinimap: { ...useData.getState().explorerMinimap, enabled: true, width: 'default', side: 'right' } });
+  });
+
+  it('merges the patch into the current prefs and persists only the patch', () => {
+    useData.getState().updateExplorerMinimap({ explorerMinimapSide: 'left' });
+    expect(useData.getState().explorerMinimap).toMatchObject({ enabled: true, width: 'default', side: 'left' });
+    expect(configSet).toHaveBeenCalledWith({ explorerMinimapSide: 'left' });
+  });
+
+  it('rolls back to the previous prefs when the persist fails', async () => {
+    configSet.mockRejectedValueOnce(new Error('boom'));
+    useData.getState().updateExplorerMinimap({ explorerMinimapEnabled: false });
+    expect(useData.getState().explorerMinimap.enabled).toBe(false);
+    await vi.waitFor(() => expect(useData.getState().explorerMinimap.enabled).toBe(true));
+  });
+});

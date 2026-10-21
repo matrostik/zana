@@ -9,6 +9,9 @@ import { OpenerButtons } from '../OpenerButtons.js';
 import { languageFromPath } from '../../lib/monacoLanguage.js';
 import { StencilLines } from '../ui/Skeleton.js';
 import { platformShortcut } from '../../lib/platformShortcut.js';
+import { useData } from '../../store.js';
+import { minimapAutoHidden, minimapOptionsFor } from './minimapOptions.js';
+import { MinimapContextMenu } from './MinimapContextMenu.js';
 
 interface FileViewerProps {
   project: Project;
@@ -87,6 +90,51 @@ export function FileViewer({
   onTogglePreview,
   onToggleDiff
 }: FileViewerProps) {
+  const minimapPrefs = useData((s) => s.explorerMinimap);
+  const updateMinimap = useData((s) => s.updateExplorerMinimap);
+  const [minimapMenu, setMinimapMenu] = React.useState<{ x: number; y: number } | null>(null);
+  const editorSubs = React.useRef<Array<{ dispose(): void }>>([]);
+  React.useEffect(() => () => editorSubs.current.forEach((sub) => sub.dispose()), []);
+  // The Monaco wrapper mounts/unmounts as the file changes, so track it via a
+  // callback ref held in state and (re)observe whenever the element changes.
+  const [monacoEl, setMonacoEl] = React.useState<HTMLDivElement | null>(null);
+  const [monacoWidth, setMonacoWidth] = React.useState(0);
+  React.useEffect(() => {
+    if (!monacoEl) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      setMonacoWidth(monacoEl.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(() => {
+      if (!raf) raf = requestAnimationFrame(measure);
+    });
+    observer.observe(monacoEl);
+    return () => {
+      observer.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [monacoEl]);
+  const minimap = React.useMemo(() => minimapOptionsFor(minimapPrefs, monacoWidth), [minimapPrefs, monacoWidth]);
+  React.useEffect(() => setMinimapMenu(null), [explorerFile]);
+  const closeMinimapMenu = React.useCallback(() => setMinimapMenu(null), []);
+  // Right-click on the minimap or the vertical scrollbar (Monaco reports both as
+  // SCROLLBAR) opens our menu; the standalone editor's built-in one is a no-op.
+  const handleEditorMount: OnMount = (ed, monaco) => {
+    editorSubs.current.forEach((sub) => sub.dispose());
+    editorSubs.current = [
+      ed.onContextMenu((e) => {
+        if (e.target.type !== monaco.editor.MouseTargetType.SCROLLBAR) return;
+        e.event.preventDefault();
+        e.event.stopPropagation();
+        setMinimapMenu({ x: e.event.posx, y: e.event.posy });
+      }),
+      ed.onDidScrollChange(() => setMinimapMenu(null))
+    ];
+    onEditorMount(ed, monaco);
+  };
+
   if (!explorerFile) {
     return (
       <section className="explorer-viewer">
@@ -222,7 +270,7 @@ export function FileViewer({
           )}
         </span>
       </div>
-      <div className="explorer-viewer-monaco">
+      <div className="explorer-viewer-monaco" ref={setMonacoEl}>
         {showPreview ? (
           <div className="explorer-md-preview">
             <div className="inbox-md">
@@ -281,10 +329,10 @@ export function FileViewer({
                 onContentChange(v);
               }
             }}
-            onMount={onEditorMount}
+            onMount={handleEditorMount}
             options={{
               readOnly: fileResult.truncated,
-              minimap: { enabled: false },
+              minimap,
               fontSize: 13,
               scrollBeyondLastLine: false,
               automaticLayout: true,
@@ -294,6 +342,16 @@ export function FileViewer({
           />
         )}
         {aiEnhanceModal}
+        {minimapMenu && (
+          <MinimapContextMenu
+            prefs={minimapPrefs}
+            autoHidden={minimapAutoHidden(minimapPrefs, monacoWidth)}
+            x={minimapMenu.x}
+            y={minimapMenu.y}
+            onChange={updateMinimap}
+            onClose={closeMinimapMenu}
+          />
+        )}
       </div>
     </section>
   );

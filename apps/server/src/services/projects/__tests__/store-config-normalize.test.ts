@@ -338,6 +338,37 @@ describe('normalizeConfig — auto-close-idle flags', () => {
     expect(out.autoCloseIdleMinutes).toBeUndefined();
   });
 
+  it('keeps known explorer minimap options and drops anything else', () => {
+    const out = normalizeConfig({
+      explorerMinimapEnabled: false,
+      explorerMinimap: 'wide',
+      explorerMinimapRenderCharacters: false,
+      explorerMinimapVerticalSize: 'fit',
+      explorerMinimapSlider: 'always',
+      explorerMinimapSide: 'left'
+    });
+    expect(out).toMatchObject({
+      explorerMinimapEnabled: false,
+      explorerMinimap: 'wide',
+      explorerMinimapRenderCharacters: false,
+      explorerMinimapVerticalSize: 'fit',
+      explorerMinimapSlider: 'always',
+      explorerMinimapSide: 'left'
+    });
+    const junk = normalizeConfig({
+      explorerMinimapEnabled: 'yes' as never,
+      explorerMinimap: 'off' as never,
+      explorerMinimapRenderCharacters: 1 as never,
+      explorerMinimapVerticalSize: 'huge' as never,
+      explorerMinimapSlider: 3 as never,
+      explorerMinimapSide: 'top' as never
+    });
+    for (const key of ['explorerMinimapEnabled', 'explorerMinimap', 'explorerMinimapRenderCharacters', 'explorerMinimapVerticalSize', 'explorerMinimapSlider', 'explorerMinimapSide'] as const) {
+      expect(junk[key]).toBeUndefined();
+    }
+    expect(normalizeConfig({}).explorerMinimap).toBeUndefined();
+  });
+
   it('keeps threadSessionReleaseMinutes in range, 0 as never, and drops junk', () => {
     expect(normalizeConfig({ threadSessionReleaseMinutes: 120.4 }).threadSessionReleaseMinutes).toBe(120);
     expect(normalizeConfig({ threadSessionReleaseMinutes: 0 }).threadSessionReleaseMinutes).toBe(0);
