@@ -1,4 +1,9 @@
-import { EXPLORER_MINIMAP_LABELS, resolveExplorerMinimap } from '@zana-ai/zcc-domain/product';
+import {
+  EXPLORER_FILE_ICON_THEME_LABELS,
+  EXPLORER_MINIMAP_LABELS,
+  resolveExplorerFileIconTheme,
+  resolveExplorerMinimap
+} from '@zana-ai/zcc-domain/product';
 import type { SettingsSearchEntry } from '../types';
 import { fileManagerBlurb, fileManagerTitle } from '../../file-manager';
 
@@ -219,5 +224,24 @@ export const entries: readonly SettingsSearchEntry[] = [
     keywords: ['minimap', 'left', 'right', 'edge'],
     kind: 'setting',
     value: (s) => EXPLORER_MINIMAP_LABELS[resolveExplorerMinimap(s.config).side]
+  },
+  {
+    id: 'editor.explorer-files',
+    section: 'editor',
+    anchor: 'editor-explorer-files',
+    label: 'Explorer files',
+    help: 'How files are listed in the Explorer, Changes list, Quick Open and Library.',
+    keywords: ['file list', 'file tree'],
+    kind: 'subsection'
+  },
+  {
+    id: 'editor.explorer-file-icons',
+    section: 'editor',
+    anchor: 'editor-explorer-files',
+    label: 'File icon theme',
+    help: "Seti matches VS Code's default icons; Minimal uses one plain file glyph; None hides file and folder icons.",
+    keywords: ['icons', 'file icons', 'seti', 'vscode', 'vs code', 'explorer', 'tree'],
+    kind: 'setting',
+    value: (s) => EXPLORER_FILE_ICON_THEME_LABELS[resolveExplorerFileIconTheme(s.config)]
   }
 ];

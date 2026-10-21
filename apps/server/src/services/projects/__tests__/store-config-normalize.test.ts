@@ -369,6 +369,15 @@ describe('normalizeConfig — auto-close-idle flags', () => {
     expect(normalizeConfig({}).explorerMinimap).toBeUndefined();
   });
 
+  it('keeps a known explorer file icon theme and drops anything else', () => {
+    for (const theme of ['seti', 'minimal', 'none'] as const) {
+      expect(normalizeConfig({ explorerFileIconTheme: theme }).explorerFileIconTheme).toBe(theme);
+    }
+    expect(normalizeConfig({ explorerFileIconTheme: 'material' as never }).explorerFileIconTheme).toBeUndefined();
+    expect(normalizeConfig({ explorerFileIconTheme: 3 as never }).explorerFileIconTheme).toBeUndefined();
+    expect(normalizeConfig({}).explorerFileIconTheme).toBeUndefined();
+  });
+
   it('keeps threadSessionReleaseMinutes in range, 0 as never, and drops junk', () => {
     expect(normalizeConfig({ threadSessionReleaseMinutes: 120.4 }).threadSessionReleaseMinutes).toBe(120);
     expect(normalizeConfig({ threadSessionReleaseMinutes: 0 }).threadSessionReleaseMinutes).toBe(0);

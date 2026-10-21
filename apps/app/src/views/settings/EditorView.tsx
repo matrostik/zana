@@ -2,11 +2,14 @@ import { useContext, useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, RefreshCw, Code2, ChevronRight, FolderOpen, TerminalSquare } from 'lucide-react';
 import type { AppConfig, EditorVerifyResult, OpenTarget } from '@zana-ai/zcc-domain/product';
 import {
+  EXPLORER_FILE_ICON_THEME_CHOICES,
+  EXPLORER_FILE_ICON_THEME_LABELS,
   EXPLORER_MINIMAP_LABELS,
   EXPLORER_MINIMAP_SIDE_CHOICES,
   EXPLORER_MINIMAP_SLIDER_CHOICES,
   EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES,
   EXPLORER_MINIMAP_WIDTH_CHOICES,
+  resolveExplorerFileIconTheme,
   resolveExplorerMinimap
 } from '@zana-ai/zcc-domain/product';
 import { useData } from '@/store';
@@ -188,6 +191,7 @@ export function EditorView({
   );
 
   const minimap = resolveExplorerMinimap(config);
+  const fileIconTheme = resolveExplorerFileIconTheme(config);
 
   return (
     <>
@@ -348,6 +352,27 @@ export function EditorView({
           disabled={!minimap.enabled}
           onChange={(side) => onUpdate({ explorerMinimapSide: side as typeof minimap.side })}
           options={EXPLORER_MINIMAP_SIDE_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
+        />
+      </Field>
+    </Section>
+
+    <Section
+      anchorId="editor-explorer-files"
+      searchId="editor.explorer-files"
+      title="Explorer files"
+      help="How files are listed in the Explorer, Changes list, Quick Open and Library."
+    >
+      <Field
+        label="File icon theme"
+        searchId="editor.explorer-file-icons"
+        help="Seti matches VS Code's default icons; Minimal uses one plain file glyph; None hides file and folder icons."
+      >
+        <PopoverPicklist
+          value={fileIconTheme}
+          ariaLabel="File icon theme"
+          searchable={false}
+          onChange={(theme) => onUpdate({ explorerFileIconTheme: theme as typeof fileIconTheme })}
+          options={EXPLORER_FILE_ICON_THEME_CHOICES.map((v) => ({ value: v, label: EXPLORER_FILE_ICON_THEME_LABELS[v] }))}
         />
       </Field>
     </Section>

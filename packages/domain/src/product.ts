@@ -2502,6 +2502,13 @@ export interface AppConfig {
   explorerMinimapSlider?: ExplorerMinimapSlider;
   explorerMinimapSide?: ExplorerMinimapSide;
   /**
+   * How files are marked in the Explorer, Changes list, Quick Open and Library
+   * (see {@link EXPLORER_FILE_ICON_THEME_CHOICES}). `seti` shows VS Code's default
+   * per-type icons, `minimal` one plain file glyph, `none` no file/folder icons.
+   * Absent ⇒ `seti`. Unknown values are dropped in {@link normalizeConfig}.
+   */
+  explorerFileIconTheme?: ExplorerFileIconTheme;
+  /**
    * When an idle agent is auto-closed (see {@link autoCloseIdleEnabled}), also
    * drop a folded breadcrumb into the inbox's collapsed "Agent closed" section.
    * Default OFF — an idle auto-close is routine bookkeeping already recorded in
@@ -2948,6 +2955,25 @@ export function threadSessionReleaseLabel(minutes: number): string {
   if (minutes <= 0) return 'Never';
   if (minutes % 60 === 0) return `After ${minutes / 60} hour${minutes === 60 ? '' : 's'}`;
   return `After ${minutes} minutes`;
+}
+
+/** File icon themes for file lists; see {@link AppConfig.explorerFileIconTheme}. */
+export const EXPLORER_FILE_ICON_THEME_CHOICES = ['seti', 'minimal', 'none'] as const;
+export type ExplorerFileIconTheme = (typeof EXPLORER_FILE_ICON_THEME_CHOICES)[number];
+export const EXPLORER_FILE_ICON_THEME_DEFAULT: ExplorerFileIconTheme = 'seti';
+export const EXPLORER_FILE_ICON_THEME_LABELS: Record<ExplorerFileIconTheme, string> = {
+  seti: 'Seti (VS Code)',
+  minimal: 'Minimal',
+  none: 'None'
+};
+
+export function resolveExplorerFileIconTheme(
+  config: Pick<AppConfig, 'explorerFileIconTheme'>
+): ExplorerFileIconTheme {
+  const v = config.explorerFileIconTheme;
+  return v !== undefined && (EXPLORER_FILE_ICON_THEME_CHOICES as readonly string[]).includes(v)
+    ? v
+    : EXPLORER_FILE_ICON_THEME_DEFAULT;
 }
 
 /** Explorer preview minimap options; see {@link AppConfig.explorerMinimap}. */
