@@ -49,3 +49,63 @@ test('Explorer fills the project pane and its editor resizes with the tree', asy
   await expect(separator).toHaveAttribute('aria-valuenow', '260');
   expect(projectId).toBeTruthy();
 });
+
+test('Explorer preview shows a minimap, managed from its right-click menu, that hides when narrow', async ({ app, home }) => {
+  const { window } = app;
+  const root = join(home, 'explorer-minimap');
+  mkdirSync(root);
+  writeFileSync(join(root, 'long.ts'), Array.from({ length: 400 }, (_, i) => `export const value${i} = ${i}; // line ${i}`).join('\n'));
+  await window.evaluate(async path => {
+    const result = await window.cc.projects.add(path);
+    if (!result.ok) throw new Error(result.message);
+  }, root);
+
+  const heading = window.getByTestId('sidebar-projects-heading');
+  if (await heading.getAttribute('aria-expanded') === 'false') await heading.click();
+  await window.getByRole('button', { name: 'Open explorer-minimap', exact: true }).click();
+  await window.getByTestId('project-nav-explorer').click();
+  await window.locator('.tree-row.file').filter({ hasText: 'long.ts' }).click();
+  await window.setViewportSize({ width: 1440, height: 850 });
+
+  const minimap = window.locator('.explorer-viewer-monaco .minimap');
+  await expect(minimap).toBeVisible();
+  const box = await minimap.boundingBox();
+  const editorBox = await window.locator('.explorer-viewer-monaco .monaco-editor').boundingBox();
+  expect(box!.x).toBeGreaterThan(editorBox!.x + editorBox!.width / 2);
+
+  // The viewport slider moves as the editor scrolls.
+  const slider = window.locator('.explorer-viewer-monaco .minimap-slider');
+  const top = (await slider.boundingBox())!.y;
+  await window.locator('.explorer-viewer-monaco .monaco-editor').hover();
+  await window.mouse.wheel(0, 1200);
+  await expect.poll(async () => (await slider.boundingBox())!.y).toBeGreaterThan(top);
+
+  // Narrow viewport: auto-hidden.
+  await window.setViewportSize({ width: 700, height: 850 });
+  await expect(minimap).toBeHidden();
+  await window.setViewportSize({ width: 1440, height: 850 });
+  await expect(minimap).toBeVisible();
+
+  // Right-click menu: move the minimap to the left edge.
+  const menu = window.getByRole('menu', { name: 'Minimap', exact: true });
+  await minimap.click({ button: 'right' });
+  await expect(menu).toBeVisible();
+  await menu.getByRole('menuitem', { name: /Side/ }).click();
+  await window.getByRole('menuitemradio', { name: 'Left' }).click();
+  await expect(menu).toBeHidden();
+  await expect.poll(async () => {
+    const m = await minimap.boundingBox();
+    const e = await window.locator('.explorer-viewer-monaco .monaco-editor').boundingBox();
+    return m!.x < e!.x + e!.width / 2;
+  }).toBe(true);
+  expect((await window.evaluate(() => window.cc.config.get())).explorerMinimapSide).toBe('left');
+
+  // Turn it off from the menu, then bring it back from the scrollbar's menu.
+  await minimap.click({ button: 'right' });
+  await menu.getByRole('menuitemcheckbox', { name: 'Minimap', exact: true }).click();
+  await expect(minimap).toBeHidden();
+  expect((await window.evaluate(() => window.cc.config.get())).explorerMinimapEnabled).toBe(false);
+  await window.locator('.explorer-viewer-monaco .editor-scrollable > .scrollbar.vertical').click({ button: 'right' });
+  await menu.getByRole('menuitemcheckbox', { name: 'Minimap', exact: true }).click();
+  await expect(minimap).toBeVisible();
+});
