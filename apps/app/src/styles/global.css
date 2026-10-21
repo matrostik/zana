@@ -11529,6 +11529,21 @@ button.statusbar-item {
   color: var(--accent-gold);
 }
 
+/* No icon theme: collapse the empty slot so names align without a gap. */
+.tree-icon:empty,
+.palette-icon:empty {
+  display: none;
+}
+
+.file-icon {
+  font-family: 'seti';
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  white-space: pre;
+  user-select: none;
+}
+
 .tree-name {
   flex: 1;
   min-width: 0;

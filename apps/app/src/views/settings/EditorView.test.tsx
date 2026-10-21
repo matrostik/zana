@@ -123,3 +123,30 @@ describe('EditorView explorer minimap', () => {
     expect(value('editor.explorer-minimap-side', { explorerMinimapSide: 'left' })).toBe('Left');
   });
 });
+
+describe('EditorView file icon theme', () => {
+  it('defaults to Seti and saves the chosen theme', () => {
+    const onUpdate = vi.fn(async () => undefined);
+    render(<EditorView config={{} as AppConfig} onConfigDraft={vi.fn()} onUpdate={onUpdate} />);
+    const picker = screen.getByLabelText('File icon theme') as HTMLSelectElement;
+    expect(picker.value).toBe('seti');
+    expect([...picker.options].map((o) => o.textContent)).toEqual(['Seti (VS Code)', 'Minimal', 'None']);
+    fireEvent.change(picker, { target: { value: 'none' } });
+    expect(onUpdate).toHaveBeenCalledWith({ explorerFileIconTheme: 'none' });
+  });
+
+  it('shows the stored theme, and falls back to Seti for an unknown one', () => {
+    render(<EditorView config={{ explorerFileIconTheme: 'minimal' } as AppConfig} onConfigDraft={vi.fn()} onUpdate={vi.fn()} />);
+    expect((screen.getByLabelText('File icon theme') as HTMLSelectElement).value).toBe('minimal');
+    cleanup();
+    render(<EditorView config={{ explorerFileIconTheme: 'bogus' } as unknown as AppConfig} onConfigDraft={vi.fn()} onUpdate={vi.fn()} />);
+    expect((screen.getByLabelText('File icon theme') as HTMLSelectElement).value).toBe('seti');
+  });
+
+  it('labels the current value in search', () => {
+    const value = (config: Partial<AppConfig> = {}) =>
+      entries.find((e) => e.id === 'editor.explorer-file-icons')?.value?.({ config } as never);
+    expect(value()).toBe('Seti (VS Code)');
+    expect(value({ explorerFileIconTheme: 'none' })).toBe('None');
+  });
+});

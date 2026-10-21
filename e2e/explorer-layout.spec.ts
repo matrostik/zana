@@ -109,3 +109,36 @@ test('Explorer preview shows a minimap, managed from its right-click menu, that 
   await menu.getByRole('menuitemcheckbox', { name: 'Minimap', exact: true }).click();
   await expect(minimap).toBeVisible();
 });
+
+test('Explorer file icons follow the file icon theme setting', async ({ app, home }) => {
+  const { window } = app;
+  const root = join(home, 'explorer-icons');
+  mkdirSync(root);
+  writeFileSync(join(root, 'main.ts'), 'export {};\n');
+  writeFileSync(join(root, 'notes.md'), '# notes\n');
+  await window.evaluate(async path => {
+    const result = await window.cc.projects.add(path);
+    if (!result.ok) throw new Error(result.message);
+  }, root);
+
+  const heading = window.getByTestId('sidebar-projects-heading');
+  if (await heading.getAttribute('aria-expanded') === 'false') await heading.click();
+  await window.getByRole('button', { name: 'Open explorer-icons', exact: true }).click();
+  await window.getByTestId('project-nav-explorer').click();
+
+  // Default: Seti glyphs, drawn with the bundled font under the app's CSP.
+  const tsIcon = window.locator('.tree-row.file').filter({ hasText: 'main.ts' }).locator('.file-icon');
+  const mdIcon = window.locator('.tree-row.file').filter({ hasText: 'notes.md' }).locator('.file-icon');
+  await expect(tsIcon).toBeVisible();
+  expect(await tsIcon.evaluate(el => getComputedStyle(el).fontFamily)).toContain('seti');
+  await expect.poll(() => window.evaluate(() => document.fonts.check('16px seti'))).toBe(true);
+  expect(await tsIcon.getAttribute('class')).not.toBe(await mdIcon.getAttribute('class'));
+
+  // Minimal: one plain glyph; None: no icons. Applies live, and persists.
+  await window.evaluate(() => window.cc.config.set({ explorerFileIconTheme: 'minimal' }));
+  await expect(tsIcon).toHaveCount(0);
+  await expect(window.locator('.tree-row.file').filter({ hasText: 'main.ts' }).locator('.tree-icon svg')).toHaveCount(1);
+  await window.evaluate(() => window.cc.config.set({ explorerFileIconTheme: 'none' }));
+  await expect(window.locator('.tree-row.file').filter({ hasText: 'main.ts' }).locator('.tree-icon svg, .file-icon')).toHaveCount(0);
+  expect((await window.evaluate(() => window.cc.config.get())).explorerFileIconTheme).toBe('none');
+});

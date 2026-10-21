@@ -1,6 +1,7 @@
 import React from 'react';
-import { ChevronRight, ChevronDown, Folder, FileText } from 'lucide-react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import type { FsEntry, GitFileCode } from '@zana-ai/zcc-domain/product';
+import { FileIcon, FolderIcon } from '../FileIcon.js';
 import { beginFsEntryDrag, consumeFsEntryDragClick, endFsEntryDrag } from '../../lib/fs-entry-drag.js';
 
 interface TreeListProps {
@@ -83,7 +84,7 @@ export const TreeList = React.memo(function TreeList({
                 {isDir && (isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
               </span>
               <span className="tree-icon">
-                {isDir ? <Folder size={13} /> : <FileText size={13} />}
+                {isDir ? <FolderIcon open={isOpen} /> : <FileIcon name={entry.name} />}
               </span>
               <span className="tree-name" title={entry.name}>
                 {entry.name}

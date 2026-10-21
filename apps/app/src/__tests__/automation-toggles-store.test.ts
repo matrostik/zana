@@ -103,3 +103,12 @@ describe('useData.updateExplorerMinimap', () => {
     await vi.waitFor(() => expect(useData.getState().explorerMinimap.enabled).toBe(true));
   });
 });
+
+describe('useData.setExplorerFileIconTheme', () => {
+  it('updates the live mirror used by every file-icon site', () => {
+    useData.getState().setExplorerFileIconTheme('none');
+    expect(useData.getState().explorerFileIconTheme).toBe('none');
+    useData.getState().setExplorerFileIconTheme('seti');
+    expect(useData.getState().explorerFileIconTheme).toBe('seti');
+  });
+});
