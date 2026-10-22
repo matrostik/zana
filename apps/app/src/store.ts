@@ -1695,9 +1695,14 @@ interface DataState {
   setTerminalTheme: (id: TerminalThemeId) => void;
   setInboxGuidanceEnabled: (on: boolean) => void;
   setTerminalWheelArrowsEnabled: (on: boolean) => void;
+  /** Update active file icon theme; called by SettingsView when the user changes preferences. */
   setExplorerFileIconTheme: (theme: ExplorerFileIconTheme) => void;
+  /** Update active explorer minimap preferences; called by SettingsView when changing editor settings. */
   setExplorerMinimap: (prefs: ExplorerMinimapPrefs) => void;
-  /** Optimistically apply and persist a minimap change (from the editor's right-click menu). */
+  /**
+   * Optimistically apply and persist a minimap change (from the editor's right-click menu).
+   * Note: product.config.set merges partial updates into the persisted config.
+   */
   updateExplorerMinimap: (patch: ExplorerMinimapPatch) => void;
   setHeartbeatEnabled: (on: boolean) => void;
   setGoalsEnabled: (on: boolean) => void;

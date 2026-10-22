@@ -24,7 +24,7 @@ interface Submenu {
 
 const MENU_WIDTH = 200;
 const SUBMENU_WIDTH = 170;
-const MENU_HEIGHT = 230;
+const MENU_HEIGHT = 280;
 
 export interface MinimapContextMenuProps {
   prefs: ExplorerMinimapPrefs;
@@ -73,6 +73,13 @@ function levelItems(menu: HTMLElement): HTMLButtonElement[] {
 export function MinimapContextMenu({ prefs, autoHidden, x, y, onChange, onClose }: MinimapContextMenuProps) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const [open, setOpen] = React.useState<{ id: string; focus: boolean } | null>(null);
+  const [actualHeight, setActualHeight] = React.useState(MENU_HEIGHT);
+  React.useLayoutEffect(() => {
+    if (rootRef.current) {
+      const rect = rootRef.current.getBoundingClientRect();
+      if (rect.height > 0) setActualHeight(Math.max(MENU_HEIGHT, rect.height));
+    }
+  }, [open]);
 
   const submenus: Submenu[] = [
     { id: 'width', label: 'Width', key: 'explorerMinimap', choices: EXPLORER_MINIMAP_WIDTH_CHOICES, current: prefs.width },
@@ -134,7 +141,7 @@ export function MinimapContextMenu({ prefs, autoHidden, x, y, onChange, onClose 
   };
 
   const left = Math.max(0, Math.min(x, window.innerWidth - MENU_WIDTH));
-  const top = Math.max(0, Math.min(y, window.innerHeight - MENU_HEIGHT));
+  const top = Math.max(0, Math.min(y, window.innerHeight - actualHeight));
   const flip = left + MENU_WIDTH + SUBMENU_WIDTH > window.innerWidth;
 
   return (

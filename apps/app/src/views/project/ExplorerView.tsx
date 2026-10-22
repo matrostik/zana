@@ -366,22 +366,23 @@ function CheckoutExplorerView({ project, embedded = false, scope: baseScope, nat
     void loadDir(viewRoot);
   }, [viewRoot, isRemote, remoteReady, loadDir, resetDirectories]);
 
-  useEffect(() => reloadGitStatus(), [reloadGitStatus]);
-
   // When the view root changes (worktree switch), re-seed the tree at the new
   // root and load that checkout's git status. The open file belongs to the old
   // root, so close it — its path won't exist (or means something else) under
-  // the new tree. Skips the initial mount where viewRoot === project.path.
-  const prevViewRootRef = useRef(project.path);
+  // the new tree.
+  const prevViewRootRef = useRef<string | null>(null);
   useEffect(() => {
-    if (prevViewRootRef.current === viewRoot) return;
+    const isInitial = prevViewRootRef.current === null;
+    if (!isInitial && prevViewRootRef.current === viewRoot) return;
     prevViewRootRef.current = viewRoot;
-    setExpanded(new Map());
-    setMenu(null);
-    setExplorerFile(viewKey, undefined);
-    setWorktreeGitStatus(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewRoot]);
+    if (!isInitial) {
+      setExpanded(new Map());
+      setMenu(null);
+      setExplorerFile(viewKey, undefined);
+      setWorktreeGitStatus(null);
+    }
+    return reloadGitStatus();
+  }, [viewRoot, reloadGitStatus, viewKey, setExplorerFile]);
 
   // When the user changes file, drop any cached HEAD content. Diff mode
   // sticks across navigations so power-users can scan changes file by file.

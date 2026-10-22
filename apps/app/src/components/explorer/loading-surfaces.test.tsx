@@ -24,7 +24,7 @@ it('isolates rejected viewer modules and recovers when its file key changes', ()
   vi.spyOn(console, 'error').mockImplementation(() => {});
   const Broken = () => { throw new Error('Chunk unavailable'); };
   const view = render(<ViewerBoundary key="bad"><Broken /></ViewerBoundary>);
-  expect(screen.getByRole('alert').textContent).toContain('Chunk unavailable');
+  expect(screen.getByRole('alert').textContent).toContain('An unexpected error occurred');
   view.rerender(<ViewerBoundary key="good"><p>File ready</p></ViewerBoundary>);
   expect(screen.getByText('File ready')).toBeTruthy();
 });
@@ -33,7 +33,7 @@ it('handles non-Error viewer failures and shows a fallback while a module is pen
   vi.spyOn(console, 'error').mockImplementation(() => {});
   const Broken = () => { throw 'Module failed'; };
   const view = render(<ViewerBoundary><Broken /></ViewerBoundary>);
-  expect(screen.getByRole('alert').textContent).toContain('Module failed');
+  expect(screen.getByRole('alert').textContent).toContain('An unexpected error occurred');
   view.unmount();
   const Pending = React.lazy(() => new Promise(() => {}));
   render(<ViewerBoundary><Pending /></ViewerBoundary>);

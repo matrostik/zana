@@ -80,6 +80,7 @@ interface PendingRequest {
 export function useDirectoryLoader(readDirectory: (path: string) => Promise<FsEntry[]>) {
   const [{ entries, loading, slow, errors }, dispatch] = useReducer(directoryReducer, INITIAL_STATE);
   const cache = useRef(new Map<string, FsEntry[]>());
+  const promiseCache = useRef(new Map<string, Promise<FsEntry[]>>());
   const requests = useRef(new Map<string, PendingRequest>());
   const generation = useRef(0);
 
@@ -88,6 +89,7 @@ export function useDirectoryLoader(readDirectory: (path: string) => Promise<FsEn
     for (const request of requests.current.values()) clearTimeout(request.timer);
     requests.current.clear();
     cache.current.clear();
+    promiseCache.current.clear();
   }, []);
 
   const reset = useCallback(() => {
@@ -104,29 +106,29 @@ export function useDirectoryLoader(readDirectory: (path: string) => Promise<FsEn
     if (!force) {
       const pending = requests.current.get(path);
       if (pending) return pending.promise;
-      const cached = cache.current.get(path);
-      if (cached) return Promise.resolve(cached);
+      const cachedPromise = promiseCache.current.get(path);
+      if (cachedPromise) return cachedPromise;
     }
     // Forced reads replace rather than join the old request. IPC has no abort
     // surface, so identity + generation checks also protect non-cancellable reads.
     const previous = requests.current.get(path);
     if (previous) clearTimeout(previous.timer);
     cache.current.delete(path);
+    promiseCache.current.delete(path);
     dispatch({ type: 'START_LOAD', path });
 
     const epoch = generation.current;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const isCurrent = () => generation.current === epoch && requests.current.get(path)?.timer === timer;
-
-    timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (isCurrent()) dispatch({ type: 'MARK_SLOW', path });
     }, DIRECTORY_SLOW_MS);
+    const isCurrent = () => generation.current === epoch && requests.current.get(path)?.timer === timer;
 
     const promise = Promise.resolve()
       .then(() => (isCurrent() ? readDirectory(path) : []))
       .then(list => {
         if (!isCurrent()) return [];
         cache.current.set(path, list);
+        promiseCache.current.set(path, Promise.resolve(list));
         dispatch({ type: 'SUCCESS', path, entries: list });
         return list;
       })

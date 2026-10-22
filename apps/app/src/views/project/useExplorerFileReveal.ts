@@ -88,7 +88,7 @@ export function useExplorerFileReveal({ loadDir, setExpanded, treeBodyRef, activ
     body.scrollTop += box.top - view.top - (view.height - box.height) / 2;
   });
 
-  return { loadDir, revealFile, cancelReveal };
+  return { revealFile, cancelReveal };
 }
 
 // Compare paths with `/` separators. Local Windows paths come back from listDir

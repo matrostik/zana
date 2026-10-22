@@ -31,7 +31,8 @@ export function resolveFileIcon(nameOrPath: string): FileIconRef {
   }
   let id = FILE_NAMES[name];
   for (let dot = name.indexOf('.'); id === undefined && dot !== -1; dot = name.indexOf('.', dot + 1)) {
-    id = FILE_EXTENSIONS[name.slice(dot + 1)];
+    const ext = name.slice(dot + 1);
+    if (ext.length > 0) id = FILE_EXTENSIONS[ext];
   }
   const resolved = id ?? DEFAULT_ICON;
   const ref = { id: resolved, char: ICONS[resolved] };
