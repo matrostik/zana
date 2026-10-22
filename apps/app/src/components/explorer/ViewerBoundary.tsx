@@ -9,6 +9,6 @@ export class ViewerBoundary extends Component<{ children: ReactNode }, { error: 
   }
   render() {
     if (this.state.error) return <div className="explorer-viewer-empty" role="alert">Could not load file viewer: {this.state.error}</div>;
-    return <Suspense fallback={<div className="explorer-viewer-empty"><div style={{ width: '100%' }}><StencilLines label="Loading file viewer" /></div></div>}>{this.props.children}</Suspense>;
+    return <Suspense fallback={<div className="explorer-viewer-empty"><div className="explorer-viewer-loading"><StencilLines label="Loading file viewer" /></div></div>}>{this.props.children}</Suspense>;
   }
 }

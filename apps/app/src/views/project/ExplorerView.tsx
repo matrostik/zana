@@ -8,7 +8,6 @@ import type { FsEntry, GitBranch as GitBranchInfo, GitFileCode, GitShowResult, G
 import { useData, useUi } from '@/store';
 import { PromptModal } from '@/components/PromptModal';
 import { useAiEnhanceSelection } from '@/components/AiEnhanceSelection';
-import { DelayedStencilList } from '@/components/ui/Skeleton';
 import { useFileDrop } from '@/hooks/useFileDrop';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useDirectoryLoader } from '@/components/explorer/useDirectoryLoader';
@@ -319,7 +318,6 @@ function CheckoutExplorerView({ project, embedded = false, scope: baseScope, nat
 
   const { revealFile, cancelReveal } = useExplorerFileReveal({
     loadDir,
-    entries,
     setExpanded,
     treeBodyRef,
     activeRoot,
@@ -955,11 +953,7 @@ function CheckoutExplorerView({ project, embedded = false, scope: baseScope, nat
               />
             )
           ) : rootList === undefined ? (
-            slow.has(viewRoot) ? (
-              <div className="tree-loading">
-                <p role="status">Taking longer than expected</p>
-              </div>
-            ) : <DelayedStencilList label="Loading files" className="tree-loading" />
+            <DirectoryLoading label="Loading files" slow={slow.has(viewRoot)} />
           ) : rootList.length === 0 ? (
             <div className="tree-pane-empty">Empty directory.</div>
           ) : (

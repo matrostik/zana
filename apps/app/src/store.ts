@@ -2135,6 +2135,7 @@ export const useData = create<DataState>((set, get) => ({
     set({
       explorerMinimap: resolveExplorerMinimap({
         explorerMinimapEnabled: cur.enabled,
+        explorerMinimapWidth: cur.width,
         explorerMinimap: cur.width,
         explorerMinimapRenderCharacters: cur.renderCharacters,
         explorerMinimapVerticalSize: cur.verticalSize,

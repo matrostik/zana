@@ -12237,6 +12237,10 @@ body.resizing-col .explorer-resizer::after {
   gap: 12px;
 }
 
+.explorer-viewer-loading {
+  width: 100%;
+}
+
 .explorer-viewer-header {
   display: flex;
   align-items: center;

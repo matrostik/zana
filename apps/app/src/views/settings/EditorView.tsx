@@ -312,7 +312,7 @@ export function EditorView({
           ariaLabel="Minimap width"
           searchable={false}
           disabled={!minimap.enabled}
-          onChange={(width) => onUpdate({ explorerMinimap: width as typeof minimap.width })}
+          onChange={(width) => onUpdate({ explorerMinimapWidth: width as typeof minimap.width, explorerMinimap: width as typeof minimap.width })}
           options={EXPLORER_MINIMAP_WIDTH_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
         />
       </Field>
@@ -324,36 +324,43 @@ export function EditorView({
           label="Render characters"
         />
       </Field>
-      <Field label="Minimap vertical size" searchId="editor.explorer-minimap-vertical-size" help="Proportional keeps each line a fixed height, Fill stretches the minimap to the full editor height, and Fit shrinks it to fit short files.">
-        <PopoverPicklist
-          value={minimap.verticalSize}
-          ariaLabel="Minimap vertical size"
-          searchable={false}
-          disabled={!minimap.enabled}
-          onChange={(size) => onUpdate({ explorerMinimapVerticalSize: size as typeof minimap.verticalSize })}
-          options={EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
-        />
-      </Field>
-      <Field label="Minimap slider" searchId="editor.explorer-minimap-slider" help="When the viewport slider is drawn over the minimap.">
-        <PopoverPicklist
-          value={minimap.slider}
-          ariaLabel="Minimap slider"
-          searchable={false}
-          disabled={!minimap.enabled}
-          onChange={(slider) => onUpdate({ explorerMinimapSlider: slider as typeof minimap.slider })}
-          options={EXPLORER_MINIMAP_SLIDER_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
-        />
-      </Field>
-      <Field label="Minimap side" searchId="editor.explorer-minimap-side" help="Which edge of the editor the minimap sits on.">
-        <PopoverPicklist
-          value={minimap.side}
-          ariaLabel="Minimap side"
-          searchable={false}
-          disabled={!minimap.enabled}
-          onChange={(side) => onUpdate({ explorerMinimapSide: side as typeof minimap.side })}
-          options={EXPLORER_MINIMAP_SIDE_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
-        />
-      </Field>
+      {([
+        {
+          label: 'Minimap vertical size',
+          searchId: 'editor.explorer-minimap-vertical-size',
+          help: 'Proportional keeps each line a fixed height, Fill stretches the minimap to the full editor height, and Fit shrinks it to fit short files.',
+          value: minimap.verticalSize,
+          choices: EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES,
+          onChange: (size: string) => onUpdate({ explorerMinimapVerticalSize: size as typeof minimap.verticalSize })
+        },
+        {
+          label: 'Minimap slider',
+          searchId: 'editor.explorer-minimap-slider',
+          help: 'When the viewport slider is drawn over the minimap.',
+          value: minimap.slider,
+          choices: EXPLORER_MINIMAP_SLIDER_CHOICES,
+          onChange: (slider: string) => onUpdate({ explorerMinimapSlider: slider as typeof minimap.slider })
+        },
+        {
+          label: 'Minimap side',
+          searchId: 'editor.explorer-minimap-side',
+          help: 'Which edge of the editor the minimap sits on.',
+          value: minimap.side,
+          choices: EXPLORER_MINIMAP_SIDE_CHOICES,
+          onChange: (side: string) => onUpdate({ explorerMinimapSide: side as typeof minimap.side })
+        }
+      ] as const).map((item) => (
+        <Field key={item.searchId} label={item.label} searchId={item.searchId} help={item.help}>
+          <PopoverPicklist
+            value={item.value}
+            ariaLabel={item.label}
+            searchable={false}
+            disabled={!minimap.enabled}
+            onChange={item.onChange}
+            options={item.choices.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
+          />
+        </Field>
+      ))}
     </Section>
 
     <Section

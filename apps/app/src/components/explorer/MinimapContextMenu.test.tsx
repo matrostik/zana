@@ -45,7 +45,7 @@ describe('MinimapContextMenu', () => {
   });
 
   it.each([
-    ['Width', 'Wide', { explorerMinimap: 'wide' }],
+    ['Width', 'Wide', { explorerMinimap: 'wide', explorerMinimapWidth: 'wide' }],
     ['Vertical size', 'Fill', { explorerMinimapVerticalSize: 'fill' }],
     ['Slider', 'Always', { explorerMinimapSlider: 'always' }],
     ['Side', 'Left', { explorerMinimapSide: 'left' }]

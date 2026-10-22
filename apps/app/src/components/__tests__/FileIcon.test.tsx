@@ -47,9 +47,9 @@ describe('FolderIcon', () => {
     expect(open).not.toBe(closed);
   });
 
-  it('is hidden under the none theme, shown under minimal', () => {
+  it('renders folder glyph regardless of explorerFileIconTheme', () => {
     useData.setState({ explorerFileIconTheme: 'none' });
-    expect(render(<FolderIcon />).container.innerHTML).toBe('');
+    expect(render(<FolderIcon />).container.querySelector('svg')).not.toBeNull();
     cleanup();
     useData.setState({ explorerFileIconTheme: 'minimal' });
     expect(render(<FolderIcon />).container.querySelector('svg')).not.toBeNull();

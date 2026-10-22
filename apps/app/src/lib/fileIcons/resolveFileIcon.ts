@@ -7,6 +7,7 @@ export interface FileIconRef {
   char: string;
 }
 
+export const MAX_FILE_ICON_MEMO = 500;
 const memo = new Map<string, FileIconRef>();
 
 function basename(path: string): string {
@@ -17,18 +18,22 @@ function basename(path: string): string {
  * Pick the Seti icon for a file the way VS Code does: exact (lowercased)
  * basename first, then the longest extension ("d.ts" before "ts", so
  * `foo.test.tsx` tries `test.tsx` then `tsx`), then the default icon.
- * Accepts a bare name or a path.
+ * Accepts a bare name or a path. Cached by basename with a bounded retention cap.
  */
 export function resolveFileIcon(nameOrPath: string): FileIconRef {
-  const cached = memo.get(nameOrPath);
-  if (cached) return cached;
   const name = basename(nameOrPath).toLowerCase();
+  const cached = memo.get(name);
+  if (cached) return cached;
   let id = FILE_NAMES[name];
   for (let dot = name.indexOf('.'); id === undefined && dot !== -1; dot = name.indexOf('.', dot + 1)) {
     id = FILE_EXTENSIONS[name.slice(dot + 1)];
   }
   const resolved = id ?? DEFAULT_ICON;
   const ref = { id: resolved, char: ICONS[resolved] };
-  memo.set(nameOrPath, ref);
+  if (memo.size >= MAX_FILE_ICON_MEMO) {
+    const oldest = memo.keys().next().value;
+    if (oldest !== undefined) memo.delete(oldest);
+  }
+  memo.set(name, ref);
   return ref;
 }

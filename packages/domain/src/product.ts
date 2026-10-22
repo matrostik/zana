@@ -2509,11 +2509,12 @@ export interface AppConfig {
   threadSessionReleaseMinutes?: number;
   /**
    * Code minimap in the Explorer file preview (see {@link EXPLORER_MINIMAP_DEFAULTS}).
-   * `explorerMinimapEnabled` shows/hides it; `explorerMinimap` is its width.
+   * `explorerMinimapEnabled` shows/hides it; `explorerMinimapWidth` (or legacy `explorerMinimap`) is its width.
    * Absent ⇒ the default. Unknown values are dropped in {@link normalizeConfig};
    * read live by the Explorer viewer and editable from its right-click menu.
    */
   explorerMinimapEnabled?: boolean;
+  explorerMinimapWidth?: ExplorerMinimapWidth;
   explorerMinimap?: ExplorerMinimapWidth;
   explorerMinimapRenderCharacters?: boolean;
   explorerMinimapVerticalSize?: ExplorerMinimapVerticalSize;
@@ -3051,6 +3052,7 @@ export const EXPLORER_MINIMAP_LABELS = {
 export type ExplorerMinimapConfig = Pick<
   AppConfig,
   | 'explorerMinimapEnabled'
+  | 'explorerMinimapWidth'
   | 'explorerMinimap'
   | 'explorerMinimapRenderCharacters'
   | 'explorerMinimapVerticalSize'
@@ -3062,7 +3064,7 @@ export function resolveExplorerMinimap(config: ExplorerMinimapConfig): ExplorerM
   const d = EXPLORER_MINIMAP_DEFAULTS;
   return {
     enabled: config.explorerMinimapEnabled ?? d.enabled,
-    width: config.explorerMinimap ?? d.width,
+    width: config.explorerMinimapWidth ?? config.explorerMinimap ?? d.width,
     renderCharacters: config.explorerMinimapRenderCharacters ?? d.renderCharacters,
     verticalSize: config.explorerMinimapVerticalSize ?? d.verticalSize,
     slider: config.explorerMinimapSlider ?? d.slider,

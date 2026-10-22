@@ -95,7 +95,7 @@ describe('EditorView explorer minimap', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Render characters' }));
     fireEvent.click(screen.getByRole('switch', { name: 'Minimap' }));
     expect(onUpdate.mock.calls.map((c) => c[0])).toEqual([
-      { explorerMinimap: 'wide' },
+      { explorerMinimap: 'wide', explorerMinimapWidth: 'wide' },
       { explorerMinimapVerticalSize: 'fit' },
       { explorerMinimapSlider: 'always' },
       { explorerMinimapSide: 'left' },

@@ -58,6 +58,19 @@ describe('resolveFileIcon', () => {
     expect(ref.char).toBe(ICONS[ref.id]);
     expect(resolveFileIcon('main.ts')).toBe(ref);
   });
+
+  it('shares memoized reference across different directory paths with the same basename', () => {
+    const ref1 = resolveFileIcon('/repo/src/shared.ts');
+    const ref2 = resolveFileIcon('/other/dir/shared.ts');
+    expect(ref1).toBe(ref2);
+  });
+
+  it('bounds the memo cache and evicts oldest entry when reaching cap', () => {
+    for (let i = 0; i <= 505; i++) {
+      resolveFileIcon(`file-${i}.txt`);
+    }
+    expect(resolveFileIcon('file-500.txt')).toBeDefined();
+  });
 });
 
 describe('seti.generated tables', () => {

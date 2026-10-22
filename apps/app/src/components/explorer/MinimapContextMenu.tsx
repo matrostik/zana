@@ -172,7 +172,7 @@ export function MinimapContextMenu({ prefs, autoHidden, x, y, onChange, onClose 
                 submenu={submenu}
                 flip={flip}
                 focusFirst={open?.focus ?? false}
-                onPick={(value) => apply({ [submenu.key]: value } as ExplorerMinimapPatch)}
+                onPick={(value) => apply(submenu.key === 'explorerMinimap' ? { explorerMinimapWidth: value as any, explorerMinimap: value as any } : ({ [submenu.key]: value } as ExplorerMinimapPatch))}
               />
             )}
           </div>
