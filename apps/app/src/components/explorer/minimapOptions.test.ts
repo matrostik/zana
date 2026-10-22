@@ -26,17 +26,18 @@ describe('minimapOptionsFor', () => {
     expect(minimapOptionsFor({ ...prefs, enabled: false }, 1000)).toEqual({ enabled: false });
   });
 
-  it('hides below the width threshold, shows at it, and hides when unmeasured', () => {
+  it('hides below the width threshold, shows at it, and preserves options when unmeasured', () => {
     expect(minimapOptionsFor(prefs, EXPLORER_MINIMAP_MIN_EDITOR_WIDTH - 1)).toEqual({ enabled: false });
     expect(minimapOptionsFor(prefs, EXPLORER_MINIMAP_MIN_EDITOR_WIDTH).enabled).toBe(true);
-    expect(minimapOptionsFor(prefs, 0)).toEqual({ enabled: false });
+    expect(minimapOptionsFor(prefs, 0).enabled).toBe(true);
   });
 });
 
 describe('minimapAutoHidden', () => {
-  it('is only true when enabled but too narrow', () => {
+  it('is only true when enabled and measured but too narrow', () => {
     expect(minimapAutoHidden(prefs, 300)).toBe(true);
     expect(minimapAutoHidden(prefs, 900)).toBe(false);
+    expect(minimapAutoHidden(prefs, 0)).toBe(false);
     expect(minimapAutoHidden({ ...prefs, enabled: false }, 300)).toBe(false);
   });
 });

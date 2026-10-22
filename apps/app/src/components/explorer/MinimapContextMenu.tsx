@@ -6,7 +6,11 @@ import {
   EXPLORER_MINIMAP_SLIDER_CHOICES,
   EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES,
   EXPLORER_MINIMAP_WIDTH_CHOICES,
-  type ExplorerMinimapPrefs
+  type ExplorerMinimapPrefs,
+  type ExplorerMinimapWidth,
+  type ExplorerMinimapVerticalSize,
+  type ExplorerMinimapSlider,
+  type ExplorerMinimapSide
 } from '@zana-ai/zcc-domain/product';
 import type { ExplorerMinimapPatch } from '../../store.js';
 
@@ -33,6 +37,23 @@ export interface MinimapContextMenuProps {
 }
 
 /** The focusable items of one menu level, in DOM order (submenu triggers included). */
+function toMinimapPatch(key: Submenu['key'], value: string): ExplorerMinimapPatch {
+  if (key === 'explorerMinimap') {
+    const width = value as ExplorerMinimapWidth;
+    return { explorerMinimapWidth: width, explorerMinimap: width };
+  }
+  if (key === 'explorerMinimapVerticalSize') {
+    return { explorerMinimapVerticalSize: value as ExplorerMinimapVerticalSize };
+  }
+  if (key === 'explorerMinimapSlider') {
+    return { explorerMinimapSlider: value as ExplorerMinimapSlider };
+  }
+  if (key === 'explorerMinimapSide') {
+    return { explorerMinimapSide: value as ExplorerMinimapSide };
+  }
+  return {};
+}
+
 function levelItems(menu: HTMLElement): HTMLButtonElement[] {
   const items: HTMLButtonElement[] = [];
   for (const child of Array.from(menu.children)) {
@@ -172,7 +193,7 @@ export function MinimapContextMenu({ prefs, autoHidden, x, y, onChange, onClose 
                 submenu={submenu}
                 flip={flip}
                 focusFirst={open?.focus ?? false}
-                onPick={(value) => apply(submenu.key === 'explorerMinimap' ? { explorerMinimapWidth: value as any, explorerMinimap: value as any } : ({ [submenu.key]: value } as ExplorerMinimapPatch))}
+                onPick={(value) => apply(toMinimapPatch(submenu.key, value))}
               />
             )}
           </div>

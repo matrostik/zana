@@ -2132,18 +2132,15 @@ export const useData = create<DataState>((set, get) => ({
 
   updateExplorerMinimap(patch) {
     const cur = get().explorerMinimap;
-    set({
-      explorerMinimap: resolveExplorerMinimap({
-        explorerMinimapEnabled: cur.enabled,
-        explorerMinimapWidth: cur.width,
-        explorerMinimap: cur.width,
-        explorerMinimapRenderCharacters: cur.renderCharacters,
-        explorerMinimapVerticalSize: cur.verticalSize,
-        explorerMinimapSlider: cur.slider,
-        explorerMinimapSide: cur.side,
-        ...patch
-      })
-    });
+    const optimistic: ExplorerMinimapPrefs = {
+      enabled: patch.explorerMinimapEnabled ?? cur.enabled,
+      width: patch.explorerMinimapWidth ?? patch.explorerMinimap ?? cur.width,
+      renderCharacters: patch.explorerMinimapRenderCharacters ?? cur.renderCharacters,
+      verticalSize: patch.explorerMinimapVerticalSize ?? cur.verticalSize,
+      slider: patch.explorerMinimapSlider ?? cur.slider,
+      side: patch.explorerMinimapSide ?? cur.side
+    };
+    set({ explorerMinimap: optimistic });
     product.config.set(patch).catch(() => set({ explorerMinimap: cur }));
   },
 

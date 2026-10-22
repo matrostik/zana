@@ -23,7 +23,12 @@ function basename(path: string): string {
 export function resolveFileIcon(nameOrPath: string): FileIconRef {
   const name = basename(nameOrPath).toLowerCase();
   const cached = memo.get(name);
-  if (cached) return cached;
+  if (cached) {
+    // Refresh LRU recency
+    memo.delete(name);
+    memo.set(name, cached);
+    return cached;
+  }
   let id = FILE_NAMES[name];
   for (let dot = name.indexOf('.'); id === undefined && dot !== -1; dot = name.indexOf('.', dot + 1)) {
     id = FILE_EXTENSIONS[name.slice(dot + 1)];
@@ -31,8 +36,14 @@ export function resolveFileIcon(nameOrPath: string): FileIconRef {
   const resolved = id ?? DEFAULT_ICON;
   const ref = { id: resolved, char: ICONS[resolved] };
   if (memo.size >= MAX_FILE_ICON_MEMO) {
-    const oldest = memo.keys().next().value;
-    if (oldest !== undefined) memo.delete(oldest);
+    // Evict a batch (10% of cap) to prevent thrashing on bursts of unique filenames
+    const evictCount = Math.max(1, Math.floor(MAX_FILE_ICON_MEMO * 0.1));
+    const iterator = memo.keys();
+    for (let i = 0; i < evictCount; i++) {
+      const next = iterator.next();
+      if (next.done) break;
+      memo.delete(next.value);
+    }
   }
   memo.set(name, ref);
   return ref;

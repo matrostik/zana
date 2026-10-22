@@ -122,10 +122,6 @@ export function FileViewer({
     observer.observe(el);
     observerRef.current = observer;
   }, []);
-  React.useEffect(() => () => {
-    observerRef.current?.disconnect();
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  }, []);
   const minimap = React.useMemo(() => minimapOptionsFor(minimapPrefs, monacoWidth), [minimapPrefs, monacoWidth]);
   React.useEffect(() => setMinimapMenu(null), [explorerFile]);
   const closeMinimapMenu = React.useCallback(() => setMinimapMenu(null), []);

@@ -8,10 +8,10 @@ import {
 /**
  * True when the minimap is switched on but the editor is narrower than
  * {@link EXPLORER_MINIMAP_MIN_EDITOR_WIDTH} (a `0` width means "not measured
- * yet" and counts as too narrow).
+ * yet" and is preserved so the minimap does not flash off during initial mount).
  */
 export function minimapAutoHidden(prefs: ExplorerMinimapPrefs, containerWidth: number): boolean {
-  return prefs.enabled && containerWidth < EXPLORER_MINIMAP_MIN_EDITOR_WIDTH;
+  return prefs.enabled && containerWidth > 0 && containerWidth < EXPLORER_MINIMAP_MIN_EDITOR_WIDTH;
 }
 
 /** Monaco minimap options for the Explorer preview. */

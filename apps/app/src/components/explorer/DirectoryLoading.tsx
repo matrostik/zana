@@ -5,9 +5,15 @@ import { DIRECTORY_SLOW_MS } from './useDirectoryLoader.js';
 export function DirectoryLoading({ label = 'Loading files', slow: explicitSlow }: { label?: string; slow?: boolean }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
-    if (explicitSlow !== undefined) return;
+    if (explicitSlow !== undefined) {
+      setSlow(false);
+      return;
+    }
     const timer = setTimeout(() => setSlow(true), DIRECTORY_SLOW_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      setSlow(false);
+    };
   }, [explicitSlow]);
   const isSlow = explicitSlow ?? slow;
   return isSlow ? (
