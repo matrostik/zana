@@ -10,6 +10,8 @@ interface TreeListProps {
   expanded: Map<string, boolean>;
   entries: Map<string, FsEntry[]>;
   loading: Set<string>;
+  slow: Set<string>;
+  errors: Map<string, string>;
   activeFile: string | undefined;
   gitFiles: Record<string, GitFileCode> | undefined;
   dirtyDirs: Set<string>;
@@ -33,6 +35,8 @@ export const TreeList = React.memo(function TreeList({
   expanded,
   entries,
   loading,
+  slow,
+  errors,
   activeFile,
   gitFiles,
   dirtyDirs,
@@ -91,9 +95,13 @@ export const TreeList = React.memo(function TreeList({
             </div>
             {isOpen && (
               children === undefined ? (
-                loading.has(entry.path) ? (
+                errors.has(entry.path) ? (
                   <div className="tree-loading" style={{ paddingLeft: 6 + (depth + 1) * 12 }}>
-                    Loading…
+                    <p role="alert">{errors.get(entry.path)}</p>
+                  </div>
+                ) : loading.has(entry.path) ? (
+                  <div className="tree-loading" style={{ paddingLeft: 6 + (depth + 1) * 12 }}>
+                    <span role="status">{slow.has(entry.path) ? 'Taking longer than expected' : 'Loading…'}</span>
                   </div>
                 ) : null
               ) : (
@@ -103,6 +111,8 @@ export const TreeList = React.memo(function TreeList({
                   expanded={expanded}
                   entries={entries}
                   loading={loading}
+                  slow={slow}
+                  errors={errors}
                   activeFile={activeFile}
                   gitFiles={gitFiles}
                   dirtyDirs={dirtyDirs}

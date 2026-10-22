@@ -2,7 +2,7 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ read: vi.fn(), list: vi.fn(), write: vi.fn(), toast: vi.fn(), remoteRoot: vi.fn(), listRemote: vi.fn(), readRemote: vi.fn(), hosts: [] as any[] }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), list: vi.fn(), write: vi.fn(), toast: vi.fn(), remoteRoot: vi.fn(), listRemote: vi.fn(), readRemote: vi.fn(), worktrees: vi.fn(), branches: vi.fn(), hosts: [] as any[] }));
 vi.mock('@/lib/monacoSetup', () => ({}));
 vi.mock('../../hooks/useHosts.js', () => ({ useHosts: () => mocks.hosts }));
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'dark' }));
@@ -10,7 +10,7 @@ vi.mock('@/hooks/useFileDrop', () => ({ useFileDrop: () => ({ dropOver: false, d
 vi.mock('@/components/AiEnhanceSelection', () => ({ useAiEnhanceSelection: () => ({ registerEditor: vi.fn(), modal: null }) }));
 vi.mock('../../lib/product-client.js', () => ({ product: {
   fs: { listDir: mocks.list, readFile: mocks.read, writeFile: mocks.write, remoteRoot: mocks.remoteRoot, listDirRemote: mocks.listRemote, readFileRemote: mocks.readRemote },
-  git: { status: async () => null, listWorktrees: async () => [], listBranches: async () => [] },
+  git: { status: async () => ({ branch: 'main', files: {} }), listWorktrees: mocks.worktrees, listBranches: mocks.branches },
   environments: { list: async () => [] }
 } }));
 vi.mock('@/store', async () => {
@@ -23,7 +23,9 @@ vi.mock('@/store', async () => {
   return { useUi, useData };
 });
 vi.mock('@/components/explorer', () => ({
-  WorktreeMenu: () => null, ExplorerGitFooter: () => null, ExplorerTreeHeader: () => null,
+  WorktreeMenu: ({ loading, error }: any) => <><span>{loading ? 'Loading checkouts' : 'Checkouts ready'}</span>{error && <p role="alert">{error}</p>}</>,
+  ExplorerGitFooter: ({ onToggleMenu, menu }: any) => <><button onClick={onToggleMenu}>Checkouts</button>{menu}</>,
+  ExplorerTreeHeader: ({ onRefresh }: any) => <button onClick={onRefresh}>Refresh files</button>,
   ExplorerContextMenu: () => null, ChangesList: () => null, useFileOperations: () => ({}),
   TreeList: ({ list, onFileClick }: any) => <>{list.map((row: any) => <button key={row.path} onClick={() => onFileClick(row)}>{row.name}</button>)}</>,
   FileViewer: ({ fileResult, editedContent, onContentChange, onSave, nativeFiles }: any) => <div>
@@ -42,12 +44,14 @@ beforeEach(() => {
   mocks.read.mockImplementation(async (_path: string, scope: any) => ({ ok: true, content: `machine-${scope.hostId}`, sha256: 'revision' }));
   mocks.write.mockResolvedValue({ ok: true, sha256: 'next', bytes: 4 });
   mocks.remoteRoot.mockResolvedValue({ ok: true, root: '/remote' });
+  mocks.worktrees.mockResolvedValue([]);
+  mocks.branches.mockResolvedValue([]);
   mocks.listRemote.mockResolvedValue([{ name: 'owner.txt', path: '/remote/owner.txt', kind: 'file' }]);
   mocks.readRemote.mockResolvedValue({ ok: true, content: 'ssh-remote' });
   window.confirm = vi.fn().mockReturnValue(false);
   Element.prototype.scrollIntoView = vi.fn();
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 it('edits only the thread-pinned checkout with its read revision, without a machine selector', async () => {
   render(<ExplorerView project={project} embedded scope={{ projectId: 'p', hostId: 'b' }} />);
   fireEvent.click(await screen.findByRole('button', { name: 'owner.txt' }));
@@ -166,8 +170,148 @@ it('keeps an SSH project on its remote filesystem without a machine selector', a
   await screen.findByDisplayValue('ssh-remote');
   expect(mocks.remoteRoot).toHaveBeenCalledWith('p');
   expect(mocks.listRemote).toHaveBeenCalledWith('p', '/remote');
+  expect(mocks.listRemote).toHaveBeenCalledTimes(1);
   expect(mocks.readRemote).toHaveBeenCalledWith('p', '/remote/owner.txt');
   expect(mocks.list).not.toHaveBeenCalled();
   expect(mocks.read).not.toHaveBeenCalled();
   expect(screen.queryByRole('combobox')).toBeNull();
+});
+
+it('defers checkout enumeration until the menu opens', async () => {
+  render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  expect(mocks.worktrees).not.toHaveBeenCalled();
+  expect(mocks.branches).not.toHaveBeenCalled();
+  fireEvent.click(await screen.findByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+  expect(mocks.worktrees).toHaveBeenCalledTimes(1);
+  expect(mocks.branches).toHaveBeenCalledTimes(1);
+});
+
+it('fetches fresh filenames on reopen instead of displaying the previous visit', async () => {
+  const first = render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  first.unmount();
+  mocks.list.mockImplementation(() => new Promise(() => {}));
+  render(<ExplorerView project={project} />);
+  expect(screen.queryByRole('button', { name: 'owner.txt' })).toBeNull();
+  await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
+});
+
+it('keeps checkout metadata failures separate from directory listings', async () => {
+  mocks.worktrees.mockRejectedValueOnce(new Error('Git unavailable'));
+  mocks.branches.mockRejectedValueOnce(new Error('Git unavailable'));
+  render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(await screen.findByRole('button', { name: 'Checkouts' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('Git unavailable');
+  expect(screen.getByRole('button', { name: 'owner.txt' })).toBeTruthy();
+});
+
+it('ignores checkout metadata that finishes after the menu closes', async () => {
+  let finish!: (value: any) => void;
+  mocks.worktrees.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(await screen.findByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Loading checkouts');
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await act(async () => finish([]));
+  expect(screen.queryByText('Checkouts ready')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+});
+
+it('loads the deepest parent when revealing a nested file and does not repeat cached requests', async () => {
+  render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  await act(async () => { useUi.getState().setExplorerFile('p', '/a/src/deep/file.ts'); });
+  await waitFor(() => expect(mocks.list).toHaveBeenCalledWith('/a/src/deep', { projectId: 'p', hostId: 'a' }));
+  expect(mocks.list.mock.calls.map(([path]) => path)).toEqual(['/a', '/a/src', '/a/src/deep']);
+});
+
+it('refresh supersedes pending results without retaining filenames', async () => {
+  let finish!: (value: any) => void;
+  mocks.list.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<ExplorerView project={project} />);
+  await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh files' }));
+  await screen.findByRole('button', { name: 'owner.txt' });
+  await act(async () => finish([{ name: 'stale.txt', path: '/a/stale.txt', kind: 'file' }]));
+  expect(screen.queryByRole('button', { name: 'stale.txt' })).toBeNull();
+});
+
+it('shows an actual error rather than an empty directory or a retry button', async () => {
+  mocks.list.mockRejectedValueOnce(new Error('Offline'));
+  render(<ExplorerView project={project} />);
+  expect((await screen.findByRole('alert')).textContent).toBe('Offline');
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh files' }));
+  await screen.findByRole('button', { name: 'owner.txt' });
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('keeps a slow root request alive until its files arrive without user intervention', async () => {
+  vi.useFakeTimers();
+  let finish!: (value: any) => void;
+  mocks.list.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<ExplorerView project={project} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  expect(screen.getByText('Taking longer than expected')).toBeTruthy();
+  expect(mocks.list).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+  expect(mocks.list).toHaveBeenCalledTimes(1);
+  await act(async () => finish([{ name: 'recovered.txt', path: '/a/recovered.txt', kind: 'file' }]));
+  expect(screen.getByRole('button', { name: 'recovered.txt' })).toBeTruthy();
+  expect(screen.queryByText('Taking longer than expected')).toBeNull();
+  vi.useRealTimers();
+});
+
+it('reports failed SSH root resolution without listing the placeholder or offering retry', async () => {
+  mocks.remoteRoot.mockResolvedValueOnce({ ok: false, message: 'SSH unavailable' });
+  render(<ExplorerView project={{ ...project, path: '/placeholder', remote: { host: 'ssh-host' } }} />);
+  await screen.findByText('SSH unavailable');
+  expect(mocks.listRemote).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  expect(mocks.remoteRoot).toHaveBeenCalledTimes(1);
+  expect(mocks.list).not.toHaveBeenCalled();
+});
+
+it('waits for a slow SSH root to recover without restarting its request', async () => {
+  vi.useFakeTimers();
+  let finish!: (value: any) => void;
+  mocks.remoteRoot.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<ExplorerView project={{ ...project, path: '/placeholder', remote: { host: 'ssh-host' } }} />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+  expect(screen.getByText('Taking longer than expected')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+  expect(mocks.remoteRoot).toHaveBeenCalledTimes(1);
+  await act(async () => finish({ ok: true, root: '/remote' }));
+  expect(mocks.listRemote.mock.calls).toEqual([['p', '/remote']]);
+  vi.useRealTimers();
+});
+
+it('reports rejected SSH root discovery and cancels it on unmount', async () => {
+  mocks.remoteRoot.mockRejectedValueOnce(new Error('Connection refused'));
+  const view = render(<ExplorerView project={{ ...project, remote: { host: 'ssh-host' } }} />);
+  await screen.findByText('Connection refused');
+  view.unmount();
+  let finish!: (value: any) => void;
+  mocks.remoteRoot.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const next = render(<ExplorerView project={{ ...project, remote: { host: 'ssh-host' } }} />);
+  next.unmount();
+  await act(async () => finish({ ok: true, root: '/remote' }));
+  expect(mocks.listRemote).not.toHaveBeenCalled();
+});
+
+it('does not continue a nested reveal after its selection is cancelled', async () => {
+  let finish!: (value: any) => void;
+  mocks.list.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<ExplorerView project={project} />);
+  await act(async () => { useUi.getState().setExplorerFile('p', '/a/src/deep/file.ts'); });
+  await act(async () => { useUi.getState().setExplorerFile('p', undefined); });
+  await act(async () => finish([]));
+  expect(mocks.list.mock.calls.map(([path]) => path)).toEqual(['/a']);
 });
