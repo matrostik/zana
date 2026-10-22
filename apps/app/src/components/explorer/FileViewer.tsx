@@ -1,10 +1,8 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { FileText, Save, Eye, Pencil, GitCompare } from 'lucide-react';
-import Editor, { type OnMount } from '@monaco-editor/react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import type { OnMount } from '@monaco-editor/react';
 import type { FsReadResult, GitShowResult, Project } from '@zana-ai/zcc-domain/product';
-import { DiffViewer } from '../DiffViewer.js';
+import { ViewerBoundary } from './ViewerBoundary.js';
 import { OpenerButtons } from '../OpenerButtons.js';
 import { languageFromPath } from '../../lib/monacoLanguage.js';
 import { StencilLines } from '../ui/Skeleton.js';
@@ -12,6 +10,10 @@ import { platformShortcut } from '../../lib/platformShortcut.js';
 import { useData } from '../../store.js';
 import { minimapAutoHidden, minimapOptionsFor } from './minimapOptions.js';
 import { MinimapContextMenu } from './MinimapContextMenu.js';
+
+const Editor = lazy(() => import('./ExplorerEditor.js'));
+const MarkdownPreview = lazy(() => import('./MarkdownPreview.js'));
+const DiffViewer = lazy(() => import('../DiffViewer.js').then(module => ({ default: module.DiffViewer })));
 
 interface FileViewerProps {
   project: Project;
@@ -95,27 +97,35 @@ export function FileViewer({
   const [minimapMenu, setMinimapMenu] = React.useState<{ x: number; y: number } | null>(null);
   const editorSubs = React.useRef<Array<{ dispose(): void }>>([]);
   React.useEffect(() => () => editorSubs.current.forEach((sub) => sub.dispose()), []);
-  // The Monaco wrapper mounts/unmounts as the file changes, so track it via a
-  // callback ref held in state and (re)observe whenever the element changes.
-  const [monacoEl, setMonacoEl] = React.useState<HTMLDivElement | null>(null);
+  // Track preview width to auto-hide the minimap when narrower than 480px.
   const [monacoWidth, setMonacoWidth] = React.useState(0);
-  React.useEffect(() => {
-    if (!monacoEl) return;
-    let raf = 0;
+  const observerRef = React.useRef<ResizeObserver | null>(null);
+  const rafRef = React.useRef<number>(0);
+  const handleMonacoRef = React.useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    if (!el) return;
     const measure = () => {
-      raf = 0;
-      setMonacoWidth(monacoEl.clientWidth);
+      rafRef.current = 0;
+      setMonacoWidth(el.clientWidth);
     };
     measure();
     const observer = new ResizeObserver(() => {
-      if (!raf) raf = requestAnimationFrame(measure);
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(measure);
     });
-    observer.observe(monacoEl);
-    return () => {
-      observer.disconnect();
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [monacoEl]);
+    observer.observe(el);
+    observerRef.current = observer;
+  }, []);
+  React.useEffect(() => () => {
+    observerRef.current?.disconnect();
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  }, []);
   const minimap = React.useMemo(() => minimapOptionsFor(minimapPrefs, monacoWidth), [minimapPrefs, monacoWidth]);
   React.useEffect(() => setMinimapMenu(null), [explorerFile]);
   const closeMinimapMenu = React.useCallback(() => setMinimapMenu(null), []);
@@ -270,77 +280,63 @@ export function FileViewer({
           )}
         </span>
       </div>
-      <div className="explorer-viewer-monaco" ref={setMonacoEl}>
-        {showPreview ? (
-          <div className="explorer-md-preview">
-            <div className="inbox-md">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  a: (props) => <a {...props} target="_blank" rel="noreferrer" />,
-                  table: (props) => (
-                    <div className="inbox-md-table-wrap">
-                      <table {...props} />
-                    </div>
-                  )
-                }}
-              >
-                {editedContent ?? fileResult.content ?? ''}
-              </ReactMarkdown>
-            </div>
-          </div>
-        ) : showDiff ? (
-          headLoading || !headResult ? (
-            <div className="explorer-viewer-empty">
-              <StencilLines label="Loading HEAD" />
-            </div>
-          ) : !headResult.ok ? (
-            <div className="explorer-viewer-empty">
-              <p>Failed to read HEAD:</p>
-              <p style={{ color: 'var(--danger)' }}>{headResult.message}</p>
-            </div>
-          ) : headResult.binary ? (
-            <div className="explorer-viewer-empty">
-              <p>HEAD blob is binary; cannot diff as text.</p>
-            </div>
+      <div className="explorer-viewer-monaco" ref={handleMonacoRef}>
+        <ViewerBoundary key={`${explorerFile}:${showPreview ? 'preview' : showDiff ? 'diff' : 'editor'}`}>
+          {showPreview ? (
+            <MarkdownPreview content={editedContent ?? fileResult.content ?? ''} />
+          ) : showDiff ? (
+            headLoading || !headResult ? (
+              <div className="explorer-viewer-empty">
+                <StencilLines label="Loading HEAD" />
+              </div>
+            ) : !headResult.ok ? (
+              <div className="explorer-viewer-empty">
+                <p>Failed to read HEAD:</p>
+                <p style={{ color: 'var(--danger)' }}>{headResult.message}</p>
+              </div>
+            ) : headResult.binary ? (
+              <div className="explorer-viewer-empty">
+                <p>HEAD blob is binary; cannot diff as text.</p>
+              </div>
+            ) : (
+              <DiffViewer
+                path={explorerFile}
+                language={languageFromPath(explorerFile)}
+                original={headResult.content ?? ''}
+                modified={fileResult.content ?? ''}
+              />
+            )
           ) : (
-            <DiffViewer
+            <Editor
+              height="100%"
+              width="100%"
+              theme={monacoTheme}
               path={explorerFile}
               language={languageFromPath(explorerFile)}
-              original={headResult.content ?? ''}
-              modified={fileResult.content ?? ''}
+              value={editedContent ?? fileResult.content ?? ''}
+              onChange={(v) => {
+                if (v === undefined) return;
+                // Only flip into "dirty" when the value actually diverges
+                // from disk; an identical edit (revert) clears the buffer.
+                if (v === (fileResult.content ?? '')) {
+                  onContentChange(null);
+                } else {
+                  onContentChange(v);
+                }
+              }}
+              onMount={handleEditorMount}
+              options={{
+                readOnly: fileResult.truncated,
+                minimap,
+                fontSize: 13,
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                renderLineHighlight: 'all',
+                wordWrap: 'off'
+              }}
             />
-          )
-        ) : (
-          <Editor
-            height="100%"
-            width="100%"
-            theme={monacoTheme}
-            path={explorerFile}
-            language={languageFromPath(explorerFile)}
-            value={editedContent ?? fileResult.content ?? ''}
-            onChange={(v) => {
-              if (v === undefined) return;
-              // Only flip into "dirty" when the value actually diverges
-              // from disk; an identical edit (revert) clears the buffer.
-              if (v === (fileResult.content ?? '')) {
-                onContentChange(null);
-              } else {
-                onContentChange(v);
-              }
-            }}
-            onMount={handleEditorMount}
-            options={{
-              readOnly: fileResult.truncated,
-              minimap,
-              fontSize: 13,
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              renderLineHighlight: 'all',
-              wordWrap: 'off'
-            }}
-          />
-        )}
+          )}
+        </ViewerBoundary>
         {aiEnhanceModal}
         {minimapMenu && (
           <MinimapContextMenu

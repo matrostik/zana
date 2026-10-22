@@ -2,8 +2,10 @@ import type { FsEntry } from '@zana-ai/zcc-domain/product';
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 interface ExplorerFileRevealOptions {
-  /** Lists one folder and stores it in the tree's `entries` state. */
-  fetchDir: (path: string) => Promise<FsEntry[]>;
+  /** Lists one folder and stores it in the tree's `entries` state. Used if `loadDir` is not passed. */
+  fetchDir?: (path: string) => Promise<FsEntry[]>;
+  /** Shared directory loader instance (e.g. from `useDirectoryLoader`). */
+  loadDir?: (path: string, force?: boolean) => Promise<FsEntry[]>;
   entries: Map<string, FsEntry[]>;
   setExpanded: React.Dispatch<React.SetStateAction<Map<string, boolean>>>;
   treeBodyRef: React.RefObject<HTMLDivElement | null>;
@@ -20,7 +22,7 @@ interface ExplorerFileRevealOptions {
 // path strings) keeps Windows `\` paths working and stops at anything the
 // listing hides (denied folders like node_modules, the per-directory entry cap,
 // or a path outside the root), so the tree never expands a phantom folder.
-export function useExplorerFileReveal({ fetchDir, entries, setExpanded, treeBodyRef, activeRoot, treeMode }: ExplorerFileRevealOptions) {
+export function useExplorerFileReveal({ fetchDir, loadDir: customLoadDir, entries, setExpanded, treeBodyRef, activeRoot, treeMode }: ExplorerFileRevealOptions) {
   // Listings by path: the committed `entries` plus any listing that resolved
   // since the last render, so a folder is never listed twice in that window.
   const entriesRef = useRef(entries);
@@ -28,7 +30,7 @@ export function useExplorerFileReveal({ fetchDir, entries, setExpanded, treeBody
   // In-flight listings by path, so a reveal that walks a folder the mount or a
   // click is already listing joins that request instead of listing it twice.
   const pendingDirsRef = useRef(new Map<string, Promise<FsEntry[]>>());
-  const loadDir = useCallback(
+  const defaultLoadDir = useCallback(
     (path: string, force = false): Promise<FsEntry[]> => {
       if (!force) {
         const cached = entriesRef.current.get(path);
@@ -37,6 +39,7 @@ export function useExplorerFileReveal({ fetchDir, entries, setExpanded, treeBody
         if (pending) return pending;
       }
       const root = activeRoot.current;
+      if (!fetchDir) return Promise.resolve([]);
       const request: Promise<FsEntry[]> = fetchDir(path)
         .then((list) => {
           // fetchDir drops listings for a root the tree has left; match that.
@@ -52,6 +55,7 @@ export function useExplorerFileReveal({ fetchDir, entries, setExpanded, treeBody
     [activeRoot, fetchDir]
   );
 
+  const loadDir = customLoadDir ?? defaultLoadDir;
   const loadDirRef = useRef(loadDir);
   loadDirRef.current = loadDir;
   const revealSeqRef = useRef(0);
@@ -59,6 +63,12 @@ export function useExplorerFileReveal({ fetchDir, entries, setExpanded, treeBody
   // Bumped when a walk finds its row, so the layout effect below runs even if
   // every ancestor was already expanded and loaded (no other state changed).
   const [, setRevealTick] = useState(0);
+
+  const cancelReveal = useCallback(() => {
+    revealSeqRef.current++;
+    pendingScrollRef.current = null;
+  }, []);
+
   // Each step is one capped listDir, and a newer open cancels an older walk.
   // The walk only ever descends into an entry that is a strict path prefix of
   // the target, so it ends within the target's segment count at any depth.
@@ -116,7 +126,7 @@ export function useExplorerFileReveal({ fetchDir, entries, setExpanded, treeBody
     body.scrollTop += box.top - view.top - (view.height - box.height) / 2;
   });
 
-  return { loadDir, revealFile };
+  return { loadDir, revealFile, cancelReveal };
 }
 
 // Compare paths with `/` separators. Local Windows paths come back from listDir
