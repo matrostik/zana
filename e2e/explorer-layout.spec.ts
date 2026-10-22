@@ -73,7 +73,7 @@ test('Explorer preview shows a minimap, managed from its right-click menu, that 
     const box = await minimap.boundingBox();
     const editorBox = await window.locator('.explorer-viewer-monaco .monaco-editor').boundingBox();
     if (!box || !editorBox) return false;
-    return box.x > editorBox.x + editorBox.width / 2;
+    return Math.abs((box.x + box.width) - (editorBox.x + editorBox.width)) < 25;
   }).toBe(true);
 
   // The viewport slider moves as the editor scrolls.

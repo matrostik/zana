@@ -2,7 +2,7 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ read: vi.fn(), list: vi.fn(), write: vi.fn(), toast: vi.fn(), remoteRoot: vi.fn(), listRemote: vi.fn(), readRemote: vi.fn(), worktrees: vi.fn(), branches: vi.fn(), hosts: [] as any[] }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), list: vi.fn(), write: vi.fn(), toast: vi.fn(), remoteRoot: vi.fn(), listRemote: vi.fn(), readRemote: vi.fn(), worktrees: vi.fn(), branches: vi.fn(), environments: vi.fn(), hosts: [] as any[] }));
 vi.mock('@/lib/monacoSetup', () => ({}));
 vi.mock('../../hooks/useHosts.js', () => ({ useHosts: () => mocks.hosts }));
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'dark' }));
@@ -11,7 +11,7 @@ vi.mock('@/components/AiEnhanceSelection', () => ({ useAiEnhanceSelection: () =>
 vi.mock('../../lib/product-client.js', () => ({ product: {
   fs: { listDir: mocks.list, readFile: mocks.read, writeFile: mocks.write, remoteRoot: mocks.remoteRoot, listDirRemote: mocks.listRemote, readFileRemote: mocks.readRemote },
   git: { status: async () => ({ branch: 'main', files: {} }), listWorktrees: mocks.worktrees, listBranches: mocks.branches },
-  environments: { list: async () => [] }
+  environments: { list: mocks.environments }
 } }));
 vi.mock('@/store', async () => {
   const { create } = await import('zustand');
@@ -27,7 +27,7 @@ vi.mock('@/components/explorer', () => ({
   ExplorerGitFooter: ({ onToggleMenu, menu }: any) => <><button onClick={onToggleMenu}>Checkouts</button>{menu}</>,
   ExplorerTreeHeader: ({ onRefresh }: any) => <button onClick={onRefresh}>Refresh files</button>,
   ExplorerContextMenu: () => null, ChangesList: () => null, useFileOperations: () => ({}),
-  TreeList: ({ list, onFileClick }: any) => <>{list.map((row: any) => <button key={row.path} onClick={() => onFileClick(row)}>{row.name}</button>)}</>,
+  TreeList: ({ list, onFileClick, entries, onToggleDir }: any) => <>{list.map((row: any) => <React.Fragment key={row.path}><button onClick={() => (row.kind === 'dir' ? onToggleDir?.(row) : onFileClick(row))}>{row.name}</button>{entries?.get(row.path)?.map((child: any) => <button key={child.path} onClick={() => onFileClick(child)}>{child.name}</button>)}</React.Fragment>)}</>,
   FileViewer: ({ fileResult, editedContent, onContentChange, onSave, nativeFiles }: any) => <div>
     {fileResult?.ok && <textarea aria-label="File contents" value={editedContent ?? fileResult.content} onChange={event => onContentChange(event.target.value)} />}
     <button onClick={onSave}>Save fixture</button><span>{nativeFiles ? 'native openers' : 'no native openers'}</span>
@@ -46,6 +46,7 @@ beforeEach(() => {
   mocks.remoteRoot.mockResolvedValue({ ok: true, root: '/remote' });
   mocks.worktrees.mockResolvedValue([]);
   mocks.branches.mockResolvedValue([]);
+  mocks.environments.mockResolvedValue([]);
   mocks.listRemote.mockResolvedValue([{ name: 'owner.txt', path: '/remote/owner.txt', kind: 'file' }]);
   mocks.readRemote.mockResolvedValue({ ok: true, content: 'ssh-remote' });
   window.confirm = vi.fn().mockReturnValue(false);
@@ -321,3 +322,37 @@ it('does not continue a nested reveal after its selection is cancelled', async (
   await act(async () => finish([]));
   expect(mocks.list.mock.calls.map(([path]) => path)).toEqual(['/a']);
 });
+
+it('does not reset directory cache or blank expanded folders when opening the checkout menu on a non-native worktree', async () => {
+  mocks.environments.mockResolvedValue([
+    { id: 'env-b', hostId: 'b', path: '/b-worktree', status: 'ready', workspaceProvisionType: 'managed-worktree', branchName: 'feature' }
+  ]);
+  mocks.worktrees.mockResolvedValue([
+    { path: '/b-worktree', head: '1234', branch: 'feature', detached: false, bare: false, isMain: false }
+  ]);
+  mocks.list.mockImplementation(async (path: string) => {
+    if (path === '/b-worktree') return [{ name: 'subfolder', path: '/b-worktree/subfolder', kind: 'dir' }];
+    if (path === '/b-worktree/subfolder') return [{ name: 'nested.txt', path: '/b-worktree/subfolder/nested.txt', kind: 'file' }];
+    return [];
+  });
+
+  render(
+    <ExplorerView
+      project={{ ...project, sources: [] }}
+      scope={{ projectId: 'p', hostId: 'b', environmentId: 'env-b' }}
+      checkoutPath="/b-worktree"
+    />
+  );
+
+  // Expand subfolder
+  fireEvent.click(await screen.findByRole('button', { name: 'subfolder' }));
+  expect(await screen.findByRole('button', { name: 'nested.txt' })).toBeTruthy();
+
+  // Open checkout menu
+  fireEvent.click(await screen.findByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+
+  // The nested item remains present without getting wiped
+  expect(screen.getByRole('button', { name: 'nested.txt' })).toBeTruthy();
+});
+

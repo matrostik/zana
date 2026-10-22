@@ -47,11 +47,14 @@ describe('FolderIcon', () => {
     expect(open).not.toBe(closed);
   });
 
-  it('renders folder glyph regardless of explorerFileIconTheme', () => {
+  it('respects explorerFileIconTheme and hides under none', () => {
     useData.setState({ explorerFileIconTheme: 'none' });
-    expect(render(<FolderIcon />).container.querySelector('svg')).not.toBeNull();
+    expect(render(<FolderIcon />).container.innerHTML).toBe('');
     cleanup();
     useData.setState({ explorerFileIconTheme: 'minimal' });
+    expect(render(<FolderIcon />).container.querySelector('svg')).not.toBeNull();
+    cleanup();
+    useData.setState({ explorerFileIconTheme: 'seti' });
     expect(render(<FolderIcon />).container.querySelector('svg')).not.toBeNull();
   });
 });

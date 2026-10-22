@@ -23,6 +23,7 @@ import { useData } from '../../store.js';
 import { platformShortcut } from '../../lib/platformShortcut.js';
 import { FileViewer } from './FileViewer.js';
 import { readFileSync } from 'node:fs';
+import { URL as NodeURL, fileURLToPath } from 'node:url';
 
 let width = 800;
 let resizeCb: () => void = () => {};
@@ -162,9 +163,9 @@ it('tells the user when the preview is too narrow', async () => {
 });
 
 it('keeps the editor bootstrap out of the Explorer shell and empty viewer', () => {
-  const shell = readFileSync('apps/app/src/views/project/ExplorerView.tsx', 'utf8');
+  const shell = readFileSync(fileURLToPath(new NodeURL('../../views/project/ExplorerView.tsx', import.meta.url)), 'utf8');
   expect(shell).not.toContain("import '@/lib/monacoSetup'");
-  const viewer = readFileSync('apps/app/src/components/explorer/FileViewer.tsx', 'utf8');
+  const viewer = readFileSync(fileURLToPath(new NodeURL('./FileViewer.tsx', import.meta.url)), 'utf8');
   expect(viewer).toContain("lazy(() => import('./ExplorerEditor.js'))");
   expect(viewer).toContain("lazy(() => import('./MarkdownPreview.js'))");
   const props = view().props;

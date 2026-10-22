@@ -17,7 +17,7 @@ import type { ExplorerMinimapPatch } from '../../store.js';
 interface Submenu {
   id: string;
   label: string;
-  key: 'explorerMinimap' | 'explorerMinimapVerticalSize' | 'explorerMinimapSlider' | 'explorerMinimapSide';
+  key: 'explorerMinimapWidth' | 'explorerMinimapVerticalSize' | 'explorerMinimapSlider' | 'explorerMinimapSide';
   choices: readonly (keyof typeof EXPLORER_MINIMAP_LABELS)[];
   current: string;
 }
@@ -36,11 +36,9 @@ export interface MinimapContextMenuProps {
   onClose: () => void;
 }
 
-/** The focusable items of one menu level, in DOM order (submenu triggers included). */
 function toMinimapPatch(key: Submenu['key'], value: string): ExplorerMinimapPatch {
-  if (key === 'explorerMinimap') {
-    const width = value as ExplorerMinimapWidth;
-    return { explorerMinimapWidth: width, explorerMinimap: width };
+  if (key === 'explorerMinimapWidth') {
+    return { explorerMinimapWidth: value as ExplorerMinimapWidth };
   }
   if (key === 'explorerMinimapVerticalSize') {
     return { explorerMinimapVerticalSize: value as ExplorerMinimapVerticalSize };
@@ -54,6 +52,7 @@ function toMinimapPatch(key: Submenu['key'], value: string): ExplorerMinimapPatc
   return {};
 }
 
+/** The focusable items of one menu level, in DOM order (submenu triggers included). */
 function levelItems(menu: HTMLElement): HTMLButtonElement[] {
   const items: HTMLButtonElement[] = [];
   for (const child of Array.from(menu.children)) {
@@ -63,6 +62,64 @@ function levelItems(menu: HTMLElement): HTMLButtonElement[] {
     }
   }
   return items;
+}
+
+function buildMinimapSubmenus(prefs: ExplorerMinimapPrefs): Submenu[] {
+  return [
+    { id: 'width', label: 'Width', key: 'explorerMinimapWidth', choices: EXPLORER_MINIMAP_WIDTH_CHOICES, current: prefs.width },
+    { id: 'vertical', label: 'Vertical size', key: 'explorerMinimapVerticalSize', choices: EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES, current: prefs.verticalSize },
+    { id: 'slider', label: 'Slider', key: 'explorerMinimapSlider', choices: EXPLORER_MINIMAP_SLIDER_CHOICES, current: prefs.slider },
+    { id: 'side', label: 'Side', key: 'explorerMinimapSide', choices: EXPLORER_MINIMAP_SIDE_CHOICES, current: prefs.side }
+  ];
+}
+
+interface KeyDownContext {
+  event: React.KeyboardEvent<HTMLDivElement>;
+  root: HTMLElement | null;
+  open: { id: string; focus: boolean } | null;
+  setOpen: (state: { id: string; focus: boolean } | null) => void;
+  onClose: () => void;
+}
+
+function handleMenuKeyDown(ctx: KeyDownContext): void {
+  const { event, root, open, setOpen, onClose } = ctx;
+  const target = event.target as HTMLElement;
+  const menu = target.closest<HTMLElement>('[role="menu"]');
+  if (!menu) return;
+  const inSubmenu = menu !== root;
+  const items = levelItems(menu);
+  const index = items.indexOf(target as HTMLButtonElement);
+
+  const closeSubmenu = () => {
+    const id = open?.id;
+    setOpen(null);
+    if (id) root?.querySelector<HTMLElement>(`[data-submenu="${id}"]`)?.focus();
+  };
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (!items.length) return;
+    const step = event.key === 'ArrowDown' ? 1 : -1;
+    items[(index + step + items.length) % items.length]?.focus();
+  } else if (event.key === 'ArrowRight' && !inSubmenu && target.getAttribute('aria-haspopup') === 'menu') {
+    event.preventDefault();
+    setOpen({ id: target.dataset.submenu ?? '', focus: true });
+  } else if (event.key === 'ArrowLeft' && inSubmenu) {
+    event.preventDefault();
+    closeSubmenu();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    if (inSubmenu) closeSubmenu();
+    else onClose();
+  }
+}
+
+function computeMenuPosition(x: number, y: number, actualHeight: number) {
+  const left = Math.max(0, Math.min(x, window.innerWidth - MENU_WIDTH));
+  const top = Math.max(0, Math.min(y, window.innerHeight - actualHeight));
+  const flip = left + MENU_WIDTH + SUBMENU_WIDTH > window.innerWidth;
+  return { left, top, flip };
 }
 
 /**
@@ -81,13 +138,7 @@ export function MinimapContextMenu({ prefs, autoHidden, x, y, onChange, onClose 
     }
   }, [open]);
 
-  const submenus: Submenu[] = [
-    { id: 'width', label: 'Width', key: 'explorerMinimap', choices: EXPLORER_MINIMAP_WIDTH_CHOICES, current: prefs.width },
-    { id: 'vertical', label: 'Vertical size', key: 'explorerMinimapVerticalSize', choices: EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES, current: prefs.verticalSize },
-    { id: 'slider', label: 'Slider', key: 'explorerMinimapSlider', choices: EXPLORER_MINIMAP_SLIDER_CHOICES, current: prefs.slider },
-    { id: 'side', label: 'Side', key: 'explorerMinimapSide', choices: EXPLORER_MINIMAP_SIDE_CHOICES, current: prefs.side }
-  ];
-
+  const submenus = React.useMemo(() => buildMinimapSubmenus(prefs), [prefs]);
   const apply = (patch: ExplorerMinimapPatch) => {
     onChange(patch);
     onClose();
@@ -108,41 +159,7 @@ export function MinimapContextMenu({ prefs, autoHidden, x, y, onChange, onClose 
     };
   }, [onClose]);
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement;
-    const menu = target.closest<HTMLElement>('[role="menu"]');
-    if (!menu) return;
-    const inSubmenu = menu !== rootRef.current;
-    const items = levelItems(menu);
-    const index = items.indexOf(target as HTMLButtonElement);
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      if (!items.length) return;
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      items[(index + step + items.length) % items.length]?.focus();
-    } else if (event.key === 'ArrowRight' && !inSubmenu && target.getAttribute('aria-haspopup') === 'menu') {
-      event.preventDefault();
-      setOpen({ id: target.dataset.submenu ?? '', focus: true });
-    } else if (event.key === 'ArrowLeft' && inSubmenu) {
-      event.preventDefault();
-      closeSubmenu();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      if (inSubmenu) closeSubmenu();
-      else onClose();
-    }
-  };
-
-  const closeSubmenu = () => {
-    const id = open?.id;
-    setOpen(null);
-    if (id) rootRef.current?.querySelector<HTMLElement>(`[data-submenu="${id}"]`)?.focus();
-  };
-
-  const left = Math.max(0, Math.min(x, window.innerWidth - MENU_WIDTH));
-  const top = Math.max(0, Math.min(y, window.innerHeight - actualHeight));
-  const flip = left + MENU_WIDTH + SUBMENU_WIDTH > window.innerWidth;
+  const { left, top, flip } = computeMenuPosition(x, y, actualHeight);
 
   return (
     <div
@@ -151,7 +168,7 @@ export function MinimapContextMenu({ prefs, autoHidden, x, y, onChange, onClose 
       role="menu"
       aria-label="Minimap"
       style={{ top, left }}
-      onKeyDown={onKeyDown}
+      onKeyDown={(event) => handleMenuKeyDown({ event, root: rootRef.current, open, setOpen, onClose })}
       onClick={(e) => e.stopPropagation()}
     >
       <button

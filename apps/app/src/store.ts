@@ -2139,14 +2139,27 @@ export const useData = create<DataState>((set, get) => ({
     const cur = get().explorerMinimap;
     const optimistic: ExplorerMinimapPrefs = {
       enabled: patch.explorerMinimapEnabled ?? cur.enabled,
-      width: patch.explorerMinimapWidth ?? patch.explorerMinimap ?? cur.width,
+      width: patch.explorerMinimapWidth ?? cur.width,
       renderCharacters: patch.explorerMinimapRenderCharacters ?? cur.renderCharacters,
       verticalSize: patch.explorerMinimapVerticalSize ?? cur.verticalSize,
       slider: patch.explorerMinimapSlider ?? cur.slider,
       side: patch.explorerMinimapSide ?? cur.side
     };
     set({ explorerMinimap: optimistic });
-    product.config.set(patch).catch(() => set({ explorerMinimap: cur }));
+    product.config.set(patch).catch((err) => {
+      console.error('Failed to persist explorer minimap preferences', err);
+      const latest = get().explorerMinimap;
+      set({
+        explorerMinimap: {
+          enabled: patch.explorerMinimapEnabled !== undefined && latest.enabled === optimistic.enabled ? cur.enabled : latest.enabled,
+          width: patch.explorerMinimapWidth !== undefined && latest.width === optimistic.width ? cur.width : latest.width,
+          renderCharacters: patch.explorerMinimapRenderCharacters !== undefined && latest.renderCharacters === optimistic.renderCharacters ? cur.renderCharacters : latest.renderCharacters,
+          verticalSize: patch.explorerMinimapVerticalSize !== undefined && latest.verticalSize === optimistic.verticalSize ? cur.verticalSize : latest.verticalSize,
+          slider: patch.explorerMinimapSlider !== undefined && latest.slider === optimistic.slider ? cur.slider : latest.slider,
+          side: patch.explorerMinimapSide !== undefined && latest.side === optimistic.side ? cur.side : latest.side
+        }
+      });
+    });
   },
 
   setHeartbeatEnabled(on) {

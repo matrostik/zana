@@ -7,9 +7,8 @@ import { OpenerButtons } from '../OpenerButtons.js';
 import { languageFromPath } from '../../lib/monacoLanguage.js';
 import { StencilLines } from '../ui/Skeleton.js';
 import { platformShortcut } from '../../lib/platformShortcut.js';
-import { useData } from '../../store.js';
-import { minimapAutoHidden, minimapOptionsFor } from './minimapOptions.js';
 import { MinimapContextMenu } from './MinimapContextMenu.js';
+import { useMonacoMinimap } from './useMonacoMinimap.js';
 
 const Editor = lazy(() => import('./ExplorerEditor.js'));
 const MarkdownPreview = lazy(() => import('./MarkdownPreview.js'));
@@ -92,54 +91,16 @@ export function FileViewer({
   onTogglePreview,
   onToggleDiff
 }: FileViewerProps) {
-  const minimapPrefs = useData((s) => s.explorerMinimap);
-  const updateMinimap = useData((s) => s.updateExplorerMinimap);
-  const [minimapMenu, setMinimapMenu] = React.useState<{ x: number; y: number } | null>(null);
-  const editorSubs = React.useRef<Array<{ dispose(): void }>>([]);
-  React.useEffect(() => () => editorSubs.current.forEach((sub) => sub.dispose()), []);
-  // Track preview width to auto-hide the minimap when narrower than 480px.
-  const [monacoWidth, setMonacoWidth] = React.useState(0);
-  const observerRef = React.useRef<ResizeObserver | null>(null);
-  const rafRef = React.useRef<number>(0);
-  const handleMonacoRef = React.useCallback((el: HTMLDivElement | null) => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-      observerRef.current = null;
-    }
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
-    }
-    if (!el) return;
-    const measure = () => {
-      rafRef.current = 0;
-      setMonacoWidth(el.clientWidth);
-    };
-    measure();
-    const observer = new ResizeObserver(() => {
-      if (!rafRef.current) rafRef.current = requestAnimationFrame(measure);
-    });
-    observer.observe(el);
-    observerRef.current = observer;
-  }, []);
-  const minimap = React.useMemo(() => minimapOptionsFor(minimapPrefs, monacoWidth), [minimapPrefs, monacoWidth]);
-  React.useEffect(() => setMinimapMenu(null), [explorerFile]);
-  const closeMinimapMenu = React.useCallback(() => setMinimapMenu(null), []);
-  // Right-click on the minimap or the vertical scrollbar (Monaco reports both as
-  // SCROLLBAR) opens our menu; the standalone editor's built-in one is a no-op.
-  const handleEditorMount: OnMount = (ed, monaco) => {
-    editorSubs.current.forEach((sub) => sub.dispose());
-    editorSubs.current = [
-      ed.onContextMenu((e) => {
-        if (e.target.type !== monaco.editor.MouseTargetType.SCROLLBAR) return;
-        e.event.preventDefault();
-        e.event.stopPropagation();
-        setMinimapMenu({ x: e.event.posx, y: e.event.posy });
-      }),
-      ed.onDidScrollChange(() => setMinimapMenu(null))
-    ];
-    onEditorMount(ed, monaco);
-  };
+  const {
+    minimap,
+    minimapPrefs,
+    updateMinimap,
+    autoHidden,
+    minimapMenu,
+    handleMonacoRef,
+    handleEditorMount,
+    closeMinimapMenu
+  } = useMonacoMinimap(explorerFile, onEditorMount);
 
   if (!explorerFile) {
     return (
@@ -277,7 +238,7 @@ export function FileViewer({
         </span>
       </div>
       <div className="explorer-viewer-monaco" ref={handleMonacoRef}>
-        <ViewerBoundary key={`${explorerFile}:${showPreview ? 'preview' : showDiff ? 'diff' : 'editor'}`}>
+        <ViewerBoundary key={showPreview ? 'preview' : showDiff ? 'diff' : 'editor'} resetKey={explorerFile}>
           {showPreview ? (
             <MarkdownPreview content={editedContent ?? fileResult.content ?? ''} />
           ) : showDiff ? (
@@ -337,7 +298,7 @@ export function FileViewer({
         {minimapMenu && (
           <MinimapContextMenu
             prefs={minimapPrefs}
-            autoHidden={minimapAutoHidden(minimapPrefs, monacoWidth)}
+            autoHidden={autoHidden}
             x={minimapMenu.x}
             y={minimapMenu.y}
             onChange={updateMinimap}

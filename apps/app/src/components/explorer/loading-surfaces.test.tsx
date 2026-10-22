@@ -20,12 +20,12 @@ it('warns about slow root resolution without a deadline or retry button', () => 
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it('isolates rejected viewer modules and recovers when its file key changes', () => {
+it('isolates rejected viewer modules and recovers when resetKey changes', () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   const Broken = () => { throw new Error('Chunk unavailable'); };
-  const view = render(<ViewerBoundary key="bad"><Broken /></ViewerBoundary>);
+  const view = render(<ViewerBoundary resetKey="file1.ts"><Broken /></ViewerBoundary>);
   expect(screen.getByRole('alert').textContent).toContain('An unexpected error occurred');
-  view.rerender(<ViewerBoundary key="good"><p>File ready</p></ViewerBoundary>);
+  view.rerender(<ViewerBoundary resetKey="file2.ts"><p>File ready</p></ViewerBoundary>);
   expect(screen.getByText('File ready')).toBeTruthy();
 });
 

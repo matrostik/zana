@@ -108,15 +108,20 @@ function CheckoutExplorerView({ project, embedded = false, scope: baseScope, nat
   activeRoot.current = viewRoot;
   const [environments, setEnvironments] = useState<Awaited<ReturnType<typeof product.environments.list>>>([]);
   const [worktrees, setWorktrees] = useState<Worktree[]>([]);
-  const scope = useMemo(() => {
-    if (!baseScope) return undefined;
-    if (viewRoot === project.path) return baseScope;
+  const resolvedEnvironmentId = useMemo(() => {
+    if (!baseScope || viewRoot === project.path) return null;
     const environment = environments.find(row => row.path === viewRoot && row.hostId === baseScope.hostId);
     // Existing native Git worktrees retain main's established authorization.
     // This exception is available only in the primary desktop, never on a remote target.
-    if (!environment && nativeFiles && worktrees.some(row => row.path === viewRoot)) return undefined;
-    return { ...baseScope, environmentId: environment?.id ?? 'unregistered-checkout' };
-  }, [baseScope, viewRoot, project.path, environments, nativeFiles, worktrees]);
+    if (!environment && nativeFiles && worktrees.some(row => row.path === viewRoot)) return 'native';
+    return environment?.id ?? 'unregistered-checkout';
+  }, [baseScope?.hostId, viewRoot, project.path, environments, nativeFiles, worktrees]);
+  const scope = useMemo(() => {
+    if (!baseScope) return undefined;
+    if (viewRoot === project.path) return baseScope;
+    if (resolvedEnvironmentId === 'native') return undefined;
+    return { ...baseScope, environmentId: resolvedEnvironmentId ?? 'unregistered-checkout' };
+  }, [baseScope, viewRoot, project.path, resolvedEnvironmentId]);
   // All local branches of the repo (not just the ones bound to a worktree), so
   // the switcher can list every branch and badge which checkout it's on.
   const [branches, setBranches] = useState<GitBranchInfo[]>([]);
@@ -245,6 +250,8 @@ function CheckoutExplorerView({ project, embedded = false, scope: baseScope, nat
   };
 
   const [expanded, setExpanded] = useState<Map<string, boolean>>(new Map());
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
   const readDirectory = useCallback((path: string) => isRemote
     ? product.fs.listDirRemote(project.id, path)
     : product.fs.listDir(path, scope), [isRemote, project.id, scope]);
@@ -357,13 +364,18 @@ function CheckoutExplorerView({ project, embedded = false, scope: baseScope, nat
           if (!cancelled) setRemoteError(err instanceof Error ? err.message : 'Could not reach the remote host');
         });
       return () => { cancelled = true; };
+    } else {
+      setViewRoot(project.path);
     }
-  }, [project.id, isRemote]);
+  }, [project.id, project.path, isRemote]);
 
   useEffect(() => {
     resetDirectories();
     if (isRemote && !remoteReady) return;
     void loadDir(viewRoot);
+    for (const [dir, isOpen] of expandedRef.current.entries()) {
+      if (isOpen && dir !== viewRoot) void loadDir(dir);
+    }
   }, [viewRoot, isRemote, remoteReady, loadDir, resetDirectories]);
 
   // When the view root changes (worktree switch), re-seed the tree at the new

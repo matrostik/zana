@@ -29,6 +29,7 @@ export function FileIcon({ name, size = 13 }: IconProps & { name: string }) {
 
 /** Folder glyph for tree rows. */
 export function FolderIcon({ open = false, size = 13 }: IconProps & { open?: boolean }) {
+  const theme = useData((s) => s.explorerFileIconTheme);
+  if (theme === 'none') return null;
   return open ? <FolderOpen size={size} aria-hidden="true" /> : <Folder size={size} aria-hidden="true" />;
 }
-

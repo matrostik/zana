@@ -10,7 +10,7 @@ const ViewerLoadingFallback = (
 );
 
 /** A failed editor/preview chunk must never take the file tree down with it. */
-export class ViewerBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
+export class ViewerBoundary extends Component<{ children: ReactNode; resetKey?: unknown }, { error: boolean }> {
   state: { error: boolean } = { error: false };
 
   static getDerivedStateFromError() {
@@ -19,6 +19,12 @@ export class ViewerBoundary extends Component<{ children: ReactNode }, { error: 
 
   componentDidCatch(error: unknown) {
     console.error('File viewer failed to load:', error);
+  }
+
+  componentDidUpdate(prevProps: { children: ReactNode; resetKey?: unknown }) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: false });
+    }
   }
 
   render() {

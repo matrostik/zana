@@ -1122,10 +1122,9 @@ export function normalizeConfig(input: Partial<AppConfig>): Partial<AppConfig> {
     typeof v === 'string' && (choices as readonly string[]).includes(v) ? (v as T) : undefined;
   const fileIconTheme = oneOf(EXPLORER_FILE_ICON_THEME_CHOICES, input.explorerFileIconTheme);
   if (fileIconTheme) normalized.explorerFileIconTheme = fileIconTheme;
-  const minimapWidth = oneOf(EXPLORER_MINIMAP_WIDTH_CHOICES, input.explorerMinimapWidth ?? input.explorerMinimap);
+  const minimapWidth = oneOf(EXPLORER_MINIMAP_WIDTH_CHOICES, input.explorerMinimapWidth);
   if (minimapWidth) {
     normalized.explorerMinimapWidth = minimapWidth;
-    normalized.explorerMinimap = minimapWidth;
   }
   const minimapVerticalSize = oneOf(EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES, input.explorerMinimapVerticalSize);
   if (minimapVerticalSize) normalized.explorerMinimapVerticalSize = minimapVerticalSize;

@@ -76,19 +76,63 @@ interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
+function cancelPendingRequests(requests: Map<string, PendingRequest>): void {
+  for (const request of requests.values()) clearTimeout(request.timer);
+  requests.clear();
+}
+
+interface RequestContext {
+  path: string;
+  epoch: number;
+  readDirectory: (path: string) => Promise<FsEntry[]>;
+  generation: React.MutableRefObject<number>;
+  requests: React.MutableRefObject<Map<string, PendingRequest>>;
+  promiseCache: React.MutableRefObject<Map<string, Promise<FsEntry[]>>>;
+  dispatch: React.Dispatch<DirectoryAction>;
+}
+
+function createDirectoryRequest(ctx: RequestContext): PendingRequest {
+  const { path, epoch, readDirectory, generation, requests, promiseCache, dispatch } = ctx;
+  let timer: ReturnType<typeof setTimeout>;
+  const isCurrent = () => generation.current === epoch && requests.current.get(path)?.timer === timer;
+
+  timer = setTimeout(() => {
+    if (isCurrent()) dispatch({ type: 'MARK_SLOW', path });
+  }, DIRECTORY_SLOW_MS);
+
+  const promise = Promise.resolve()
+    .then(() => (isCurrent() ? readDirectory(path) : []))
+    .then((list) => {
+      if (!isCurrent()) return [];
+      promiseCache.current.set(path, Promise.resolve(list));
+      dispatch({ type: 'SUCCESS', path, entries: list });
+      return list;
+    })
+    .catch((error) => {
+      if (isCurrent()) {
+        const message = error instanceof Error ? error.message : 'Failed to list directory';
+        dispatch({ type: 'FAILURE', path, error: message });
+      }
+      return [];
+    })
+    .finally(() => {
+      clearTimeout(timer);
+      if (isCurrent()) requests.current.delete(path);
+    });
+
+  return { promise, timer };
+}
+
 /** Mount-local listings: never reused across Explorer visits or checkout scopes. */
 export function useDirectoryLoader(readDirectory: (path: string) => Promise<FsEntry[]>) {
   const [{ entries, loading, slow, errors }, dispatch] = useReducer(directoryReducer, INITIAL_STATE);
-  const cache = useRef(new Map<string, FsEntry[]>());
   const promiseCache = useRef(new Map<string, Promise<FsEntry[]>>());
   const requests = useRef(new Map<string, PendingRequest>());
   const generation = useRef(0);
 
   const invalidate = useCallback(() => {
     generation.current++;
-    for (const request of requests.current.values()) clearTimeout(request.timer);
-    requests.current.clear();
-    cache.current.clear();
+    cancelPendingRequests(requests.current);
     promiseCache.current.clear();
   }, []);
 
@@ -106,48 +150,25 @@ export function useDirectoryLoader(readDirectory: (path: string) => Promise<FsEn
     if (!force) {
       const pending = requests.current.get(path);
       if (pending) return pending.promise;
-      const cachedPromise = promiseCache.current.get(path);
-      if (cachedPromise) return cachedPromise;
+      const cached = promiseCache.current.get(path);
+      if (cached) return cached;
     }
-    // Forced reads replace rather than join the old request. IPC has no abort
-    // surface, so identity + generation checks also protect non-cancellable reads.
     const previous = requests.current.get(path);
     if (previous) clearTimeout(previous.timer);
-    cache.current.delete(path);
     promiseCache.current.delete(path);
     dispatch({ type: 'START_LOAD', path });
 
-    const epoch = generation.current;
-    const timer = setTimeout(() => {
-      if (isCurrent()) dispatch({ type: 'MARK_SLOW', path });
-    }, DIRECTORY_SLOW_MS);
-    const isCurrent = () => generation.current === epoch && requests.current.get(path)?.timer === timer;
-
-    const promise = Promise.resolve()
-      .then(() => (isCurrent() ? readDirectory(path) : []))
-      .then(list => {
-        if (!isCurrent()) return [];
-        cache.current.set(path, list);
-        promiseCache.current.set(path, Promise.resolve(list));
-        dispatch({ type: 'SUCCESS', path, entries: list });
-        return list;
-      })
-      .catch(error => {
-        if (isCurrent()) {
-          const message = error instanceof Error ? error.message : 'Failed to list directory';
-          dispatch({ type: 'FAILURE', path, error: message });
-        }
-        return [];
-      })
-      .finally(() => {
-        clearTimeout(timer);
-        if (!isCurrent()) return;
-        requests.current.delete(path);
-      });
-
-    const request: PendingRequest = { promise, timer };
+    const request = createDirectoryRequest({
+      path,
+      epoch: generation.current,
+      readDirectory,
+      generation,
+      requests,
+      promiseCache,
+      dispatch,
+    });
     requests.current.set(path, request);
-    return promise;
+    return request.promise;
   }, [readDirectory]);
 
   return { entries, loading, slow, errors, loadDir, reset };

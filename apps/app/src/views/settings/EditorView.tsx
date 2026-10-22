@@ -190,9 +190,6 @@ export function EditorView({
     </Field>
   );
 
-  const minimap = resolveExplorerMinimap(config);
-  const fileIconTheme = resolveExplorerFileIconTheme(config);
-
   return (
     <>
     <Section
@@ -289,6 +286,21 @@ export function EditorView({
       </div>
     </Section>
 
+      <ExplorerPreviewSettings config={config} onUpdate={onUpdate} />
+      <ExplorerFileSettings config={config} onUpdate={onUpdate} />
+    </>
+  );
+}
+
+function ExplorerPreviewSettings({
+  config,
+  onUpdate
+}: {
+  config: AppConfig;
+  onUpdate: (patch: Partial<AppConfig>) => void;
+}) {
+  const minimap = resolveExplorerMinimap(config);
+  return (
     <Section
       anchorId="editor-explorer-preview"
       searchId="editor.explorer-preview"
@@ -362,7 +374,18 @@ export function EditorView({
         </Field>
       ))}
     </Section>
+  );
+}
 
+function ExplorerFileSettings({
+  config,
+  onUpdate
+}: {
+  config: AppConfig;
+  onUpdate: (patch: Partial<AppConfig>) => void;
+}) {
+  const fileIconTheme = resolveExplorerFileIconTheme(config);
+  return (
     <Section
       anchorId="editor-explorer-files"
       searchId="editor.explorer-files"
@@ -383,7 +406,6 @@ export function EditorView({
         />
       </Field>
     </Section>
-    </>
   );
 }
 

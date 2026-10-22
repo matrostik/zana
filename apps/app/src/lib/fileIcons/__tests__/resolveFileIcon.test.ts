@@ -29,10 +29,12 @@ describe('resolveFileIcon', () => {
     expect(id('TSCONFIG.JSON')).toBe(FILE_NAMES['tsconfig.json']);
   });
 
-  it('handles dotfiles', () => {
+  it('handles dotfiles with leading or multiple dots', () => {
     expect(id('.gitignore')).toBe(FILE_NAMES['.gitignore']);
     expect(id('.env')).toBe(FILE_NAMES['.env']);
     expect(id('.env')).not.toBe(DEFAULT_ICON);
+    expect(id('..hidden')).toBe(DEFAULT_ICON);
+    expect(id('.test.ts')).toBe(FILE_EXTENSIONS['test.ts']);
   });
 
   it('uses only the basename of a path (either separator)', () => {
@@ -70,6 +72,15 @@ describe('resolveFileIcon', () => {
       resolveFileIcon(`file-${i}.txt`);
     }
     expect(resolveFileIcon('file-500.txt')).toBeDefined();
+  });
+
+  it('refreshes LRU recency on cache hit so frequently accessed keys avoid eviction', () => {
+    const ref1 = resolveFileIcon('frequently-accessed.ts');
+    for (let i = 0; i < 600; i++) {
+      resolveFileIcon(`burst-${i}.txt`);
+      if (i % 20 === 0) resolveFileIcon('frequently-accessed.ts');
+    }
+    expect(resolveFileIcon('frequently-accessed.ts')).toBe(ref1);
   });
 });
 

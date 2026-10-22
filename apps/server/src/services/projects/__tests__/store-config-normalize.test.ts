@@ -350,28 +350,23 @@ describe('normalizeConfig — auto-close-idle flags', () => {
     expect(out).toMatchObject({
       explorerMinimapEnabled: false,
       explorerMinimapWidth: 'wide',
-      explorerMinimap: 'wide',
       explorerMinimapRenderCharacters: false,
       explorerMinimapVerticalSize: 'fit',
       explorerMinimapSlider: 'always',
       explorerMinimapSide: 'left'
     });
-    const legacy = normalizeConfig({ explorerMinimap: 'narrow' });
-    expect(legacy).toMatchObject({ explorerMinimapWidth: 'narrow', explorerMinimap: 'narrow' });
     const junk = normalizeConfig({
       explorerMinimapEnabled: 'yes' as never,
       explorerMinimapWidth: 'off' as never,
-      explorerMinimap: 'off' as never,
       explorerMinimapRenderCharacters: 1 as never,
       explorerMinimapVerticalSize: 'huge' as never,
       explorerMinimapSlider: 3 as never,
       explorerMinimapSide: 'top' as never
     });
-    for (const key of ['explorerMinimapEnabled', 'explorerMinimapWidth', 'explorerMinimap', 'explorerMinimapRenderCharacters', 'explorerMinimapVerticalSize', 'explorerMinimapSlider', 'explorerMinimapSide'] as const) {
+    for (const key of ['explorerMinimapEnabled', 'explorerMinimapWidth', 'explorerMinimapRenderCharacters', 'explorerMinimapVerticalSize', 'explorerMinimapSlider', 'explorerMinimapSide'] as const) {
       expect(junk[key]).toBeUndefined();
     }
     expect(normalizeConfig({}).explorerMinimapWidth).toBeUndefined();
-    expect(normalizeConfig({}).explorerMinimap).toBeUndefined();
   });
 
   it('keeps a known explorer file icon theme and drops anything else', () => {

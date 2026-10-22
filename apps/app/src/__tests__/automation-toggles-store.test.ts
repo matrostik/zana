@@ -97,10 +97,29 @@ describe('useData.updateExplorerMinimap', () => {
   });
 
   it('rolls back to the previous prefs when the persist fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     configSet.mockRejectedValueOnce(new Error('boom'));
     useData.getState().updateExplorerMinimap({ explorerMinimapEnabled: false });
     expect(useData.getState().explorerMinimap.enabled).toBe(false);
     await vi.waitFor(() => expect(useData.getState().explorerMinimap.enabled).toBe(true));
+  });
+
+  it('rolls back only fields matching the failed patch without overwriting subsequent changes', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    let rejectFirst!: (err: Error) => void;
+    configSet.mockReturnValueOnce(new Promise((_, reject) => { rejectFirst = reject; }));
+    configSet.mockResolvedValueOnce(undefined);
+
+    useData.getState().updateExplorerMinimap({ explorerMinimapSide: 'left' });
+    expect(useData.getState().explorerMinimap.side).toBe('left');
+
+    useData.getState().updateExplorerMinimap({ explorerMinimapWidth: 'narrow' });
+    expect(useData.getState().explorerMinimap.width).toBe('narrow');
+
+    rejectFirst(new Error('persist failed'));
+    await vi.waitFor(() => expect(useData.getState().explorerMinimap.side).toBe('right'));
+
+    expect(useData.getState().explorerMinimap.width).toBe('narrow');
   });
 });
 
