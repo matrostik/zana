@@ -24,7 +24,7 @@ vi.mock('@/store', async () => {
   return { useUi, useData };
 });
 vi.mock('@/components/explorer', () => ({
-  WorktreeMenu: ({ loading, error }: any) => <><span>{loading ? 'Loading checkouts' : 'Checkouts ready'}</span>{error && <p role="alert">{error}</p>}</>,
+  WorktreeMenu: ({ loading, error, onSelectWorktree, worktrees }: any) => <><span>{loading ? 'Loading checkouts' : 'Checkouts ready'}</span>{error && <p role="alert">{error}</p>}{worktrees?.map((wt: any) => <button key={wt.path} onClick={() => onSelectWorktree(wt.path)}>Switch to {wt.path}</button>)}</>,
   ExplorerGitFooter: ({ onToggleMenu, menu }: any) => <><button onClick={onToggleMenu}>Checkouts</button>{menu}</>,
   ExplorerTreeHeader: ({ onRefresh }: any) => <button onClick={onRefresh}>Refresh files</button>,
   ExplorerContextMenu: () => null, ChangesList: () => null, useFileOperations: () => ({}), DirectoryLoading: ({ label }: any) => <div className="tree-loading">{label ?? 'Loading files'}</div>,
@@ -441,3 +441,78 @@ it('handles git status failure on non-main worktree without crashing', async () 
   );
   await screen.findByRole('button', { name: 'owner.txt' });
 });
+it('switches view root to a native worktree and resolves scope accordingly', async () => {
+  mocks.worktrees.mockResolvedValue([
+    { path: '/a/worktree-1', head: '111', branch: 'feat-1', detached: false, bare: false, isMain: false }
+  ]);
+  mocks.environments.mockResolvedValue([]);
+  mocks.list.mockImplementation(async (path: string) => [
+    { name: path === '/a' ? 'owner.txt' : 'file-in-wt.txt', path: `${path}/${path === '/a' ? 'owner.txt' : 'file-in-wt.txt'}`, kind: 'file' }
+  ]);
+  render(<ExplorerView project={project} nativeFiles={true} scope={{ projectId: 'p', hostId: 'a' }} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to /a/worktree-1' }));
+  await screen.findByRole('button', { name: 'file-in-wt.txt' });
+});
+
+it('switches view root to a managed environment and an unregistered worktree', async () => {
+  mocks.worktrees.mockResolvedValue([
+    { path: '/a/managed-wt', head: '222', branch: 'feat-2', detached: false, bare: false, isMain: false },
+    { path: '/a/unreg-wt', head: '333', branch: 'feat-3', detached: false, bare: false, isMain: false }
+  ]);
+  mocks.environments.mockResolvedValue([
+    { id: 'env-managed', hostId: 'a', path: '/a/managed-wt', status: 'ready', workspaceProvisionType: 'managed-worktree', branchName: 'feat-2' }
+  ]);
+  mocks.list.mockImplementation(async (path: string) => [
+    { name: path === '/a' ? 'owner.txt' : 'wt-item.txt', path: `${path}/${path === '/a' ? 'owner.txt' : 'wt-item.txt'}`, kind: 'file' }
+  ]);
+  render(<ExplorerView project={project} nativeFiles={false} scope={{ projectId: 'p', hostId: 'a' }} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+
+  // Switch to managed worktree
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to /a/managed-wt' }));
+  await screen.findByRole('button', { name: 'wt-item.txt' });
+
+  // Switch to unregistered worktree
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to /a/unreg-wt' }));
+  await screen.findByRole('button', { name: 'wt-item.txt' });
+});
+
+it('loads open subfolders when viewRoot changes', async () => {
+  mocks.worktrees.mockResolvedValue([
+    { path: '/a/worktree-sub', head: '111', branch: 'feat-sub', detached: false, bare: false, isMain: false }
+  ]);
+  mocks.list.mockImplementation(async (path: string) => {
+    if (path === '/a') return [{ name: 'folder1', path: '/a/folder1', kind: 'dir' }];
+    if (path === '/a/folder1') return [{ name: 'file1.txt', path: '/a/folder1/file1.txt', kind: 'file' }];
+    return [{ name: 'item.txt', path: `${path}/item.txt`, kind: 'file' }];
+  });
+  render(<ExplorerView project={project} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'folder1' }));
+  await screen.findByRole('button', { name: 'file1.txt' });
+
+  // Switch checkout while folder1 is open
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to /a/worktree-sub' }));
+  await screen.findByRole('button', { name: 'item.txt' });
+});
+
+it('ignores checkout metadata failures that finish after the menu closes', async () => {
+  let rejectWorktrees!: (err: any) => void;
+  mocks.worktrees.mockImplementationOnce(() => new Promise((_, reject) => { rejectWorktrees = reject; }));
+  render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Loading checkouts');
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await act(async () => rejectWorktrees(new Error('late failure')));
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
