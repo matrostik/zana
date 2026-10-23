@@ -8,6 +8,7 @@ import { EMPTY_THREAD_ACTIVITY } from '@zana-ai/zcc-thread-view';
 import { startProductServer, type ProductServer } from './product-server.js';
 import { AmbiguousHostError, HostUnavailableError } from './host-hub.js';
 import { registerThreadProvider } from '../services/threads/thread-provider-catalog.js';
+import { isWithinCheckout } from './product-api.js';
 
 const reconcileMock = vi.hoisted(() => ({ failure: undefined as unknown, active: false, count: 0 }));
 vi.mock('../services/hosts/host-bootstrap.js', async (importActual) => {
@@ -3537,5 +3538,105 @@ describe('product HTTP thread background stop', () => {
       expect(idle.status).toBe(409);
       await expect(idle.json()).resolves.toMatchObject({ error: 'not-running' });
     }
+  });
+
+  it('launches a terminal on a hostId-bound project when path is a Windows path', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'zcc-win-term-'));
+    const projectRoot = 'D:\\\\Dev\\\\mock-windows-project';
+    writeFileSync(
+      join(dataDir, 'projects.json'),
+      JSON.stringify({
+        version: 1,
+        projects: [
+          {
+            id: 'proj-win',
+            name: 'Windows Project',
+            path: projectRoot,
+            hostId: 'host-win',
+            createdAt: 1,
+            lastActiveAt: 1
+          }
+        ]
+      })
+    );
+    server = await startTestProductServer({
+      dataDir,
+      origins: { serverPort: 0, devAppPort: 5173 }
+    });
+
+    const host = upsertHost(server.ctx.db, { id: 'host-win', name: 'win-box', hostKeyHash: 'w'.repeat(64) });
+    createEnvironment(server.ctx.db, {
+      id: 'env-win',
+      projectId: 'proj-win',
+      hostId: host.id,
+      path: projectRoot,
+      workspaceProvisionType: 'unmanaged'
+    });
+
+    const rpc = vi.fn(async (input: { command: { type: string; sessionId?: string } }) => {
+      if (input.command.type === 'terminal.start') {
+        return { sessionId: input.command.sessionId, started: true, pid: 1234 };
+      }
+      return { accepted: true };
+    });
+    server.ctx.hostHub.connectedHostIds = () => ['host-win'];
+    server.ctx.hostHub.resolveHostId = () => 'host-win';
+    server.ctx.hostHub.ensureHostSessionReady = () => ({}) as never;
+    server.ctx.hostHub.getSession = () => ({ instanceId: 'inst-1' }) as never;
+    server.ctx.hostHub.callHostOnlineRpc = rpc;
+
+    const launch = await fetch(`${server.url}api/v1/terminals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: 'proj-win', profile: 'shell', cwd: projectRoot })
+    });
+    expect(launch.status).toBe(201);
+    const created = await launch.json() as { ok: boolean; value: { id: string; status: string } };
+    expect(created.ok).toBe(true);
+    expect(created.value.status).toBe('running');
+  });
+});
+
+describe('isWithinCheckout', () => {
+  it('accepts posix paths inside root', () => {
+    expect(isWithinCheckout('/home/user/project', '/home/user/project')).toBe(true);
+    expect(isWithinCheckout('/home/user/project', '/home/user/project/src')).toBe(true);
+    expect(isWithinCheckout('/home/user/project', '/home/user/project/src/deep')).toBe(true);
+  });
+
+  it('rejects posix paths outside root', () => {
+    expect(isWithinCheckout('/home/user/project', '/home/user/other')).toBe(false);
+    expect(isWithinCheckout('/home/user/project', '/home/user')).toBe(false);
+    expect(isWithinCheckout('/home/user/project', '/')).toBe(false);
+    expect(isWithinCheckout('/home/user/project', 'relative/path')).toBe(false);
+  });
+
+  it('accepts windows paths with drive letters inside root', () => {
+    expect(isWithinCheckout('C:\\\\Users\\\\project', 'C:\\\\Users\\\\project')).toBe(true);
+    expect(isWithinCheckout('C:\\\\Users\\\\project', 'C:\\\\Users\\\\project\\\\src')).toBe(true);
+    expect(isWithinCheckout('C:/Users/project', 'C:/Users/project/src')).toBe(true);
+    expect(isWithinCheckout('D:\\\\Dev\\\\code\\\\zana', 'D:\\\\Dev\\\\code\\\\zana')).toBe(true);
+    expect(isWithinCheckout('D:\\\\Dev\\\\code\\\\zana', 'D:\\\\Dev\\\\code\\\\zana\\\\apps\\\\server')).toBe(true);
+    expect(isWithinCheckout('D:/Dev/code/zana', 'D:/Dev/code/zana/apps')).toBe(true);
+  });
+
+  it('rejects windows paths outside root or on different drives', () => {
+    expect(isWithinCheckout('C:\\\\Users\\\\project', 'C:\\\\Users')).toBe(false);
+    expect(isWithinCheckout('C:\\\\Users\\\\project', 'D:\\\\Users\\\\project')).toBe(false);
+    expect(isWithinCheckout('C:\\\\Users\\\\project', 'C:\\\\Windows\\\\System32')).toBe(false);
+    expect(isWithinCheckout('D:\\\\Dev\\\\code\\\\zana', 'relative\\\\path')).toBe(false);
+  });
+
+  it('accepts UNC windows paths inside root', () => {
+    expect(isWithinCheckout('\\\\\\\\server\\\\share\\\\project', '\\\\\\\\server\\\\share\\\\project')).toBe(true);
+    expect(isWithinCheckout('\\\\\\\\server\\\\share\\\\project', '\\\\\\\\server\\\\share\\\\project\\\\sub')).toBe(true);
+    expect(isWithinCheckout('\\\\\\\\server\\\\share\\\\project', '\\\\\\\\server\\\\share\\\\other')).toBe(false);
+  });
+
+  it('rejects non-strings and paths containing control characters', () => {
+    expect(isWithinCheckout('/home/user', '/home/user\x00')).toBe(false);
+    expect(isWithinCheckout('/home/user', '/home/user\x1f')).toBe(false);
+    expect(isWithinCheckout(null as any, '/home/user')).toBe(false);
+    expect(isWithinCheckout('/home/user', undefined as any)).toBe(false);
   });
 });

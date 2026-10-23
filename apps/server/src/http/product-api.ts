@@ -25,7 +25,7 @@ import { assertPlanRevision, planImplementationMode, planImplementationPrompt } 
 import { readPluginHttpBody, PluginHttpBodyTooLarge } from './plugin-http-body.js';
 import { conversationHistoryAsync } from '../services/threads/conversation-history.js';
 import { randomUUID } from 'node:crypto';
-import { isAbsolute, join, relative, sep, posix } from 'node:path';
+import { isAbsolute, join, relative, sep, posix, win32 } from 'node:path';
 import { homedir } from 'node:os';
 import { realpathSync, statSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -189,6 +189,17 @@ function parseReasoningLevel(value: unknown): ReasoningLevel | undefined {
 function isContained(root: string, candidate: string): boolean {
   const path = relative(root, candidate);
   return path === '' || (!isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`));
+}
+
+export function isWithinCheckout(root: string, candidate: string): boolean {
+  if (typeof candidate !== 'string' || typeof root !== 'string' || /[\x00-\x1f]/.test(candidate)) return false;
+  const isWindows = /^[a-zA-Z]:[\\/]/.test(root) || root.startsWith('\\\\') || root.includes('\\')
+    || /^[a-zA-Z]:[\\/]/.test(candidate) || candidate.startsWith('\\\\') || candidate.includes('\\')
+    || (process.platform === 'win32' && win32.isAbsolute(candidate) && win32.isAbsolute(root));
+  const p = isWindows ? win32 : posix;
+  if (!p.isAbsolute(candidate) || !p.isAbsolute(root)) return false;
+  const rel = p.relative(root, candidate);
+  return rel !== '..' && !rel.startsWith('..' + p.sep) && !rel.startsWith('../') && !p.isAbsolute(rel);
 }
 
 function pluginSnapshot(plugins: ProductHttpContext['plugins']) {
@@ -3380,9 +3391,7 @@ export async function handleProductHttp(
           executionHostId = environment.hostId;
           terminalRoot = environment.path;
           cwd = body.cwd ?? terminalRoot;
-          if (typeof cwd !== 'string' || !posix.isAbsolute(cwd) || /[\x00-\x1f]/.test(cwd)) throw new ThreadCreateError(403, 'cwd-escape', 'cwd must be inside the selected checkout');
-          const rel = posix.relative(terminalRoot, cwd);
-          if (rel === '..' || rel.startsWith('../') || posix.isAbsolute(rel)) throw new ThreadCreateError(403, 'cwd-escape', 'cwd must be inside the selected checkout');
+          if (!isWithinCheckout(terminalRoot, cwd)) throw new ThreadCreateError(403, 'cwd-escape', 'cwd must be inside the selected checkout');
           workspaceEnvironmentId = environment.id;
         } else if (workspaceChoice?.data && workspaceChoice.data.kind !== 'unmanaged' && !body.isolateScratch) {
           if (!statSync(project.path).isDirectory()) throw new Error('not a directory');
