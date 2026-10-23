@@ -10,15 +10,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const themePath = resolve(root, 'apps/app/src/assets/seti/vs-seti-icon-theme.json');
-const outDir = resolve(root, 'apps/app/src/lib/fileIcons');
+export const themePath = resolve(root, 'apps/app/src/assets/seti/vs-seti-icon-theme.json');
+export const outDir = resolve(root, 'apps/app/src/lib/fileIcons');
 
 /**
  * VS Code resolves many Seti icons through language ids, and the renderer has
  * no language registry, so the common built-in extension → language
  * associations are folded in here. Explicit `fileExtensions` entries win.
  */
-const EXTENSION_LANGUAGES = {
+export const EXTENSION_LANGUAGES = {
   bat: 'bat', cmd: 'bat',
   bicep: 'bicep',
   c: 'c', h: 'c',
@@ -48,35 +48,32 @@ const EXTENSION_LANGUAGES = {
   cjs: 'javascript', es6: 'javascript', js: 'javascript', mjs: 'javascript',
   jsx: 'javascriptreact',
   jinja: 'jinja', j2: 'jinja',
-  json: 'json', jsonc: 'jsonc', jsonl: 'jsonl',
+  json: 'json', jsonc: 'jsonc',
   jl: 'julia',
   kt: 'kotlin', kts: 'kotlin',
-  latex: 'latex', ltx: 'latex',
+  tex: 'latex',
   less: 'less',
   lua: 'lua',
-  mk: 'makefile',
-  markdown: 'markdown', md: 'markdown', mdx: 'markdown',
-  m: 'objective-c',
-  mm: 'objective-cpp',
-  ml: 'ocaml', mli: 'ocaml',
-  njk: 'nunjucks',
+  makefile: 'makefile', mk: 'makefile',
+  md: 'markdown', markdown: 'markdown',
+  matlab: 'matlab', m: 'matlab',
+  pas: 'pascal', pp: 'pascal',
   pl: 'perl', pm: 'perl',
   php: 'php',
-  ps1: 'powershell', psm1: 'powershell',
-  properties: 'properties',
-  py: 'python', pyw: 'python', pyi: 'python',
+  ps1: 'powershell', psm1: 'powershell', psd1: 'powershell',
+  pug: 'pug',
+  py: 'python', pyw: 'python', ipynb: 'jupyter',
   r: 'r',
-  cshtml: 'razor', razor: 'razor',
-  res: 'rescript',
+  rst: 'restructuredtext',
   rb: 'ruby',
   rs: 'rust',
-  sass: 'sass',
-  scss: 'scss',
-  bash: 'shellscript', sh: 'shellscript', zsh: 'shellscript',
+  sass: 'sass', scss: 'scss',
+  scala: 'scala', sc: 'scala',
+  sh: 'shellscript', bash: 'shellscript', zsh: 'shellscript',
   sql: 'sql',
-  styl: 'stylus',
   swift: 'swift',
-  tf: 'terraform', tfvars: 'terraform',
+  tcl: 'tcl',
+  tf: 'terraform',
   tex: 'tex',
   cts: 'typescript', mts: 'typescript', ts: 'typescript',
   tsx: 'typescriptreact',
@@ -87,7 +84,7 @@ const EXTENSION_LANGUAGES = {
 };
 
 /** Well-known basenames VS Code assigns a language (and thus an icon) to. */
-const FILENAME_LANGUAGES = {
+export const FILENAME_LANGUAGES = {
   '.dockerignore': 'ignore',
   '.env': 'dotenv',
   '.gitignore': 'ignore',
@@ -97,60 +94,61 @@ const FILENAME_LANGUAGES = {
   makefile: 'makefile'
 };
 
-const theme = JSON.parse(readFileSync(themePath, 'utf8'));
-const defs = theme.iconDefinitions;
-const lower = (map) => Object.fromEntries(Object.entries(map).map(([k, v]) => [k.toLowerCase(), v]));
+export function generateSetiIcons(customThemePath = themePath, customOutDir = outDir) {
+  const theme = JSON.parse(readFileSync(customThemePath, 'utf8'));
+  const defs = theme.iconDefinitions;
+  const lower = (map) => Object.fromEntries(Object.entries(map || {}).map(([k, v]) => [k.toLowerCase(), v]));
 
-const fileNames = lower(theme.fileNames);
-const fileExtensions = lower(theme.fileExtensions);
-const languageIds = theme.languageIds;
-const DEFAULT_ICON = theme.file;
+  const fileNames = lower(theme.fileNames);
+  const fileExtensions = lower(theme.fileExtensions);
+  const languageIds = theme.languageIds || {};
+  const DEFAULT_ICON = theme.file;
 
-for (const [ext, lang] of Object.entries(EXTENSION_LANGUAGES)) {
-  if (fileExtensions[ext] === undefined && languageIds[lang] !== undefined) {
-    fileExtensions[ext] = languageIds[lang];
-  }
-}
-for (const [name, lang] of Object.entries(FILENAME_LANGUAGES)) {
-  if (fileNames[name] === undefined && languageIds[lang] !== undefined) {
-    fileNames[name] = languageIds[lang];
-  }
-}
-
-const used = new Set([DEFAULT_ICON, ...Object.values(fileNames), ...Object.values(fileExtensions)]);
-
-// dark icon id -> light icon id, from the theme's `light` overrides.
-const lightFor = { [DEFAULT_ICON]: theme.light.file };
-for (const kind of ['fileNames', 'fileExtensions', 'languageIds']) {
-  const dark = kind === 'fileNames' ? theme.fileNames : kind === 'fileExtensions' ? theme.fileExtensions : theme.languageIds;
-  for (const [key, lightId] of Object.entries(theme.light[kind] ?? {})) {
-    const darkId = dark[key];
-    if (darkId === undefined) continue;
-    if (lightFor[darkId] !== undefined && lightFor[darkId] !== lightId) {
-      throw new Error(`Ambiguous light icon for ${darkId}: ${lightFor[darkId]} vs ${lightId}`);
+  for (const [ext, lang] of Object.entries(EXTENSION_LANGUAGES)) {
+    if (fileExtensions[ext] === undefined && languageIds[lang] !== undefined) {
+      fileExtensions[ext] = languageIds[lang];
     }
-    lightFor[darkId] = lightId;
   }
-}
+  for (const [name, lang] of Object.entries(FILENAME_LANGUAGES)) {
+    if (fileNames[name] === undefined && languageIds[lang] !== undefined) {
+      fileNames[name] = languageIds[lang];
+    }
+  }
 
-const char = (id) => {
-  const code = parseInt(defs[id].fontCharacter.replace('\\', ''), 16);
-  return `\\u${code.toString(16).toUpperCase().padStart(4, '0')}`;
-};
-const sorted = (obj) => Object.entries(obj).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-const q = (s) => JSON.stringify(s);
-const table = (name, obj) =>
-  `export const ${name}: Readonly<Record<string, string>> = {\n${sorted(obj)
-    .map(([k, v]) => `  ${q(k)}: ${q(v)}`)
-    .join(',\n')}\n};\n`;
+  const used = new Set([DEFAULT_ICON, ...Object.values(fileNames), ...Object.values(fileExtensions)]);
 
-const ids = [...used].sort();
-for (const id of ids) {
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`Unsafe icon id for a CSS class: ${id}`);
-  if (!defs[id]) throw new Error(`Missing icon definition: ${id}`);
-}
+  // dark icon id -> light icon id, from the theme's `light` overrides.
+  const lightFor = { [DEFAULT_ICON]: theme.light?.file };
+  for (const kind of ['fileNames', 'fileExtensions', 'languageIds']) {
+    const dark = kind === 'fileNames' ? theme.fileNames : kind === 'fileExtensions' ? theme.fileExtensions : theme.languageIds;
+    for (const [key, lightId] of Object.entries(theme.light?.[kind] ?? {})) {
+      const darkId = dark?.[key];
+      if (darkId === undefined) continue;
+      if (lightFor[darkId] !== undefined && lightFor[darkId] !== lightId) {
+        throw new Error(`Ambiguous light icon for ${darkId}: ${lightFor[darkId]} vs ${lightId}`);
+      }
+      lightFor[darkId] = lightId;
+    }
+  }
 
-const ts = `// GENERATED by scripts/generate-seti-icons.mjs from assets/seti/vs-seti-icon-theme.json.
+  const char = (id) => {
+    const code = parseInt(defs[id].fontCharacter.replace('\\', ''), 16);
+    return `\\u${code.toString(16).toUpperCase().padStart(4, '0')}`;
+  };
+  const sorted = (obj) => Object.entries(obj).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const q = (s) => JSON.stringify(s);
+  const table = (name, obj) =>
+    `export const ${name}: Readonly<Record<string, string>> = {\n${sorted(obj)
+      .map(([k, v]) => `  ${q(k)}: ${q(v)}`)
+      .join(',\n')}\n};\n`;
+
+  const ids = [...used].sort();
+  for (const id of ids) {
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`Unsafe icon id for a CSS class: ${id}`);
+    if (!defs[id]) throw new Error(`Missing icon definition: ${id}`);
+  }
+
+  const ts = `// GENERATED by scripts/generate-seti-icons.mjs from assets/seti/vs-seti-icon-theme.json.
 // Do not edit by hand; run \`pnpm gen:seti-icons\`.
 
 /** Icon id -> Seti font character. */
@@ -166,7 +164,7 @@ ${table('FILE_NAMES', fileNames)}
 /** Lowercased extension (without the leading dot; may be compound, e.g. "d.ts") -> icon id. */
 ${table('FILE_EXTENSIONS', fileExtensions)}`;
 
-const css = `/* GENERATED by scripts/generate-seti-icons.mjs; run \`pnpm gen:seti-icons\`. */
+  const css = `/* GENERATED by scripts/generate-seti-icons.mjs; run \`pnpm gen:seti-icons\`. */
 @font-face {
   font-family: 'seti';
   src: url('../../assets/seti/seti.woff') format('woff');
@@ -183,6 +181,15 @@ ${ids
   .join('\n')}
 `;
 
-writeFileSync(resolve(outDir, 'seti.generated.ts'), ts);
-writeFileSync(resolve(outDir, 'seti.generated.css'), css);
-console.log(`seti icons: ${ids.length} icons, ${Object.keys(fileNames).length} filenames, ${Object.keys(fileExtensions).length} extensions`);
+  if (customOutDir) {
+    writeFileSync(resolve(customOutDir, 'seti.generated.ts'), ts);
+    writeFileSync(resolve(customOutDir, 'seti.generated.css'), css);
+  }
+
+  return { ids, fileNames, fileExtensions, ts, css };
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+  const result = generateSetiIcons();
+  console.log(`seti icons: ${result.ids.length} icons, ${Object.keys(result.fileNames).length} filenames, ${Object.keys(result.fileExtensions).length} extensions`);
+}

@@ -2,15 +2,16 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ read: vi.fn(), list: vi.fn(), write: vi.fn(), toast: vi.fn(), remoteRoot: vi.fn(), listRemote: vi.fn(), readRemote: vi.fn(), worktrees: vi.fn(), branches: vi.fn(), environments: vi.fn(), hosts: [] as any[] }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), list: vi.fn(), write: vi.fn(), toast: vi.fn(), remoteRoot: vi.fn(), listRemote: vi.fn(), readRemote: vi.fn(), worktrees: vi.fn(), branches: vi.fn(), environments: vi.fn(), hosts: [] as any[], gitStatus: vi.fn(), hasDesktop: true }));
 vi.mock('@/lib/monacoSetup', () => ({}));
 vi.mock('../../hooks/useHosts.js', () => ({ useHosts: () => mocks.hosts }));
+vi.mock('../../lib/app-surface.js', () => ({ hasDesktopBridge: () => mocks.hasDesktop }));
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'dark' }));
 vi.mock('@/hooks/useFileDrop', () => ({ useFileDrop: () => ({ dropOver: false, dropHandlers: {} }) }));
 vi.mock('@/components/AiEnhanceSelection', () => ({ useAiEnhanceSelection: () => ({ registerEditor: vi.fn(), modal: null }) }));
 vi.mock('../../lib/product-client.js', () => ({ product: {
   fs: { listDir: mocks.list, readFile: mocks.read, writeFile: mocks.write, remoteRoot: mocks.remoteRoot, listDirRemote: mocks.listRemote, readFileRemote: mocks.readRemote },
-  git: { status: async () => ({ branch: 'main', files: {} }), listWorktrees: mocks.worktrees, listBranches: mocks.branches },
+  git: { status: mocks.gitStatus, listWorktrees: mocks.worktrees, listBranches: mocks.branches },
   environments: { list: mocks.environments }
 } }));
 vi.mock('@/store', async () => {
@@ -26,7 +27,7 @@ vi.mock('@/components/explorer', () => ({
   WorktreeMenu: ({ loading, error }: any) => <><span>{loading ? 'Loading checkouts' : 'Checkouts ready'}</span>{error && <p role="alert">{error}</p>}</>,
   ExplorerGitFooter: ({ onToggleMenu, menu }: any) => <><button onClick={onToggleMenu}>Checkouts</button>{menu}</>,
   ExplorerTreeHeader: ({ onRefresh }: any) => <button onClick={onRefresh}>Refresh files</button>,
-  ExplorerContextMenu: () => null, ChangesList: () => null, useFileOperations: () => ({}),
+  ExplorerContextMenu: () => null, ChangesList: () => null, useFileOperations: () => ({}), DirectoryLoading: ({ label }: any) => <div className="tree-loading">{label ?? 'Loading files'}</div>,
   TreeList: ({ list, onFileClick, entries, onToggleDir }: any) => <>{list.map((row: any) => <React.Fragment key={row.path}><button onClick={() => (row.kind === 'dir' ? onToggleDir?.(row) : onFileClick(row))}>{row.name}</button>{entries?.get(row.path)?.map((child: any) => <button key={child.path} onClick={() => onFileClick(child)}>{child.name}</button>)}</React.Fragment>)}</>,
   FileViewer: ({ fileResult, editedContent, onContentChange, onSave, nativeFiles }: any) => <div>
     {fileResult?.ok && <textarea aria-label="File contents" value={editedContent ?? fileResult.content} onChange={event => onContentChange(event.target.value)} />}
@@ -43,6 +44,7 @@ beforeEach(() => {
   mocks.list.mockImplementation(async (path: string) => [{ name: 'owner.txt', path: `${path}/owner.txt`, kind: 'file' }]);
   mocks.read.mockImplementation(async (_path: string, scope: any) => ({ ok: true, content: `machine-${scope.hostId}`, sha256: 'revision' }));
   mocks.write.mockResolvedValue({ ok: true, sha256: 'next', bytes: 4 });
+  mocks.gitStatus.mockResolvedValue({ branch: 'main', files: {} });
   mocks.remoteRoot.mockResolvedValue({ ok: true, root: '/remote' });
   mocks.worktrees.mockResolvedValue([]);
   mocks.branches.mockResolvedValue([]);
@@ -356,3 +358,86 @@ it('does not reset directory cache or blank expanded folders when opening the ch
   expect(screen.getByRole('button', { name: 'nested.txt' })).toBeTruthy();
 });
 
+it('shows loading and defers reveal until remote root is ready, and ignores checkout menu for remote projects', async () => {
+  let finishRoot!: (val: any) => void;
+  mocks.remoteRoot.mockImplementationOnce(() => new Promise((resolve) => { finishRoot = resolve; }));
+  const remoteProject = { ...project, path: '/placeholder', remote: { host: 'ssh-host' } };
+  useUi.getState().setExplorerFile('p', '/remote/owner.txt');
+  const { container } = render(<ExplorerView project={remoteProject} />);
+  expect(screen.queryByRole('button', { name: 'owner.txt' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Checkouts' })).toBeNull();
+  expect(mocks.worktrees).not.toHaveBeenCalled();
+  await act(async () => finishRoot({ ok: true, root: '/remote' }));
+  await screen.findByRole('button', { name: 'owner.txt' });
+});
+
+it('reports SSH root failure with fallback message when error message is omitted or rejected with non-Error', async () => {
+  mocks.remoteRoot.mockResolvedValueOnce({ ok: false });
+  const { unmount } = render(<ExplorerView project={{ ...project, path: '/placeholder', remote: { host: 'ssh-host' } }} />);
+  await screen.findByText('Could not reach the remote host');
+  unmount();
+
+  mocks.remoteRoot.mockRejectedValueOnce('raw network error');
+  render(<ExplorerView project={{ ...project, path: '/placeholder', remote: { host: 'ssh-host' } }} />);
+  await screen.findByText('Could not reach the remote host');
+});
+
+it('handles worktree and branch failures with non-Error, and environments rejection', async () => {
+  mocks.worktrees.mockRejectedValueOnce('string error in worktrees');
+  mocks.branches.mockRejectedValueOnce('string error in branches');
+  render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('Failed to load checkouts');
+  cleanup();
+
+  mocks.worktrees.mockResolvedValueOnce([{ path: '/wt-1', head: '111', branch: 'b1', detached: false, bare: false, isMain: false }]);
+  mocks.branches.mockResolvedValueOnce([{ name: 'b1', isCurrent: false }]);
+  mocks.environments.mockRejectedValueOnce(new Error('env list failed'));
+  render(<ExplorerView project={project} />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+  cleanup();
+
+  mocks.worktrees.mockResolvedValueOnce([]);
+  mocks.branches.mockResolvedValueOnce([{ name: 'main', isCurrent: true }]);
+  mocks.environments.mockResolvedValueOnce([]);
+  render(<ExplorerView project={project} scope={{ projectId: 'p', hostId: 'a', environmentId: 'env-1' }} checkoutPath="/a" />);
+  await screen.findByRole('button', { name: 'owner.txt' });
+  fireEvent.click(screen.getByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+});
+
+it('resolves native scope when viewing a known native worktree', async () => {
+  mocks.worktrees.mockResolvedValue([
+    { path: '/a-worktree', head: '111', branch: 'feat', detached: false, bare: false, isMain: false }
+  ]);
+  mocks.environments.mockResolvedValue([]);
+  mocks.list.mockImplementation(async (path: string) => [
+    { name: 'wt-file.txt', path: `${path}/wt-file.txt`, kind: 'file' }
+  ]);
+  render(
+    <ExplorerView
+      project={project}
+      nativeFiles={true}
+      scope={{ projectId: 'p', hostId: 'a' }}
+      checkoutPath="/a-worktree"
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Checkouts' }));
+  await screen.findByText('Checkouts ready');
+  await waitFor(() => expect(screen.getByText('native openers')).toBeTruthy());
+});
+
+it('handles git status failure on non-main worktree without crashing', async () => {
+  mocks.gitStatus.mockRejectedValueOnce(new Error('git status failed'));
+  render(
+    <ExplorerView
+      project={project}
+      scope={{ projectId: 'p', hostId: 'b', environmentId: 'env-1' }}
+      checkoutPath="/b/other-checkout"
+    />
+  );
+  await screen.findByRole('button', { name: 'owner.txt' });
+});

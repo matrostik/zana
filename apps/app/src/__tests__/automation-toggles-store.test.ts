@@ -104,6 +104,35 @@ describe('useData.updateExplorerMinimap', () => {
     await vi.waitFor(() => expect(useData.getState().explorerMinimap.enabled).toBe(true));
   });
 
+  it('rolls back all fields when a full patch fails to persist', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    configSet.mockRejectedValueOnce(new Error('boom'));
+    useData.getState().updateExplorerMinimap({
+      explorerMinimapEnabled: false,
+      explorerMinimapWidth: 'wide',
+      explorerMinimapRenderCharacters: false,
+      explorerMinimapVerticalSize: 'fill',
+      explorerMinimapSlider: 'always',
+      explorerMinimapSide: 'left',
+    });
+    expect(useData.getState().explorerMinimap).toMatchObject({
+      enabled: false,
+      width: 'wide',
+      renderCharacters: false,
+      verticalSize: 'fill',
+      slider: 'always',
+      side: 'left',
+    });
+    await vi.waitFor(() => expect(useData.getState().explorerMinimap).toMatchObject({
+      enabled: true,
+      width: 'default',
+      renderCharacters: true,
+      verticalSize: 'proportional',
+      slider: 'mouseover',
+      side: 'right',
+    }));
+  });
+
   it('rolls back only fields matching the failed patch without overwriting subsequent changes', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     let rejectFirst!: (err: Error) => void;
