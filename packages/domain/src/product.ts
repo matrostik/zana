@@ -1760,6 +1760,20 @@ export interface Shelf {
   rows: ShelfRow[];
 }
 
+/**
+ * Initial default value for `AppConfig.shell`.
+ * On Windows, empty string denotes "auto-detect" so the launcher resolves the
+ * best local shell (pwsh -> powershell -> cmd) at runtime without hardcoding a path.
+ * On POSIX (macOS/Linux), defaults to `process.env.SHELL || '/bin/zsh'`.
+ */
+export function defaultConfiguredShell(
+  platform: NodeJS.Platform = typeof process !== 'undefined' && process.platform ? process.platform : 'darwin',
+  env: NodeJS.ProcessEnv = typeof process !== 'undefined' && process.env ? process.env : {}
+): string {
+  if (platform === 'win32') return '';
+  return env.SHELL || '/bin/zsh';
+}
+
 export interface AppConfig {
   version: 1;
   /**

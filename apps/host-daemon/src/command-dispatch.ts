@@ -21,7 +21,7 @@ import type {
 import type { z } from 'zod';
 import { harnessFamilyOf, parseProfile } from '@zana-ai/zcc-domain/launch-provider';
 import { PERSONAL_WORKSPACE_DIR_NAME } from '@zana-ai/zcc-domain';
-import type { AppConfig } from '@zana-ai/zcc-domain/product';
+import { defaultConfiguredShell, type AppConfig } from '@zana-ai/zcc-domain/product';
 import type { PendingInteractionResolution, PromptInput } from '@zana-ai/zcc-domain/thread-runtime';
 import { snapshotHostPath } from './host-tree-snapshot.js';
 import {
@@ -293,7 +293,7 @@ export function createCommandRuntime(options: {
   machineEnvironment?: MachineEnvironment;
 }): CommandRuntime {
   const terminals = new Map<string, { cwd: string }>();
-  const loadConfig = options.loadConfig ?? (() => ({ version: 1, theme: 'dark', shell: '/bin/zsh', claudeBinary: 'claude', fontSize: 13, lastProjectId: null }) as AppConfig);
+  const loadConfig = options.loadConfig ?? (() => ({ version: 1, theme: 'dark', shell: defaultConfiguredShell(), claudeBinary: 'claude', fontSize: 13, lastProjectId: null }) as AppConfig);
   return {
     pluginHosts: options.pluginHosts,
     dataDir: options.dataDir ?? resolveZccDataDir(),

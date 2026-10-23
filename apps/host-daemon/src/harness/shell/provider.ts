@@ -22,6 +22,7 @@ import { BaseLaunchProvider } from '../base-provider.js';
 import { remoteCdPrefix, shellQuoteArgv } from '../shell-quote.js';
 import type { ModelLevel } from "@zana-ai/zcc-domain/harness-adapter";
 import { facetSupport, type TrustedHarnessAdapter } from '../adapter-contract.js';
+import { resolveConfiguredShell, shellArgs, ShellNotFoundError } from '../../platform-shell.js';
 
 const SHELL_ADAPTER: TrustedHarnessAdapter = {
   descriptor: {
@@ -51,7 +52,17 @@ export class ShellProvider extends BaseLaunchProvider {
   }
 
   resolveLaunch(_profile: LaunchProfileId, config: AppConfig): ResolvedLaunch {
-    return { command: config.shell, args: [] };
+    if (process.platform !== 'win32') {
+      return { command: config.shell, args: [] };
+    }
+    const resolved = resolveConfiguredShell(config.shell);
+    if (!resolved.ok) {
+      throw new ShellNotFoundError(config.shell);
+    }
+    return {
+      command: resolved.path,
+      args: shellArgs(resolved.path, undefined, { interactivePosixArgs: [] })
+    };
   }
 
   buildRemoteCommand(input: RemoteCommandInput): RemoteCommandResult {

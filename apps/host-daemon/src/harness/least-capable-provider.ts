@@ -28,6 +28,7 @@ import type { RemoteCommandInput, RemoteCommandResult, ResolvedLaunch } from './
 import { BaseLaunchProvider } from './base-provider.js';
 import { remoteCdPrefix, shellQuoteArgv } from './shell-quote.js';
 import { facetSupport, type TrustedHarnessAdapter } from './adapter-contract.js';
+import { resolveConfiguredShell, resolveDefaultShell, shellArgs } from '../platform-shell.js';
 
 const LEAST_CAPABLE_ADAPTER: TrustedHarnessAdapter = {
   descriptor: {
@@ -50,7 +51,15 @@ export class LeastCapableProvider extends BaseLaunchProvider {
 
   /** The spawn degrades to a plain shell (runnable floor), never a throw. */
   resolveLaunch(_profile: LaunchProfileId, config: AppConfig): ResolvedLaunch {
-    return { command: config.shell, args: [] };
+    if (process.platform !== 'win32') {
+      return { command: config.shell, args: [] };
+    }
+    const resolved = resolveConfiguredShell(config.shell);
+    const shellPath = resolved.ok ? resolved.path : resolveDefaultShell();
+    return {
+      command: shellPath,
+      args: shellArgs(shellPath, undefined, { interactivePosixArgs: [] })
+    };
   }
 
   /** Remote degrade: a plain login shell, mirroring ShellProvider's remote path. */

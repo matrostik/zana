@@ -2,12 +2,18 @@ import * as pty from 'node-pty';
 import type { HostEventEnvelope } from '@zana-ai/zcc-contracts/host-rpc';
 import { terminatePtyProcessTree } from './pty-termination.js';
 import { accessSync, constants } from 'node:fs';
+import { resolveDefaultShell, shellArgs } from './platform-shell.js';
 
 /** Adapted from BB terminal-manager.ts (MIT; docs/third-party/BB-LICENSE).
  * Minimal Linux hosts often have no zsh and no SHELL in their service env. */
 export function resolveEnrolledShell(env: NodeJS.ProcessEnv = process.env, executable = (path: string) => {
   try { accessSync(path, constants.X_OK); return true; } catch { return false; }
 }): string {
+
+  if (process.platform === 'win32' && !env.SHELL) {
+    const winShell = resolveDefaultShell({ env, isFile: executable });
+    if (executable(winShell)) return winShell;
+  }
   for (const candidate of [env.SHELL, '/bin/zsh', '/bin/bash', '/bin/sh']) {
     if (candidate && executable(candidate)) return candidate;
   }
@@ -70,7 +76,7 @@ export function createEnrolledPty(options: {
     if (existing) throw new Error('Terminal is already running');
     if (sessions.size >= 128) throw new Error('Terminal capacity reached');
     const launch = input.command?.trim();
-    const handle = spawn(shell, launch ? ['-lc', launch] : ['-l'], {
+    const handle = spawn(shell, shellArgs(shell, launch || undefined), {
       cwd: input.cwd,
       cols: input.cols,
       rows: input.rows,

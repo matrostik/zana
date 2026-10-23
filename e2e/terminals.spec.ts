@@ -102,3 +102,82 @@ test('shell session streams onData then onExit on the live timeline', async ({ a
     }
   }
 });
+
+
+test('shell session with foreign /bin/zsh config recovers on Windows and streams output', async ({ app, events }) => {
+  const { window } = app;
+  const projectDir = mkdtempSync(join(tmpdir(), 'zcc-term-foreign-shell-'));
+
+  const projectId = await window.evaluate(async (path) => {
+    const res = await window.cc.projects.add(path);
+    const proj = (res && 'ok' in res ? (res as { value: { id: string } }).value : res) as {
+      id: string;
+    };
+    return proj.id;
+  }, projectDir);
+  expect(projectId).toBeTruthy();
+
+  let sessionId: string | null = null;
+  try {
+    await window.evaluate(async () => {
+      await window.cc.config.update({ shell: '/bin/zsh' });
+    });
+
+    sessionId = await window.evaluate(async (pid) => {
+      const res = await window.cc.terminals.create({
+        projectId: pid,
+        profile: 'shell',
+        cols: 80,
+        rows: 24,
+        title: 'Foreign Shell Recovery Probe'
+      });
+      if (!res || !('ok' in res) || !res.ok) {
+        throw new Error(`terminal create failed: ${res && 'message' in res ? res.message : JSON.stringify(res)}`);
+      }
+      return res.value.id;
+    }, projectId);
+    expect(sessionId).toBeTruthy();
+
+    const forSession = (channel: string) => (e: { channel: string; args: unknown[] }) =>
+      e.channel === channel && e.args[0] === sessionId;
+
+    await events.waitForEvent(forSession('terminals:onData'), 15_000);
+
+    const marker = 'ZCC_FOREIGN_RECOVERY_OK';
+    await window.evaluate(
+      async (args) => {
+        const { sid, m } = args as { sid: string; m: string };
+        await window.cc.terminals.write(sid, `echo ${m}\n`);
+      },
+      { sid: sessionId, m: marker }
+    );
+
+    const dataHit = await events.waitForEvent(
+      (e) => forSession('terminals:onData')(e) && JSON.stringify(e.args).includes(marker),
+      15_000
+    );
+    expect(dataHit.channel).toBe('terminals:onData');
+
+    await window.evaluate(async (sid) => window.cc.terminals.close(sid as string), sessionId);
+    sessionId = null;
+  } finally {
+    await window.evaluate(async (args) => {
+      const { pid, sid } = args as { pid: string; sid: string | null };
+      try {
+        if (sid) await window.cc.terminals.close(sid);
+      } catch {
+        /* best-effort */
+      }
+      try {
+        await window.cc.projects.remove(pid);
+      } catch {
+        /* best-effort */
+      }
+    }, { pid: projectId, sid: sessionId });
+    try {
+      rmSync(projectDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
+  }
+});

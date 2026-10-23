@@ -386,7 +386,7 @@ jobs:
           ZCC_E2E_EXECUTABLE_PATH: ${{ github.workspace }}\dist\win-unpacked\Zana.exe
 
       - name: Verify packaged Windows plugin authoring
-        run: pnpm test:e2e:only -- e2e/plugin-authoring-live.spec.ts e2e/packaged-provider-startup.spec.ts
+        run: pnpm test:e2e:only -- e2e/plugin-authoring-live.spec.ts e2e/packaged-provider-startup.spec.ts e2e/terminals.spec.ts
         env:
           ZCC_E2E_EXECUTABLE_PATH: ${{ github.workspace }}\dist\win-unpacked\Zana.exe
 

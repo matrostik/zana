@@ -92,10 +92,11 @@ export function TerminalSettingsView({
       </Section>
 
       <Section anchorId="terminal-shell" title="Shell">
-        <Field searchId="terminal.default-shell" label="Default shell" help="Path to the shell launched for shell tabs." mono>
+        <Field searchId="terminal.default-shell" label="Default shell" help="Path to the shell launched for shell tabs. Leave blank to auto-detect." mono>
           <input
             type="text"
             value={config.shell}
+            placeholder={typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().startsWith('WIN') ? 'Auto-detect (pwsh → PowerShell → cmd)' : 'Auto-detect ($SHELL || /bin/zsh)'}
             onChange={(e) => onConfigDraft({ ...config, shell: e.target.value })}
             onBlur={(e) => onUpdate({ shell: e.target.value.trim() })}
             spellCheck={false}

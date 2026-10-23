@@ -2,12 +2,12 @@ import { projectConfigCompatibility } from '@zana-ai/zcc-domain/harness-config-c
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { AppConfig } from '@zana-ai/zcc-domain/product';
+import { defaultConfiguredShell, type AppConfig } from '@zana-ai/zcc-domain/product';
 
 const FALLBACK: AppConfig = {
   version: 1,
   theme: 'dark',
-  shell: '/bin/zsh',
+  shell: defaultConfiguredShell(),
   claudeBinary: 'claude',
   fontSize: 13,
   lastProjectId: null

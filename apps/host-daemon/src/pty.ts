@@ -19,6 +19,7 @@ import { cliPlanIntentForLaunch } from './harness/cli-plan-files.js';
 import { alwaysOnPluginMcpAllowlist, ensureMcpConfigForProjectSync } from './mcp-config.js';
 import { stripInheritedClaudeSession, ensureInteractiveTerminalEnv, augmentPath } from './env.js';
 import { resolveHarnessCommand } from './harness/harness-verify.js';
+import { resolveSpawnExecutable } from './platform-shell.js';
 import { isTmuxAvailable, buildLocalTmuxCommand, wrapRemoteTmux, tmuxSessionName, killLocalTmuxSession } from './tmux.js';
 import { providerFor, registrationFor, renderRemoteCommand } from './harness/registry.js';
 import { effectiveUnattendedProfile, profilePostureOf, unattendedExecutionRouting, withoutExecutionIntent } from './harness/unattended-launch.js';
@@ -1931,7 +1932,13 @@ export class PtyManager extends EventEmitter {
       ? this.scheduledSupervisor(inner.command, inner.args)
       : inner;
     (this.hostServices.prepareNativePty ?? ensureNodePtySpawnHelperExecutable)();
-    const proc = pty.spawn(spawnCmd.command, spawnCmd.args, {
+    const finalCommand = process.platform === 'win32'
+      ? (() => {
+          const res = resolveSpawnExecutable(spawnCmd.command, { pathEnv: env.PATH });
+          return res.ok ? res.path : spawnCmd.command;
+        })()
+      : spawnCmd.command;
+    const proc = pty.spawn(finalCommand, spawnCmd.args, {
       name: 'xterm-256color',
       cols: opts.cols,
       rows: opts.rows,
@@ -2611,7 +2618,16 @@ export class PtyManager extends EventEmitter {
     ensureInteractiveTerminalEnv(spawnEnv);
 
     (this.hostServices.prepareNativePty ?? ensureNodePtySpawnHelperExecutable)();
-    const proc = pty.spawn('ssh', sshArgs, {
+    const sshCmd = process.platform === 'win32'
+      ? (() => {
+          const res = resolveSpawnExecutable('ssh', { pathEnv: spawnEnv.PATH });
+          if (!res.ok) {
+            throw new Error('OpenSSH client (ssh.exe) not found. Please install the Windows OpenSSH Client feature or add it to PATH.');
+          }
+          return res.path;
+        })()
+      : 'ssh';
+    const proc = pty.spawn(sshCmd, sshArgs, {
       name: 'xterm-256color',
       cols: opts.cols,
       rows: opts.rows,
@@ -2857,7 +2873,13 @@ export class PtyManager extends EventEmitter {
         let proc: pty.IPty;
         try {
           (this.hostServices.prepareNativePty ?? ensureNodePtySpawnHelperExecutable)();
-          proc = pty.spawn('ssh', live2.reattach.sshArgs, {
+          const sshCmd = process.platform === 'win32'
+            ? (() => {
+                const res = resolveSpawnExecutable('ssh', { pathEnv: live2.reattach.spawnEnv.PATH });
+                return res.ok ? res.path : 'ssh';
+              })()
+            : 'ssh';
+          proc = pty.spawn(sshCmd, live2.reattach.sshArgs, {
             name: 'xterm-256color',
             cols: live2.reattach.cols,
             rows: live2.reattach.rows,

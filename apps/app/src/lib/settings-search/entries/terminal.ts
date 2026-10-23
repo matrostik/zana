@@ -32,8 +32,8 @@ export const entries: readonly SettingsSearchEntry[] = [
     section: 'terminal',
     anchor: 'terminal-shell',
     label: 'Default shell',
-    help: 'Path to the shell launched for shell tabs.',
-    keywords: ['zsh', 'bash', 'fish', 'sh', 'binary', 'path'],
+    help: 'Path to the shell launched for shell tabs. Leave blank to auto-detect.',
+    keywords: ['zsh', 'bash', 'fish', 'sh', 'pwsh', 'powershell', 'cmd', 'binary', 'path'],
     kind: 'setting',
     value: (s) => s.config.shell || undefined
   },

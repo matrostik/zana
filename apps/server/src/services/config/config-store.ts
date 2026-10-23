@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
-import { COMPOSER_LAUNCH_SURFACES_REV, type AppConfig } from '@zana-ai/zcc-domain/product';
+import { COMPOSER_LAUNCH_SURFACES_REV, defaultConfiguredShell, type AppConfig } from '@zana-ai/zcc-domain/product';
 import { DEFAULT_TERMINAL_THEME } from '@zana-ai/zcc-domain/terminal-themes';
 import { atomicDurableWrite, DurableWriteConflictError } from '../../durable-store.js';
 
@@ -95,7 +95,7 @@ export function createConfigStore(
     version: 1,
     theme: 'dark',
     terminalTheme: DEFAULT_TERMINAL_THEME,
-    shell: process.env.SHELL || '/bin/zsh',
+    shell: defaultConfiguredShell(),
     claudeBinary: 'claude',
     fontSize: 13,
     lastProjectId: null,

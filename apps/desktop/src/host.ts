@@ -3463,16 +3463,22 @@ function claimDock() {
 function showMainWindow() {
   if (sharedClient.showSelected()) return;
   claimDock();
-  const win = unscopedWindow();
+  let win = unscopedWindow();
   if (!win) {
     createWindow(undefined, startupState.mode === 'repair-required');
-    return;
+    win = unscopedWindow();
   }
   // E2E: leave the window hidden so a local run never grabs macOS focus.
-  if (E2E_LAUNCH) return;
+  if (E2E_LAUNCH || !win) return;
   if (win.isMinimized()) win.restore();
   win.show();
-  win.focus();
+  if (process.platform === 'win32') {
+    win.setAlwaysOnTop(true);
+    win.focus();
+    win.setAlwaysOnTop(false);
+  } else {
+    win.focus();
+  }
 }
 
 async function ensureMainWindowReady(): Promise<boolean> {
@@ -7089,6 +7095,19 @@ function createWindow(projectId?: string, repairOnly = false, view?: PluginViewT
         ? { projectId }
         : {};
   const url = rendererUrl(params);
+  win.webContents.once('did-finish-load', () => {
+    if (!E2E_LAUNCH && !scoped) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      if (process.platform === 'win32') {
+        win.setAlwaysOnTop(true);
+        win.focus();
+        win.setAlwaysOnTop(false);
+      } else {
+        win.focus();
+      }
+    }
+  });
   if (url) {
     win.loadURL(url);
   } else {
@@ -7115,6 +7134,10 @@ function createWindow(projectId?: string, repairOnly = false, view?: PluginViewT
       win.unmaximize();
       win.setBounds(restored.bounds);
       if (restored.maximized) win.maximize();
+      if (!E2E_LAUNCH) {
+        win.show();
+        win.focus();
+      }
     });
   }
 
@@ -9247,6 +9270,7 @@ async function bootstrapNormal() {
     throw error;
   }
   if (!unscopedWindow()) createWindow();
+  if (!E2E_LAUNCH) showMainWindow();
   void sharedClient.restore().catch(error => logMainError('sharedClient.restore', error));
   // Reconcile only this instance's recorded tmux sessions, never another app's
   // cc-* sessions on the shared default socket. Kill owned sessions from a

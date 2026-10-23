@@ -98,6 +98,7 @@ describe('enrolled pty', () => {
     const handle = fakeHandle();
     const pty = createEnrolledPty({
       emit: () => {},
+      shell: '/bin/sh',
       spawn: (_file, args) => {
         spawned.push({ args });
         return handle;
@@ -121,10 +122,12 @@ describe('enrolled pty', () => {
   });
 
   it('stops the whole PTY process group before dropping the session', async () => {
+    if (process.platform === 'win32') return;
     const processKill = vi.spyOn(process, 'kill').mockImplementation(() => true);
     const handle = fakeHandle();
     const pty = createEnrolledPty({
       emit: () => {},
+      shell: '/bin/sh',
       spawn: () => handle
     });
     await pty.startTerminal({

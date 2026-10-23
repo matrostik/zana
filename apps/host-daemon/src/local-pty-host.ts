@@ -1,6 +1,7 @@
 import * as pty from 'node-pty';
 import { HostTerminalManager, type PtyHandle } from './terminal-manager.js';
 import type { TerminalHostEvent } from '@zana-ai/zcc-contracts/terminal-execution';
+import { resolveSpawnExecutable } from './platform-shell.js';
 
 /**
  * The host-local adapter is the sole location where the migrated host daemon
@@ -10,7 +11,13 @@ import type { TerminalHostEvent } from '@zana-ai/zcc-contracts/terminal-executio
 export function createLocalPtyTerminalManager(emit: (event: TerminalHostEvent) => void): HostTerminalManager {
   return new HostTerminalManager({
     spawn(command, args, options): PtyHandle {
-      const handle = pty.spawn(command, args, {
+      const resolved = process.platform === 'win32'
+        ? (() => {
+            const res = resolveSpawnExecutable(command, { pathEnv: options.env.PATH });
+            return res.ok ? res.path : command;
+          })()
+        : command;
+      const handle = pty.spawn(resolved, args, {
         cwd: options.cwd,
         env: options.env,
         cols: options.cols,

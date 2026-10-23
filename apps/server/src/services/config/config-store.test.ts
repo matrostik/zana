@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { COMPOSER_LAUNCH_SURFACES_REV, type AppConfig } from '@zana-ai/zcc-domain/product';
+import { COMPOSER_LAUNCH_SURFACES_REV, defaultConfiguredShell, type AppConfig } from '@zana-ai/zcc-domain/product';
 import { createConfigStore } from '@zana-ai/zcc-server';
 
 describe('createConfigStore', () => {
@@ -22,7 +22,7 @@ describe('createConfigStore', () => {
     expect(config.getConfig()).toMatchObject({
       version: 1,
       theme: 'dark',
-      shell: process.env.SHELL || '/bin/zsh',
+      shell: defaultConfiguredShell(),
       autoModeEnabled: true,
       tmuxScope: 'all'
     });

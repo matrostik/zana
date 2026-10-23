@@ -20,3 +20,4 @@ export function rejectMalformedExecutionCommand(input: unknown): ExecutionEvent 
 export * from './daemon.js';
 export * from './terminal-manager.js';
 export * from './local-pty-host.js';
+export * from './platform-shell.js';
