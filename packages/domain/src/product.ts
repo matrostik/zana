@@ -2519,13 +2519,12 @@ export interface AppConfig {
   threadSessionReleaseMinutes?: number;
   /**
    * Code minimap in the Explorer file preview (see {@link EXPLORER_MINIMAP_DEFAULTS}).
-   * `explorerMinimapEnabled` shows/hides it; `explorerMinimapWidth` (or legacy `explorerMinimap`) is its width.
+   * `explorerMinimapEnabled` shows/hides it; `explorerMinimapWidth` is its width.
    * Absent ⇒ the default. Unknown values are dropped in {@link normalizeConfig};
    * read live by the Explorer viewer and editable from its right-click menu.
    */
   explorerMinimapEnabled?: boolean;
   explorerMinimapWidth?: ExplorerMinimapWidth;
-  explorerMinimap?: ExplorerMinimapWidth;
   explorerMinimapRenderCharacters?: boolean;
   explorerMinimapVerticalSize?: ExplorerMinimapVerticalSize;
   explorerMinimapSlider?: ExplorerMinimapSlider;
@@ -3009,7 +3008,7 @@ export function resolveExplorerFileIconTheme(
     : EXPLORER_FILE_ICON_THEME_DEFAULT;
 }
 
-/** Explorer preview minimap options; see {@link AppConfig.explorerMinimap}. */
+/** Explorer preview minimap options; see {@link AppConfig.explorerMinimapWidth}. */
 export type ExplorerMinimapWidth = 'narrow' | 'default' | 'wide';
 export type ExplorerMinimapVerticalSize = 'proportional' | 'fill' | 'fit';
 export type ExplorerMinimapSlider = 'mouseover' | 'always';
@@ -3067,7 +3066,6 @@ export type ExplorerMinimapConfig = Pick<
   AppConfig,
   | 'explorerMinimapEnabled'
   | 'explorerMinimapWidth'
-  | 'explorerMinimap'
   | 'explorerMinimapRenderCharacters'
   | 'explorerMinimapVerticalSize'
   | 'explorerMinimapSlider'
@@ -3078,7 +3076,7 @@ export function resolveExplorerMinimap(config: ExplorerMinimapConfig): ExplorerM
   const d = EXPLORER_MINIMAP_DEFAULTS;
   return {
     enabled: config.explorerMinimapEnabled ?? d.enabled,
-    width: config.explorerMinimapWidth ?? config.explorerMinimap ?? d.width,
+    width: config.explorerMinimapWidth ?? d.width,
     renderCharacters: config.explorerMinimapRenderCharacters ?? d.renderCharacters,
     verticalSize: config.explorerMinimapVerticalSize ?? d.verticalSize,
     slider: config.explorerMinimapSlider ?? d.slider,

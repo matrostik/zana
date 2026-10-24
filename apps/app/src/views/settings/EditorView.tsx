@@ -324,7 +324,7 @@ function ExplorerPreviewSettings({
           ariaLabel="Minimap width"
           searchable={false}
           disabled={!minimap.enabled}
-          onChange={(width) => onUpdate({ explorerMinimapWidth: width as typeof minimap.width, explorerMinimap: width as typeof minimap.width })}
+          onChange={(width) => onUpdate({ explorerMinimapWidth: width as typeof minimap.width })}
           options={EXPLORER_MINIMAP_WIDTH_CHOICES.map((v) => ({ value: v, label: EXPLORER_MINIMAP_LABELS[v] }))}
         />
       </Field>

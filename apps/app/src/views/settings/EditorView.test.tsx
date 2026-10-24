@@ -95,7 +95,7 @@ describe('EditorView explorer minimap', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Render characters' }));
     fireEvent.click(screen.getByRole('switch', { name: 'Minimap' }));
     expect(onUpdate.mock.calls.map((c) => c[0])).toEqual([
-      { explorerMinimap: 'wide', explorerMinimapWidth: 'wide' },
+      { explorerMinimapWidth: 'wide' },
       { explorerMinimapVerticalSize: 'fit' },
       { explorerMinimapSlider: 'always' },
       { explorerMinimapSide: 'left' },
@@ -116,7 +116,7 @@ describe('EditorView explorer minimap', () => {
       entries.find((e) => e.id === id)?.value?.({ config } as never);
     expect(value('editor.explorer-minimap')).toBe('On');
     expect(value('editor.explorer-minimap', { explorerMinimapEnabled: false })).toBe('Off');
-    expect(value('editor.explorer-minimap-width', { explorerMinimap: 'narrow' })).toBe('Narrow');
+    expect(value('editor.explorer-minimap-width', { explorerMinimapWidth: 'narrow' })).toBe('Narrow');
     expect(value('editor.explorer-minimap-characters', { explorerMinimapRenderCharacters: false })).toBe('Off');
     expect(value('editor.explorer-minimap-vertical-size')).toBe('Proportional');
     expect(value('editor.explorer-minimap-slider', { explorerMinimapSlider: 'always' })).toBe('Always');

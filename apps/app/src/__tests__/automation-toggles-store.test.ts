@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useData } from '../store.js';
+import { useData, _resetMinimapSyncForTesting } from '../store.js';
 
 /**
  * Switches that own the AppConfig round-trip from a surface outside Settings
@@ -87,7 +87,9 @@ describe('afcode harness setting mirror', () => {
 
 describe('useData.updateExplorerMinimap', () => {
   beforeEach(() => {
-    useData.setState({ explorerMinimap: { ...useData.getState().explorerMinimap, enabled: true, width: 'default', side: 'right' } });
+    const initial = { ...useData.getState().explorerMinimap, enabled: true, width: 'default', side: 'right' };
+    _resetMinimapSyncForTesting(initial);
+    useData.getState().setExplorerMinimap(initial);
   });
 
   it('merges the patch into the current prefs and persists only the patch', () => {
@@ -149,6 +151,26 @@ describe('useData.updateExplorerMinimap', () => {
     await vi.waitFor(() => expect(useData.getState().explorerMinimap.side).toBe('right'));
 
     expect(useData.getState().explorerMinimap.width).toBe('narrow');
+  });
+  it('does not overwrite newer preferences when an earlier write on the same field rejects late', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    let rejectFirst!: (err: Error) => void;
+    let resolveSecond!: () => void;
+    configSet.mockReturnValueOnce(new Promise((_, reject) => { rejectFirst = reject; }));
+    configSet.mockReturnValueOnce(new Promise((resolve) => { resolveSecond = () => resolve({}); }));
+
+    useData.getState().updateExplorerMinimap({ explorerMinimapWidth: 'narrow' });
+    expect(useData.getState().explorerMinimap.width).toBe('narrow');
+
+    useData.getState().updateExplorerMinimap({ explorerMinimapWidth: 'wide' });
+    expect(useData.getState().explorerMinimap.width).toBe('wide');
+
+    resolveSecond();
+    rejectFirst(new Error('first write failed'));
+
+    // Wait microtasks / macrotasks to let promises settle
+    await new Promise((r) => setTimeout(r, 50));
+    expect(useData.getState().explorerMinimap.width).toBe('wide');
   });
 });
 

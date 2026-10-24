@@ -575,10 +575,7 @@ export function windowsPnpm(path = process.env.PATH ?? '') {
     if (existsSync(exe)) return [exe];
     const shim = join(directory, 'pnpm.cmd');
     if (!existsSync(shim)) continue;
-    const content = readFileSync(shim, 'utf8');
-    const corepackMatch = content.match(/@node\s+"([^"]+\.[cm]?js)"/i)?.[1];
-    if (corepackMatch && existsSync(corepackMatch)) return [process.execPath, corepackMatch];
-    const script = content.match(/"%~?dp0%?\\([^"%]+\.[cm]?js)"/i)?.[1];
+    const script = readFileSync(shim, 'utf8').match(/"%~?dp0%?\\([^"%]+\.[cm]?js)"/i)?.[1];
     if (script) return [process.execPath, join(directory, ...script.split('\\'))];
   }
   return ['pnpm'];

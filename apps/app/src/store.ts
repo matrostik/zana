@@ -814,7 +814,11 @@ function mirroredConfigFlags(config: AppConfig) {
     terminalTheme: config.terminalTheme ?? DEFAULT_TERMINAL_THEME,
     inboxGuidanceEnabled: config.inboxGuidanceEnabled ?? true,
     terminalWheelArrowsEnabled: config.terminalWheelArrowsEnabled ?? true,
-    explorerMinimap: resolveExplorerMinimap(config),
+    explorerMinimap: (() => {
+      const minimap = resolveExplorerMinimap(config);
+      syncConfirmedMinimap(minimap);
+      return minimap;
+    })(),
     explorerFileIconTheme: resolveExplorerFileIconTheme(config),
     heartbeatEnabled: config.heartbeatEnabled ?? false,
     goalsEnabled: config.goalsEnabled ?? false,
@@ -2095,6 +2099,34 @@ function applySidebarChrome(config: AppConfig) {
   });
 }
 
+/**
+ * Minimap writes are versioned per preference field so a delayed failure
+ * cannot roll back newer preferences applied by subsequent user actions.
+ */
+const minimapFieldVersions: Record<keyof ExplorerMinimapPrefs, number> = {
+  enabled: 0,
+  width: 0,
+  renderCharacters: 0,
+  verticalSize: 0,
+  slider: 0,
+  side: 0
+};
+const minimapConfirmedPrefs: ExplorerMinimapPrefs = { ...EXPLORER_MINIMAP_DEFAULTS };
+
+function syncConfirmedMinimap(prefs: ExplorerMinimapPrefs) {
+  Object.assign(minimapConfirmedPrefs, prefs);
+  for (const key of ['enabled', 'width', 'renderCharacters', 'verticalSize', 'slider', 'side'] as const) {
+    minimapFieldVersions[key]++;
+  }
+}
+
+export function _resetMinimapSyncForTesting(initial: ExplorerMinimapPrefs = EXPLORER_MINIMAP_DEFAULTS) {
+  Object.assign(minimapConfirmedPrefs, initial);
+  for (const key of ['enabled', 'width', 'renderCharacters', 'verticalSize', 'slider', 'side'] as const) {
+    minimapFieldVersions[key] = 0;
+  }
+}
+
 export const useData = create<DataState>((set, get) => ({
   projects: [],
   terminals: {},
@@ -2183,6 +2215,7 @@ export const useData = create<DataState>((set, get) => ({
   },
 
   setExplorerMinimap(prefs) {
+    syncConfirmedMinimap(prefs);
     set({ explorerMinimap: prefs });
   },
 
@@ -2196,21 +2229,56 @@ export const useData = create<DataState>((set, get) => ({
       slider: patch.explorerMinimapSlider ?? cur.slider,
       side: patch.explorerMinimapSide ?? cur.side
     };
+
+    const targetVersions: Partial<Record<keyof ExplorerMinimapPrefs, number>> = {};
+    if (patch.explorerMinimapEnabled !== undefined) {
+      targetVersions.enabled = ++minimapFieldVersions.enabled;
+    }
+    if (patch.explorerMinimapWidth !== undefined) {
+      targetVersions.width = ++minimapFieldVersions.width;
+    }
+    if (patch.explorerMinimapRenderCharacters !== undefined) {
+      targetVersions.renderCharacters = ++minimapFieldVersions.renderCharacters;
+    }
+    if (patch.explorerMinimapVerticalSize !== undefined) {
+      targetVersions.verticalSize = ++minimapFieldVersions.verticalSize;
+    }
+    if (patch.explorerMinimapSlider !== undefined) {
+      targetVersions.slider = ++minimapFieldVersions.slider;
+    }
+    if (patch.explorerMinimapSide !== undefined) {
+      targetVersions.side = ++minimapFieldVersions.side;
+    }
+
     set({ explorerMinimap: optimistic });
-    product.config.set(patch).catch((err) => {
-      console.error('Failed to persist explorer minimap preferences', err);
-      const latest = get().explorerMinimap;
-      set({
-        explorerMinimap: {
-          enabled: patch.explorerMinimapEnabled !== undefined && latest.enabled === optimistic.enabled ? cur.enabled : latest.enabled,
-          width: patch.explorerMinimapWidth !== undefined && latest.width === optimistic.width ? cur.width : latest.width,
-          renderCharacters: patch.explorerMinimapRenderCharacters !== undefined && latest.renderCharacters === optimistic.renderCharacters ? cur.renderCharacters : latest.renderCharacters,
-          verticalSize: patch.explorerMinimapVerticalSize !== undefined && latest.verticalSize === optimistic.verticalSize ? cur.verticalSize : latest.verticalSize,
-          slider: patch.explorerMinimapSlider !== undefined && latest.slider === optimistic.slider ? cur.slider : latest.slider,
-          side: patch.explorerMinimapSide !== undefined && latest.side === optimistic.side ? cur.side : latest.side
+
+    product.config.set(patch)
+      .then(() => {
+        if (patch.explorerMinimapEnabled !== undefined) minimapConfirmedPrefs.enabled = patch.explorerMinimapEnabled;
+        if (patch.explorerMinimapWidth !== undefined) minimapConfirmedPrefs.width = patch.explorerMinimapWidth;
+        if (patch.explorerMinimapRenderCharacters !== undefined) minimapConfirmedPrefs.renderCharacters = patch.explorerMinimapRenderCharacters;
+        if (patch.explorerMinimapVerticalSize !== undefined) minimapConfirmedPrefs.verticalSize = patch.explorerMinimapVerticalSize;
+        if (patch.explorerMinimapSlider !== undefined) minimapConfirmedPrefs.slider = patch.explorerMinimapSlider;
+        if (patch.explorerMinimapSide !== undefined) minimapConfirmedPrefs.side = patch.explorerMinimapSide;
+      })
+      .catch((err) => {
+        console.error('Failed to persist explorer minimap preferences', err);
+        const latest = get().explorerMinimap;
+        const next = { ...latest };
+        let changed = false;
+
+        for (const key of ['enabled', 'width', 'renderCharacters', 'verticalSize', 'slider', 'side'] as const) {
+          const version = targetVersions[key];
+          if (version !== undefined && minimapFieldVersions[key] === version) {
+            (next as Record<string, unknown>)[key] = minimapConfirmedPrefs[key];
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          set({ explorerMinimap: next });
         }
       });
-    });
   },
 
   setHeartbeatEnabled(on) {
