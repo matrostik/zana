@@ -1,3 +1,4 @@
+import type { ApiErrorResumeConfig } from './api-error-resume.js';
 import type { AgentsViewId } from './agents-view.js';
 export { isAgentsViewId, type AgentsViewId } from './agents-view.js';
 import type { ProjectIcon } from './project-icons.js';
@@ -2412,6 +2413,15 @@ export interface AppConfig {
    */
   terminalClipboardWriteEnabled?: boolean;
   /**
+   * Whether Ctrl+V pastes the clipboard into a terminal on Windows and Linux,
+   * like Shift+Insert (and Ctrl+Shift+V, which always pastes there). When off,
+   * Ctrl+V sends the literal `^V` control character to the program, as
+   * readline's "insert next character literally" and vim's block select
+   * expect. Unset ⇒ platform default: on for Windows, off for Linux. macOS
+   * ignores it (⌘V pastes). See `apps/app/src/lib/terminalPaste.ts`.
+   */
+  terminalCtrlVPasteEnabled?: boolean;
+  /**
    * Enable the Zana Mobile gateway — the authenticated network edge in front of
    * the loopback product server that a paired phone connects through
    * (Settings → Phone). Default OFF: it opens a network listener (bound to this
@@ -2507,6 +2517,25 @@ export interface AppConfig {
    * Clamped in {@link normalizeConfig}; read live on each sweep.
    */
   threadSessionReleaseMinutes?: number;
+  /**
+   * Code minimap in the Explorer file preview (see {@link EXPLORER_MINIMAP_DEFAULTS}).
+   * `explorerMinimapEnabled` shows/hides it; `explorerMinimapWidth` is its width.
+   * Absent ⇒ the default. Unknown values are dropped in {@link normalizeConfig};
+   * read live by the Explorer viewer and editable from its right-click menu.
+   */
+  explorerMinimapEnabled?: boolean;
+  explorerMinimapWidth?: ExplorerMinimapWidth;
+  explorerMinimapRenderCharacters?: boolean;
+  explorerMinimapVerticalSize?: ExplorerMinimapVerticalSize;
+  explorerMinimapSlider?: ExplorerMinimapSlider;
+  explorerMinimapSide?: ExplorerMinimapSide;
+  /**
+   * How files are marked in the Explorer, Changes list, Quick Open and Library
+   * (see {@link EXPLORER_FILE_ICON_THEME_CHOICES}). `seti` shows VS Code's default
+   * per-type icons, `minimal` one plain file glyph, `none` no file/folder icons.
+   * Absent ⇒ `seti`. Unknown values are dropped in {@link normalizeConfig}.
+   */
+  explorerFileIconTheme?: ExplorerFileIconTheme;
   /**
    * When an idle agent is auto-closed (see {@link autoCloseIdleEnabled}), also
    * drop a folded breadcrumb into the inbox's collapsed "Agent closed" section.
@@ -2664,6 +2693,8 @@ export interface AppConfig {
    * agent to continue or to say so and stop if it's blocked / done.
    */
   heartbeatMessage?: string;
+  /** Resume after API errors (Settings → Agents). Absent = off. */
+  apiErrorResume?: ApiErrorResumeConfig;
   /**
    * Autonomous-team run backstops. Defaults applied in main when a run starts
    * (see AUTONOMOUS_DEFAULTS). A value of 0 disables that backstop.
@@ -2926,6 +2957,8 @@ export const SESSION_MEMORY_DEFAULTS = {
   ramFractionForSessions: 0.5
 } as const;
 
+export * from './api-error-resume.js';
+
 /** Defaults for the Agent Heartbeat feature (used when the config field is absent). */
 export const HEARTBEAT_DEFAULTS = {
   delaySeconds: 30,
@@ -2954,6 +2987,101 @@ export function threadSessionReleaseLabel(minutes: number): string {
   if (minutes <= 0) return 'Never';
   if (minutes % 60 === 0) return `After ${minutes / 60} hour${minutes === 60 ? '' : 's'}`;
   return `After ${minutes} minutes`;
+}
+
+/** File icon themes for file lists; see {@link AppConfig.explorerFileIconTheme}. */
+export const EXPLORER_FILE_ICON_THEME_CHOICES = ['seti', 'minimal', 'none'] as const;
+export type ExplorerFileIconTheme = (typeof EXPLORER_FILE_ICON_THEME_CHOICES)[number];
+export const EXPLORER_FILE_ICON_THEME_DEFAULT: ExplorerFileIconTheme = 'seti';
+export const EXPLORER_FILE_ICON_THEME_LABELS: Record<ExplorerFileIconTheme, string> = {
+  seti: 'Seti (VS Code)',
+  minimal: 'Minimal',
+  none: 'None'
+};
+
+export function resolveExplorerFileIconTheme(
+  config: Pick<AppConfig, 'explorerFileIconTheme'>
+): ExplorerFileIconTheme {
+  const v = config.explorerFileIconTheme;
+  return v !== undefined && (EXPLORER_FILE_ICON_THEME_CHOICES as readonly string[]).includes(v)
+    ? v
+    : EXPLORER_FILE_ICON_THEME_DEFAULT;
+}
+
+/** Explorer preview minimap options; see {@link AppConfig.explorerMinimapWidth}. */
+export type ExplorerMinimapWidth = 'narrow' | 'default' | 'wide';
+export type ExplorerMinimapVerticalSize = 'proportional' | 'fill' | 'fit';
+export type ExplorerMinimapSlider = 'mouseover' | 'always';
+export type ExplorerMinimapSide = 'right' | 'left';
+
+export const EXPLORER_MINIMAP_WIDTH_CHOICES = ['narrow', 'default', 'wide'] as const;
+export const EXPLORER_MINIMAP_VERTICAL_SIZE_CHOICES = ['proportional', 'fill', 'fit'] as const;
+export const EXPLORER_MINIMAP_SLIDER_CHOICES = ['mouseover', 'always'] as const;
+export const EXPLORER_MINIMAP_SIDE_CHOICES = ['right', 'left'] as const;
+
+/** Resolved minimap preferences (every field filled). */
+export interface ExplorerMinimapPrefs {
+  enabled: boolean;
+  width: ExplorerMinimapWidth;
+  renderCharacters: boolean;
+  verticalSize: ExplorerMinimapVerticalSize;
+  slider: ExplorerMinimapSlider;
+  side: ExplorerMinimapSide;
+}
+
+export const EXPLORER_MINIMAP_DEFAULTS: ExplorerMinimapPrefs = {
+  enabled: true,
+  width: 'default',
+  renderCharacters: true,
+  verticalSize: 'proportional',
+  slider: 'mouseover',
+  side: 'right'
+};
+
+/** Monaco `minimap.maxColumn` per width. */
+export const EXPLORER_MINIMAP_MAX_COLUMN: Record<ExplorerMinimapWidth, number> = {
+  narrow: 60,
+  default: 120,
+  wide: 200
+};
+
+/** The minimap is hidden when the editor is narrower than this many px. */
+export const EXPLORER_MINIMAP_MIN_EDITOR_WIDTH = 480;
+
+export const EXPLORER_MINIMAP_LABELS = {
+  narrow: 'Narrow',
+  default: 'Default',
+  wide: 'Wide',
+  proportional: 'Proportional',
+  fill: 'Fill',
+  fit: 'Fit',
+  mouseover: 'Mouse Over',
+  always: 'Always',
+  right: 'Right',
+  left: 'Left'
+} as const;
+
+/** The `AppConfig.explorerMinimap*` keys. */
+export type ExplorerMinimapConfig = Pick<
+  AppConfig,
+  | 'explorerMinimapEnabled'
+  | 'explorerMinimapWidth'
+  | 'explorerMinimapRenderCharacters'
+  | 'explorerMinimapVerticalSize'
+  | 'explorerMinimapSlider'
+  | 'explorerMinimapSide'
+>;
+
+export function resolveExplorerMinimap(config: ExplorerMinimapConfig): ExplorerMinimapPrefs {
+  const d = EXPLORER_MINIMAP_DEFAULTS;
+  return {
+    enabled: config.explorerMinimapEnabled ?? d.enabled,
+    width: config.explorerMinimapWidth ?? d.width,
+    renderCharacters: config.explorerMinimapRenderCharacters ?? d.renderCharacters,
+    verticalSize: config.explorerMinimapVerticalSize ?? d.verticalSize,
+    slider: config.explorerMinimapSlider ?? d.slider,
+    side: config.explorerMinimapSide ?? d.side
+  };
 }
 
 /** Launch-surface default revision. See {@link AppConfig.composerLaunchSurfacesRev}. */
@@ -4418,6 +4546,8 @@ export interface Team {
   defaultPlanning?: SquadPlanning;
   /** Whether agent-started runs of this Squad need the user's Launch first. Review is a floor: the Project's review applies even when this is absent or direct. Absent ⇒ direct unless the Project asks for review. */
   launchApproval?: LaunchApproval;
+  /** Preselected in the New Agent squad picker. Absent ⇒ the first squad alphabetically. */
+  isDefault?: boolean;
   /** Set by the loader/host for UI display; never read from disk / trusted from the renderer. */
   source?: PersonaSource;
 }

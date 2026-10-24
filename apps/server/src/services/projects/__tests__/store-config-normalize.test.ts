@@ -338,6 +338,46 @@ describe('normalizeConfig — auto-close-idle flags', () => {
     expect(out.autoCloseIdleMinutes).toBeUndefined();
   });
 
+  it('keeps known explorer minimap options and drops anything else', () => {
+    const out = normalizeConfig({
+      explorerMinimapEnabled: false,
+      explorerMinimapWidth: 'wide',
+      explorerMinimapRenderCharacters: false,
+      explorerMinimapVerticalSize: 'fit',
+      explorerMinimapSlider: 'always',
+      explorerMinimapSide: 'left'
+    });
+    expect(out).toMatchObject({
+      explorerMinimapEnabled: false,
+      explorerMinimapWidth: 'wide',
+      explorerMinimapRenderCharacters: false,
+      explorerMinimapVerticalSize: 'fit',
+      explorerMinimapSlider: 'always',
+      explorerMinimapSide: 'left'
+    });
+    const junk = normalizeConfig({
+      explorerMinimapEnabled: 'yes' as never,
+      explorerMinimapWidth: 'off' as never,
+      explorerMinimapRenderCharacters: 1 as never,
+      explorerMinimapVerticalSize: 'huge' as never,
+      explorerMinimapSlider: 3 as never,
+      explorerMinimapSide: 'top' as never
+    });
+    for (const key of ['explorerMinimapEnabled', 'explorerMinimapWidth', 'explorerMinimapRenderCharacters', 'explorerMinimapVerticalSize', 'explorerMinimapSlider', 'explorerMinimapSide'] as const) {
+      expect(junk[key]).toBeUndefined();
+    }
+    expect(normalizeConfig({}).explorerMinimapWidth).toBeUndefined();
+  });
+
+  it('keeps a known explorer file icon theme and drops anything else', () => {
+    for (const theme of ['seti', 'minimal', 'none'] as const) {
+      expect(normalizeConfig({ explorerFileIconTheme: theme }).explorerFileIconTheme).toBe(theme);
+    }
+    expect(normalizeConfig({ explorerFileIconTheme: 'material' as never }).explorerFileIconTheme).toBeUndefined();
+    expect(normalizeConfig({ explorerFileIconTheme: 3 as never }).explorerFileIconTheme).toBeUndefined();
+    expect(normalizeConfig({}).explorerFileIconTheme).toBeUndefined();
+  });
+
   it('keeps threadSessionReleaseMinutes in range, 0 as never, and drops junk', () => {
     expect(normalizeConfig({ threadSessionReleaseMinutes: 120.4 }).threadSessionReleaseMinutes).toBe(120);
     expect(normalizeConfig({ threadSessionReleaseMinutes: 0 }).threadSessionReleaseMinutes).toBe(0);
@@ -537,6 +577,14 @@ describe('normalizeConfig — catch-up summary flags', () => {
     expect(normalizeConfig({ feedNoiseClassifierEnabled: false }).feedNoiseClassifierEnabled).toBe(false);
     // @ts-expect-error intentional bad input
     expect(normalizeConfig({ feedNoiseClassifierEnabled: 'yes' }).feedNoiseClassifierEnabled).toBeUndefined();
+  });
+
+  it('passes through a boolean terminalCtrlVPasteEnabled, drops non-booleans and leaves it unset by default', () => {
+    expect(normalizeConfig({ terminalCtrlVPasteEnabled: true }).terminalCtrlVPasteEnabled).toBe(true);
+    expect(normalizeConfig({ terminalCtrlVPasteEnabled: false }).terminalCtrlVPasteEnabled).toBe(false);
+    // @ts-expect-error intentional bad input
+    expect(normalizeConfig({ terminalCtrlVPasteEnabled: 'yes' }).terminalCtrlVPasteEnabled).toBeUndefined();
+    expect(normalizeConfig({}).terminalCtrlVPasteEnabled).toBeUndefined();
   });
 
   it('passes through a boolean terminalClipboardWriteEnabled, drops non-booleans', () => {
@@ -1006,5 +1054,37 @@ describe('normalizeConfig — thread view window state', () => {
     store.setConfig({ threadViewWindowBounds: { bounds: { width: 1000, height: 700 } } });
     store.setConfig({ theme: 'dark' });
     expect(store.getConfig().threadViewWindowBounds).toEqual({ bounds: { width: 1000, height: 700 } });
+  });
+});
+
+describe('normalizeConfig — apiErrorResume (#421)', () => {
+  it('leaves the key absent for a frozen pre-#421 config', () => {
+    const legacy = Object.freeze({ heartbeatEnabled: true, heartbeatDelaySeconds: 30 }) as Partial<AppConfig>;
+    expect(normalizeConfig(legacy)).not.toHaveProperty('apiErrorResume');
+    expect(normalizeConfig({ apiErrorResume: 'bad' as never })).not.toHaveProperty('apiErrorResume');
+  });
+  it('round-trips a configured value through normalize and canonicalConfigForWrite', () => {
+    const apiErrorResume = {
+      enabled: true,
+      rules: [{ id: 'r-a', match: 'Provider anthropic not found', matchMode: 'contains', message: 'continue', delaySeconds: 20, enabled: true }],
+      maxPerWindow: 3,
+      windowMinutes: 15
+    };
+    const once = normalizeConfig({ apiErrorResume: apiErrorResume as never });
+    expect(once.apiErrorResume).toEqual(apiErrorResume);
+    expect(normalizeConfig(once).apiErrorResume).toEqual(apiErrorResume);
+    // store.setConfig persists through canonicalConfigForWrite; the key must survive it.
+    store.setConfig({ apiErrorResume: apiErrorResume as never });
+    store.setConfig({ theme: 'light' });
+    expect(store.getConfig().apiErrorResume).toEqual(apiErrorResume);
+  });
+  it('drops an invalid regex rule from a PATCH', () => {
+    const out = normalizeConfig({
+      apiErrorResume: { enabled: true, maxPerWindow: 3, windowMinutes: 15, rules: [
+        { id: 'bad', match: '(oops', matchMode: 'regex', message: 'continue', delaySeconds: 20, enabled: true },
+        { id: 'ok', match: 'rate limited', matchMode: 'contains', message: 'continue', delaySeconds: 20, enabled: true }
+      ] }
+    });
+    expect(out.apiErrorResume!.rules.map(r => r.id)).toEqual(['ok']);
   });
 });
