@@ -34860,7 +34860,7 @@ textarea.thread-command-editor {
 }
 
 .split-pane-scrim.is-dimmed {
-  background: color-mix(in oklab, var(--bg-base) 30%, transparent);
+  background: color-mix(in oklab, var(--bg-base) 12%, transparent);
 }
 
 .split-pane-bar {
