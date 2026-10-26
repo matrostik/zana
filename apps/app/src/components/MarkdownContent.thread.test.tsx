@@ -48,6 +48,29 @@ describe('MarkdownContent thread extras', () => {
     expect(html).not.toContain('node=');
   });
 
+  it('keeps relative document links in-app when rendering a previewed document', () => {
+    const html = renderToStaticMarkup(
+      <DocContent
+        path="docs/getting-started.md"
+        content="See [CLI Reference](./cli.md) and [Desktop](desktop-app.md)."
+        threadId="t1"
+      />
+    );
+    expect(html).toContain('href="./cli.md"');
+    expect(html).toContain('href="desktop-app.md"');
+    expect(html).not.toContain('target="_blank"');
+  });
+
+  it('resolves bare inline file chips from explicit slash paths in the same message', () => {
+    const html = renderToStaticMarkup(
+      <MarkdownContent
+        text="Read `docs/getting-started.md` first, then check `getting-started.md`."
+        threadId="t1"
+      />
+    );
+    expect(html).toContain('title="docs/getting-started.md"');
+  });
+
   it('does not spread Markdown syntax nodes onto DOM elements', () => {
     const html = renderToStaticMarkup(<MarkdownContent text={'[Link](https://example.com)\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n```\ntext\n```'} />);
     expect(html).not.toContain('node=');

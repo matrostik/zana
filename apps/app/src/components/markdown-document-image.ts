@@ -8,7 +8,7 @@ export function resolveDocumentImagePath(documentPath: string, src: string): str
     if (/^file:/iu.test(path)) {
       const url = new URL(path);
       if (url.hostname && url.hostname !== 'localhost') return null;
-      path = decodeURIComponent(url.pathname);
+      path = decodeURIComponent(url.pathname).replace(/^\/+([a-z]:[\\/])/iu, '$1');
     } else {
       if (/^[a-z][a-z0-9+.-]*:/iu.test(path) && !/^[a-z]:[/\\]/iu.test(path)) return null;
       path = decodeURIComponent(path.split(/[?#]/u)[0]);

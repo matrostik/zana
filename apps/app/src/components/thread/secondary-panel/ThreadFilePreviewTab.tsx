@@ -323,12 +323,13 @@ export function ThreadFilePreviewTab({
   const override = selection.scope === openerScope ? selection.key : openerKey ?? null;
   const contentScope = JSON.stringify([path, threadId, projectId, storage]);
   const [retryRevision, setRetryRevision] = useState(0);
-  const reveal = useFilePreviewReveal({ path, threadId, projectId: projectId ?? undefined,
-    source: storage ? 'thread-storage' : 'workspace' }, previewRevision + retryRevision);
-  const binary = binaryPreviewKind(path) !== null;
-  const [loaded, setLoaded] = useState<{ scope: string; content: string | null; error: string | null }>({ scope: contentScope, content: null, error: null });
+  const [loaded, setLoaded] = useState<{ scope: string; content: string | null; error: string | null; relPath?: string | null }>({ scope: contentScope, content: null, error: null });
   const content = loaded.scope === contentScope ? loaded.content : null;
   const error = loaded.scope === contentScope ? loaded.error : null;
+  const effectivePath = (loaded.scope === contentScope && loaded.relPath) ? loaded.relPath : path;
+  const reveal = useFilePreviewReveal({ path: effectivePath, threadId, projectId: projectId ?? undefined,
+    source: storage ? 'thread-storage' : 'workspace' }, previewRevision + retryRevision);
+  const binary = binaryPreviewKind(path) !== null;
   const openers = useSyncExternalStore(subscribePluginSlots, listFileOpeners, listFileOpeners);
   const opener = resolveFileOpener(path, openers, override);
   const OpenerComponent = opener?.component;
@@ -385,7 +386,8 @@ export function ThreadFilePreviewTab({
     ).then((result) => {
       if (!cancelled) setLoaded(previous => ({ scope: contentScope,
         content: ('content' in result ? result.content : null) ?? (previous.scope === contentScope ? previous.content : null),
-        error: 'error' in result ? result.error : null }));
+        error: 'error' in result ? result.error : null,
+        relPath: ('relPath' in result && result.relPath) ? result.relPath : (previous.scope === contentScope ? previous.relPath : null) }));
     });
     return () => { cancelled = true; };
   }, [path, storage, threadId, projectId, livePlan, videoSrc, htmlMode, previewRevision, retryRevision, contentScope, binary]);
@@ -393,7 +395,7 @@ export function ThreadFilePreviewTab({
   const chrome = (
     <>
       <ThreadFilePreviewChrome
-        path={path}
+        path={effectivePath}
         matches={matches}
         selectedKey={opener ? fileOpenerKey(opener) : 'host'}
         statusBadge={liveBadge}
@@ -424,15 +426,15 @@ export function ThreadFilePreviewTab({
     );
   }
   const hostPreview = videoSrc ? (
-    <ThreadVideoPreview key={`${videoSrc}:${previewRevision}`} src={videoSrc} path={path} />
+    <ThreadVideoPreview key={`${videoSrc}:${previewRevision}`} src={videoSrc} path={effectivePath} />
   ) : htmlMode === 'preview' ? (
     <ThreadHtmlPreviewFrame
-      path={path}
-      src={htmlPreviewUrl(path, threadId, storage, projectId, previewRevision)}
+      path={effectivePath}
+      src={htmlPreviewUrl(effectivePath, threadId, storage, projectId, previewRevision)}
     />
   ) : (
     <ThreadFilePreviewView
-      path={path}
+      path={effectivePath}
       content={content}
       error={error}
       threadId={threadId}
@@ -456,7 +458,7 @@ export function ThreadFilePreviewTab({
           <OpenerComponent
             key={`${threadId ?? ''}:${storage}:${path}:${previewRevision}`}
             pluginId={opener.pluginId}
-            path={path}
+            path={effectivePath}
             source={{
               kind: storage ? 'thread-storage' : 'workspace',
               threadId: threadId ?? null,

@@ -19,7 +19,12 @@ import {
   rewriteLocalhostLinkHref
 } from '../lib/localhost-link-rewrite-preference.js';
 import { handleHttpLinkClick } from '../lib/in-app-browser-link-preference.js';
-import { parseLocalFileMarkdownHref, resolveThreadFilePreviewPath } from './markdown-local-file.js';
+import {
+  extractMarkdownFilePreviewHints,
+  parseLocalFileMarkdownLink,
+  resolveThreadFilePreviewPath
+} from './markdown-local-file.js';
+import { resolveDocumentLink } from './document-links.js';
 import { parseThreadMentionHref, remarkThreadMentions } from './markdown-thread-mentions.js';
 import { dispatchThreadOpenFile } from './thread/secondary-panel/useThreadOpenFileSignal.js';
 import { getThreadRoutePath } from '../lib/route-paths.js';
@@ -200,6 +205,11 @@ export const MarkdownContent = memo(function MarkdownContent({
     [body, projectId, threadId]
   );
   const lightboxItems = providedLightboxItems ?? collectedLightboxItems;
+  const effectiveFilePathHints = useMemo(() => {
+    const inlineHints = extractMarkdownFilePreviewHints(body);
+    if (inlineHints.length === 0) return filePathHints;
+    return filePathHints ? [...filePathHints, ...inlineHints] : inlineHints;
+  }, [body, filePathHints]);
   const remarkPlugins = useMemo(
     () => [
       remarkGfm,
@@ -262,9 +272,8 @@ export const MarkdownContent = memo(function MarkdownContent({
           // Plain click opens the OS browser. Cmd/Ctrl-click opens the
           // in-app side panel. The syntax-tree node is not a DOM attribute.
           a: ({ node: _node, ...props }) => {
-            const mentionId = parseThreadMentionHref(
-              typeof props.href === 'string' ? props.href : undefined
-            );
+            const rawHref = typeof props.href === 'string' ? props.href : undefined;
+            const mentionId = parseThreadMentionHref(rawHref);
             if (mentionId) {
               return (
                 <a
@@ -275,9 +284,11 @@ export const MarkdownContent = memo(function MarkdownContent({
                 </a>
               );
             }
-            const localPath = parseLocalFileMarkdownHref(
-              typeof props.href === 'string' ? props.href : undefined
-            );
+            const parsedLink = parseLocalFileMarkdownLink(rawHref);
+            const localPath = documentPath && rawHref && !rawHref.startsWith('#')
+              ? (resolveDocumentLink(documentPath, rawHref)?.path ?? parsedLink?.path ?? null)
+              : (parsedLink?.path ?? null);
+            const localLineNumber = parsedLink?.lineNumber ?? null;
             if (localPath) {
               return (
                 <a
@@ -285,7 +296,7 @@ export const MarkdownContent = memo(function MarkdownContent({
                   href={props.href}
                   onClick={(event) => {
                     event.preventDefault();
-                    if (threadId) dispatchThreadOpenFile(threadId, localPath);
+                    if (threadId) dispatchThreadOpenFile(threadId, localPath, localLineNumber);
                   }}
                 />
               );
@@ -293,7 +304,7 @@ export const MarkdownContent = memo(function MarkdownContent({
             const href = rewriteLocalhostLinkHref({
               currentHostname: hostname,
               enabled: rewriteLocalhost,
-              href: typeof props.href === 'string' ? props.href : undefined
+              href: rawHref
             });
             return (
               <a
@@ -327,7 +338,7 @@ export const MarkdownContent = memo(function MarkdownContent({
             const fenced = /(^|\s)language-/.test(className) || /(^|\s)hljs(\s|$)/.test(className);
             const token = inlineCodeText(props.children);
             const path = !fenced && !exportable && threadId
-              ? resolveThreadFilePreviewPath(token, filePathHints)
+              ? resolveThreadFilePreviewPath(token, effectiveFilePathHints)
               : null;
             if (path && threadId) {
               const name = path.split(/[/\\]/u).pop() ?? path;

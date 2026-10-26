@@ -150,6 +150,7 @@ export function contentFromLocalRead(local: unknown): string | null {
 
 export type HostFileContentResult = {
   content: string;
+  relPath?: string;
   encoding?: 'utf8' | 'base64';
   contentType?: string | null;
 };
@@ -336,7 +337,7 @@ async function loadImagePreview(
   threadId: string | undefined,
   path: string,
   options?: { skipLocal?: boolean; readDataUrl?: (path: string) => Promise<ReadDataUrlResult> }
-): Promise<{ content: string } | { error: string }> {
+): Promise<{ content: string; relPath?: string } | { error: string }> {
   if (!threadId && !options?.skipLocal && typeof options?.readDataUrl === 'function') {
     try {
       const local = await options.readDataUrl(path);
@@ -355,9 +356,11 @@ async function loadImagePreview(
     const preview = imagePreviewSrc({
       content: host.content,
       encoding: host.encoding,
-      contentType: host.contentType ?? imageContentTypeFromPath(path)
+      contentType: host.contentType ?? imageContentTypeFromPath(host.relPath ?? path)
     });
-    if (preview) return { content: preview };
+    if (preview) {
+      return host.relPath ? { content: preview, relPath: host.relPath } : { content: preview };
+    }
     return { error: 'Could not read file' };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Could not read file' };
@@ -370,7 +373,7 @@ export async function loadFilePreview(
   threadId: string | undefined,
   path: string,
   options?: { skipLocal?: boolean; readDataUrl?: (path: string) => Promise<ReadDataUrlResult> }
-): Promise<{ content: string } | { error: string }> {
+): Promise<{ content: string; relPath?: string } | { error: string }> {
   if (isPreviewImagePath(path)) {
     return loadImagePreview(hostFileContent, threadId, path, options);
   }
@@ -388,7 +391,7 @@ export async function loadFilePreview(
   }
   try {
     const host = await hostFileContent(threadId, path);
-    return { content: host.content };
+    return host.relPath ? { content: host.content, relPath: host.relPath } : { content: host.content };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Could not read file' };
   }

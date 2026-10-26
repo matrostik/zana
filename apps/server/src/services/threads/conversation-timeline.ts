@@ -42,6 +42,7 @@ import {
 import { getThreadReadSeq } from './thread-reads.js';
 import { getDurableThreadPlanView } from './conversation-plan.js';
 import { projectAttachmentDir } from '../projects/attachments.js';
+import { threadStorageRoot } from './thread-storage.js';
 import { getThreadExecutionState } from '@zana-ai/zcc-db';
 import { isPlanExecutionMode } from './conversation-execution-mode.js';
 import { conversationNextTurnView } from './conversation-next-turn.js';
@@ -131,7 +132,10 @@ function includeProviderUnhandledOperations(ctx: ProductHttpContext): boolean {
 
 /** Absolute roots, besides the environment, that `readThreadHostFile` opens. */
 function timelinePreviewRoots(ctx: ProductHttpContext, thread: ConversationThreadRow): string[] {
-  return thread.projectId ? [projectAttachmentDir(ctx.dataDir, thread.projectId)] : [];
+  return [
+    ...(thread.projectId ? [projectAttachmentDir(ctx.dataDir, thread.projectId)] : []),
+    ...(ctx.dataDir ? [threadStorageRoot(ctx.dataDir, thread.id)] : [])
+  ];
 }
 
 function requireThread(ctx: ProductHttpContext, threadId: string) {

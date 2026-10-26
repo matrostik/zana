@@ -441,20 +441,39 @@ function resolvePreviewRoots(options: {
  * `..` escapes, or absolute files elsewhere on disk such as provider
  * tool-result spills) would only render "file not found".
  */
+function normalizeFsPath(value: string): string {
+  return value.replace(/\\/gu, "/");
+}
+
+function isAbsoluteFsPath(value: string): boolean {
+  return value.startsWith("/") || /^[a-zA-Z]:\//u.test(value);
+}
+
+function startsWithFsRoot(path: string, root: string): boolean {
+  if (/^[a-zA-Z]:\//u.test(root) && /^[a-zA-Z]:\//u.test(path)) {
+    return (
+      path[0]!.toLowerCase() === root[0]!.toLowerCase() &&
+      path.slice(1).startsWith(`${root.slice(1)}/`)
+    );
+  }
+  return path.startsWith(`${root}/`);
+}
+
 function isPreviewablePath(
   path: string,
   previewRoots: readonly string[],
 ): boolean {
   if (/[$`]/u.test(path) || path.startsWith("~")) return false;
-  if (!path.startsWith("/")) {
-    return !path.split("/").includes("..");
+  const normalizedPath = normalizeFsPath(path);
+  if (!isAbsoluteFsPath(normalizedPath)) {
+    return !normalizedPath.split("/").includes("..");
   }
   return previewRoots.some((root) => {
-    const normalizedRoot = root.replace(/\/+$/u, "");
+    const normalizedRoot = normalizeFsPath(root).replace(/\/+$/u, "");
     return (
       normalizedRoot.length > 0 &&
-      path.startsWith(`${normalizedRoot}/`) &&
-      !path.split("/").includes("..")
+      startsWithFsRoot(normalizedPath, normalizedRoot) &&
+      !normalizedPath.split("/").includes("..")
     );
   });
 }
@@ -518,10 +537,11 @@ function relativizeWorkspacePath(
   workspaceRoot: string | null,
 ): string {
   if (!workspaceRoot) return path;
-  const normalizedRoot = workspaceRoot.replace(/\/+$/u, "");
+  const normalizedRoot = normalizeFsPath(workspaceRoot).replace(/\/+$/u, "");
   if (normalizedRoot.length === 0) return path;
-  if (path.startsWith(`${normalizedRoot}/`)) {
-    return path.slice(normalizedRoot.length + 1);
+  const normalizedPath = normalizeFsPath(path);
+  if (startsWithFsRoot(normalizedPath, normalizedRoot)) {
+    return normalizedPath.slice(normalizedRoot.length + 1);
   }
   return path;
 }
@@ -539,8 +559,17 @@ function anchorCommandIntent(
   workspaceRoot: string | null,
 ): EventProjectionToolParsedIntent {
   if (intent.type !== "read" || !intent.path || !workspaceRoot) return intent;
-  if (!cwd?.startsWith("/") || /^[/~]|[$`]/u.test(intent.path)) return intent;
-  const absolute = normalizeShellPath(`${cwd}/${intent.path}`);
+  const normalizedCwd = cwd ? normalizeFsPath(cwd) : null;
+  if (
+    !normalizedCwd ||
+    !isAbsoluteFsPath(normalizedCwd) ||
+    /^(?:[/~]|[a-zA-Z]:[\\/]|[$`])/u.test(intent.path)
+  ) {
+    return intent;
+  }
+  const drive = /^[a-zA-Z]:(?=\/)/u.exec(normalizedCwd)?.[0] ?? "";
+  const posixJoined = `${normalizedCwd.slice(drive.length)}/${normalizeFsPath(intent.path)}`;
+  const absolute = `${drive}${normalizeShellPath(posixJoined)}`;
   return { ...intent, path: relativizeWorkspacePath(absolute, workspaceRoot) };
 }
 

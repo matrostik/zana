@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   conversationFilePreviewPaths,
+  extractMarkdownFilePreviewHints,
   parseInlineFileCodePath,
   parseLocalFileMarkdownHref,
+  parseLocalFileMarkdownLink,
   resolveThreadFilePreviewPath
 } from './markdown-local-file.js';
 import { parseThreadMentionHref, splitThreadMentionText } from './markdown-thread-mentions.js';
@@ -10,6 +12,12 @@ import { parseThreadMentionHref, splitThreadMentionText } from './markdown-threa
 describe('parseLocalFileMarkdownHref', () => {
   it('accepts file URLs and absolute paths with a file extension', () => {
     expect(parseLocalFileMarkdownHref('file:///workspace/README.md')).toBe('/workspace/README.md');
+    expect(parseLocalFileMarkdownHref('file:///D:/Dev/code/zana/docs/getting-started.md')).toBe(
+      'D:/Dev/code/zana/docs/getting-started.md'
+    );
+    expect(parseLocalFileMarkdownHref('D:\\Dev\\code\\zana\\docs\\cli.md')).toBe(
+      'D:/Dev/code/zana/docs/cli.md'
+    );
     expect(parseLocalFileMarkdownHref('/tmp/app.ts')).toBe('/tmp/app.ts');
     expect(parseLocalFileMarkdownHref('./src/foo.ts')).toBe('./src/foo.ts');
   });
@@ -17,6 +25,34 @@ describe('parseLocalFileMarkdownHref', () => {
   it('rejects http(s) and parent-segment escapes', () => {
     expect(parseLocalFileMarkdownHref('https://example.com/app.ts')).toBeNull();
     expect(parseLocalFileMarkdownHref('/tmp/../etc/passwd')).toBeNull();
+    expect(parseLocalFileMarkdownHref('file:///workspace/../etc/passwd.txt')).toBeNull();
+  });
+});
+
+describe('parseLocalFileMarkdownLink', () => {
+  it('extracts optional #L10 line numbers from local file links', () => {
+    expect(parseLocalFileMarkdownLink('file:///D:/Dev/code/zana/src/app.ts#L42-L50')).toEqual({
+      path: 'D:/Dev/code/zana/src/app.ts',
+      lineNumber: 42
+    });
+    expect(parseLocalFileMarkdownLink('./src/foo.ts')).toEqual({
+      path: './src/foo.ts',
+      lineNumber: null
+    });
+    expect(parseLocalFileMarkdownLink('https://example.com/app.ts#L10')).toBeNull();
+  });
+});
+
+describe('extractMarkdownFilePreviewHints', () => {
+  it('collects explicit slash paths from markdown links and inline code', () => {
+    const markdown = [
+      'Updated [getting-started.md](file:///D:/Dev/code/zana/docs/getting-started.md#L10)',
+      'and `docs/cli.md` alongside `getting-started.md`.'
+    ].join(' ');
+    expect(extractMarkdownFilePreviewHints(markdown)).toEqual([
+      'D:/Dev/code/zana/docs/getting-started.md',
+      'docs/cli.md'
+    ]);
   });
 });
 

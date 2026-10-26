@@ -98,23 +98,37 @@ export function openThreadFilePreview(deps: PreviewFileDeps, input: PreviewFileI
     throw new PreviewFileError(404, 'unknown-project', 'project is not registered');
   }
 
-  const confined = input.source === 'thread-storage'
-    ? confineCandidate(
+  let effectiveSource: PanelFileSource = input.source;
+  let confined: string;
+  if (input.source === 'thread-storage') {
+    confined = confineCandidate(
       threadStorageRoot(deps.dataDir, input.threadId),
       input.path,
       'path-escape',
       'thread storage root is not available',
       'path is not inside thread storage'
-    )
-    : confineCandidate(
-      thread
-        ? (thread.environmentId ? deps.getEnvironmentPath(thread.environmentId) : null)
-        : deps.getProjectPath(projectId),
-      input.path,
-      thread ? 'environment_not_ready' : 'cwd-escape',
-      thread ? 'environment is not provisioned' : 'project path is not a confined directory',
-      'path is not inside the thread workspace'
     );
+  } else {
+    const normalizedPath = input.path.replace(/^\/+([a-zA-Z]:[\\/])/u, '$1');
+    const storageRoot = deps.dataDir ? threadStorageRoot(deps.dataDir, thread?.id ?? input.threadId) : null;
+    const storageConfined = storageRoot && isAbsolute(normalizedPath)
+      ? confinePathToRoot(storageRoot, normalizedPath)
+      : null;
+    if (storageConfined && isSafeRelPath(storageConfined)) {
+      effectiveSource = 'thread-storage';
+      confined = storageConfined;
+    } else {
+      confined = confineCandidate(
+        thread
+          ? (thread.environmentId ? deps.getEnvironmentPath(thread.environmentId) : null)
+          : deps.getProjectPath(projectId),
+        input.path,
+        thread ? 'environment_not_ready' : 'cwd-escape',
+        thread ? 'environment is not provisioned' : 'project path is not a confined directory',
+        'path is not inside the thread workspace'
+      );
+    }
+  }
 
   const lineNumber = typeof input.lineNumber === 'number' && input.lineNumber > 0
     ? input.lineNumber
@@ -125,7 +139,7 @@ export function openThreadFilePreview(deps: PreviewFileDeps, input: PreviewFileI
     threadId: thread?.id ?? input.threadId,
     split: input.split ?? 'right',
     file: {
-      source: input.source,
+      source: effectiveSource,
       path: confined,
       lineNumber
     }
@@ -134,7 +148,7 @@ export function openThreadFilePreview(deps: PreviewFileDeps, input: PreviewFileI
   return {
     delivered,
     path: confined,
-    source: input.source,
+    source: effectiveSource,
     threadId: signal.threadId,
     projectId
   };

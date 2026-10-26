@@ -2,14 +2,29 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 const MAX_REL_PATH = 1024;
 
+function normalizeDriveCandidate(root: string, candidate: string): string {
+  const stripped = candidate.replace(/^\/+([a-zA-Z]:[\\/])/u, '$1');
+  if (
+    /^[a-zA-Z]:[\\/]/u.test(root) &&
+    /^[a-zA-Z]:[\\/]/u.test(stripped) &&
+    root[0]!.toLowerCase() === stripped[0]!.toLowerCase()
+  ) {
+    return `${root[0]}${stripped.slice(1)}`;
+  }
+  return stripped;
+}
+
 /**
  * Map a renderer-supplied path onto a relative path inside `root`.
  * Rejects escapes, empty paths, and over-long candidates (Rule 2).
  */
 export function confinePathToRoot(root: string, candidate: string): string | null {
   if (!root || !candidate || !isAbsolute(root)) return null;
+  const normalizedCandidate = normalizeDriveCandidate(root, candidate);
   const resolvedRoot = resolve(root);
-  const resolved = isAbsolute(candidate) ? resolve(candidate) : resolve(resolvedRoot, candidate);
+  const resolved = isAbsolute(normalizedCandidate)
+    ? resolve(normalizedCandidate)
+    : resolve(resolvedRoot, normalizedCandidate);
   const rel = relative(resolvedRoot, resolved);
   if (!rel || rel.startsWith('..') || isAbsolute(rel)) return null;
   const normalized = rel.split(sep).join('/');

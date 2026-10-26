@@ -3,6 +3,7 @@ const PATH_LINE_PREFIX = /^(?:file|path)\s*:\s+/iu;
 const PREVIEW_PATH_LINE_CAP = 8;
 const PREVIEW_PATH_CAP = 3;
 const INLINE_FILE_EXT = /\.[A-Za-z][A-Za-z0-9]{0,11}$/u;
+const LINE_ANCHOR_PATTERN = /#L([1-9]\d*)(?:-L?\d+)?$/iu;
 
 function fileBaseName(path: string): string {
   return path.split(/[/\\]/u).pop() ?? path;
@@ -32,22 +33,41 @@ export function parseLocalFileMarkdownHref(href: string | undefined): string | n
   if (!href) return null;
   const trimmed = href.trim();
   if (!trimmed || trimmed.startsWith('#') || BLOCKED_SCHEMES.test(trimmed)) return null;
-  if (trimmed.startsWith('file://')) {
+  if (/^file:\/\//iu.test(trimmed)) {
     try {
+      const withoutHash = trimmed.split('#')[0] ?? trimmed;
+      if (withoutHash.includes('..') || /%2e%2e/iu.test(withoutHash)) return null;
       const url = new URL(trimmed);
       if (url.host && url.host !== 'localhost' && url.hostname !== '') return null;
-      const path = decodeURIComponent(url.pathname);
+      const path = decodeURIComponent(url.pathname)
+        .replace(/^\/+([a-zA-Z]:[\\/])/u, '$1')
+        .replace(/\\/gu, '/');
+      if (path.includes('..')) return null;
       return looksLikeFilePath(path) ? path : path || null;
     } catch {
       return null;
     }
   }
-  const path = trimmed.split('#')[0] ?? trimmed;
+  const path = (trimmed.split('#')[0] ?? trimmed).replace(/\\/gu, '/');
   if (path.startsWith('/') && !path.startsWith('//') && looksLikeFilePath(path)) return path;
+  if (/^[a-zA-Z]:\/[^/]/u.test(path) && looksLikeFilePath(path)) return path;
   if ((/^\.{0,2}\//u.test(path) || /^[\w.-]+\/[\w./-]+$/u.test(path)) && looksLikeFilePath(path)) {
     return path;
   }
   return null;
+}
+
+export function parseLocalFileMarkdownLink(
+  href: string | undefined
+): { path: string; lineNumber: number | null } | null {
+  const path = parseLocalFileMarkdownHref(href);
+  if (!path || !href) return null;
+  const match = LINE_ANCHOR_PATTERN.exec(href.trim());
+  const lineNumber = match ? Number(match[1]) : null;
+  return {
+    path,
+    lineNumber: lineNumber && Number.isFinite(lineNumber) && lineNumber > 0 ? lineNumber : null
+  };
 }
 
 /** Workspace-relative paths an assistant dump or attachment can open in the side-panel preview. */
@@ -81,9 +101,32 @@ export function conversationFilePreviewPaths(
  */
 export function parseInlineFileCodePath(text: string | undefined): string | null {
   if (!text || /[\r\n]/u.test(text)) return null;
-  const path = stripPathDecorators(text);
+  const path = stripPathDecorators(text).replace(/\\/gu, '/');
   if (!path || path.startsWith('#') || BLOCKED_SCHEMES.test(path)) return null;
   return looksLikeInlineFileCode(path) ? path : null;
+}
+
+/**
+ * Extract explicit slash file paths from markdown links and inline code in a
+ * message so bare filename chips in the same message can resolve against them.
+ */
+export function extractMarkdownFilePreviewHints(text: string): string[] {
+  if (!text) return [];
+  const withoutFences = text.replace(/```[\s\S]*?```/gu, '');
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (candidate: string | null) => {
+    if (!candidate || !/[/\\]/u.test(candidate) || seen.has(candidate)) return;
+    seen.add(candidate);
+    out.push(candidate);
+  };
+  for (const match of withoutFences.matchAll(/\]\(([^)\s]+)\)/gu)) {
+    push(parseLocalFileMarkdownHref(match[1]));
+  }
+  for (const match of withoutFences.matchAll(/`([^`\r\n]+)`/gu)) {
+    push(parseInlineFileCodePath(match[1]));
+  }
+  return out;
 }
 
 /**

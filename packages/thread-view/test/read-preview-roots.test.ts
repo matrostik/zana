@@ -55,7 +55,7 @@ function previewAction(command: string, roots = true, cwd = WORKSPACE) {
     ?.title.action;
 }
 
-function renderFileRead(path: string) {
+function renderFileRead(path: string, workspaceRoot = WORKSPACE) {
   const event = createTimelineEventFactory({ threadId: "thread-1" });
   // The harness has no fileRead factory; reuse a completed item row and swap
   // in a structured fileRead item.
@@ -81,7 +81,7 @@ function renderFileRead(path: string) {
       event.turnCompleted({ turnId: "turn-1", createdAt: 2_000 }),
     ],
     projectionOptions: { threadStatus: "idle", turnMessageDetail: "full" },
-    workspaceRoot: WORKSPACE,
+    workspaceRoot,
     previewRoots: [ATTACHMENTS],
   });
   const row = workRows(rendered.rows).find(
@@ -170,7 +170,7 @@ describe("read preview roots", () => {
     });
   });
 
-  it("applies the same rule to structured file-read rows", () => {
+  it("applies the same rule to structured file-read rows and Windows roots", () => {
     const outside = renderFileRead(`${SPILL_DIR}/${SPILL_FILE}`);
     expect(outside.previewable).toBe(false);
     expect(
@@ -188,5 +188,11 @@ describe("read preview roots", () => {
         workStyle: "default",
       }).action,
     ).toEqual({ kind: "open-file-preview", path: `${ATTACHMENTS}/shot.png` });
+
+    const winInside = renderFileRead(
+      "D:/Dev/code/zana/docs/getting-started.md",
+      "D:\\Dev\\code\\zana",
+    );
+    expect(winInside).not.toHaveProperty("previewable");
   });
 });

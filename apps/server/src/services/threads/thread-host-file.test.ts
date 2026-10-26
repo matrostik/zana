@@ -70,6 +70,58 @@ describe('readThreadHostFile', () => {
     await expect(readThreadHostFile(huge, 't1', 'big.bin')).rejects.toBeInstanceOf(ProjectFsError);
   });
 
+  it('resolves bare filenames and relative suffix paths via host.list_paths when direct read returns path_not_found', async () => {
+    vi.mocked(getConversationThread).mockReturnValue({
+      id: 't1',
+      environmentId: 'e1',
+      hostId: 'h1'
+    } as never);
+    vi.mocked(getEnvironment).mockReturnValue({ path: '/tmp/env' } as never);
+    const callHostOnlineRpc = vi.fn(async ({ command }: { command: { type: string; relPath?: string } }) => {
+      if (command.type === 'host.read_file') {
+        if (command.relPath === 'docs/getting-started.md') {
+          return { content: '# Getting Started', encoding: 'utf8' };
+        }
+        if (command.relPath === 'reports/output/review-report.md') {
+          return { content: '# Review Report', encoding: 'utf8' };
+        }
+        throw { code: 'path_not_found' };
+      }
+      if (command.type === 'host.list_paths') {
+        return {
+          paths: [
+            { path: 'docs/getting-started.md', name: 'getting-started.md', kind: 'file' },
+            { path: 'website/content/docs/getting-started.md', name: 'getting-started.md', kind: 'file' },
+            { path: 'pkg-a/dup.md', name: 'dup.md', kind: 'file' },
+            { path: 'pkg-b/dup.md', name: 'dup.md', kind: 'file' },
+            { path: 'reports/output/review-report.md', name: 'review-report.md', kind: 'file' }
+          ]
+        };
+      }
+      throw new Error(`unexpected command: ${command.type}`);
+    });
+    const ctx = { db: {}, hostHub: { callHostOnlineRpc } } as unknown as ProductHttpContext;
+
+    const bareResolved = await readThreadHostFile(ctx, 't1', 'getting-started.md');
+    expect(bareResolved).toMatchObject({
+      path: 'getting-started.md',
+      relPath: 'docs/getting-started.md',
+      content: '# Getting Started'
+    });
+
+    const suffixResolved = await readThreadHostFile(ctx, 't1', 'output/review-report.md');
+    expect(suffixResolved).toMatchObject({
+      path: 'output/review-report.md',
+      relPath: 'reports/output/review-report.md',
+      content: '# Review Report'
+    });
+
+    await expect(readThreadHostFile(ctx, 't1', 'dup.md')).rejects.toMatchObject({
+      status: 404,
+      code: 'path_not_found'
+    });
+  });
+
   it('reads a confined file through the host', async () => {
     vi.mocked(getConversationThread).mockReturnValueOnce({
       id: 't1',
@@ -207,19 +259,22 @@ describe('CLI session workspace previews', () => {
   });
 });
 
-describe('uploaded attachment previews', () => {
+describe('uploaded attachment and thread-storage previews', () => {
   it.each([['photo.bmp', 'image/bmp'], ['photo.AVIF', 'image/avif']])('recognizes the accepted %s image format', (path, mime) => {
     expect(imageContentType(path)).toBe(mime);
   });
   let dataDir: string;
   let root: string;
+  let storageDir: string;
   let ctx: ProductHttpContext;
   const hostRead = vi.fn(async () => ({ content: 'checkout file', encoding: 'utf8' }));
 
   beforeEach(async () => {
     dataDir = await mkdtemp(join(tmpdir(), 'thread-attachment-preview-'));
     root = join(dataDir, 'attachments', 'p1');
+    storageDir = join(dataDir, 'thread-storage', 't1');
     await mkdir(root, { recursive: true });
+    await mkdir(storageDir, { recursive: true });
     vi.mocked(getConversationThread).mockReturnValue({
       id: 't1', projectId: 'p1', environmentId: 'e1', hostId: 'remote-host'
     } as never);
@@ -242,6 +297,31 @@ describe('uploaded attachment previews', () => {
       encoding: 'base64', contentType: 'image/png'
     });
     expect(hostRead).not.toHaveBeenCalled();
+  });
+
+  it('reads absolute thread-storage paths and falls back to thread-storage when relative host read returns path_not_found', async () => {
+    const outDir = join(storageDir, 'output');
+    await mkdir(outDir, { recursive: true });
+    const absReport = join(outDir, 'review-report.md');
+    await writeFile(absReport, '# Stored Review Report');
+
+    expect(await readThreadHostFile(ctx, 't1', absReport)).toEqual({
+      path: absReport,
+      relPath: 'output/review-report.md',
+      content: '# Stored Review Report',
+      encoding: 'utf8',
+      contentType: null
+    });
+    expect(hostRead).not.toHaveBeenCalled();
+
+    hostRead.mockRejectedValueOnce({ code: 'path_not_found' });
+    expect(await readThreadHostFile(ctx, 't1', 'output/review-report.md')).toEqual({
+      path: 'output/review-report.md',
+      relPath: 'output/review-report.md',
+      content: '# Stored Review Report',
+      encoding: 'utf8',
+      contentType: null
+    });
   });
 
   it('reads uploaded text but keeps relative paths scoped to the host checkout', async () => {

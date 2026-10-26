@@ -18,7 +18,7 @@ const workBase = {
 };
 
 describe('collectTimelineFilePreviewPaths', () => {
-  it('walks file-change, rename destination, file-read, and nested rows in order', () => {
+  it('walks file-change, rename destination, file-read, command/tool read intents, and nested rows in order', () => {
     const nestedChange: ThreadTimelineViewRow = {
       ...workBase,
       id: 'fc2',
@@ -59,6 +59,31 @@ describe('collectTimelineFilePreviewPaths', () => {
         completedAt: 2
       },
       {
+        ...workBase,
+        id: 'fr-outside',
+        workKind: 'file-read',
+        path: '/outside/secret.md',
+        previewable: false,
+        cmd: null,
+        completedAt: 2
+      },
+      {
+        ...workBase,
+        id: 'cmd1',
+        workKind: 'command',
+        command: 'cat docs/getting-started.md',
+        cwd: '/workspace',
+        exitCode: 0,
+        stdout: '',
+        stderr: null,
+        approvalStatus: null,
+        completedAt: 2,
+        activityIntents: [
+          { type: 'read', path: 'docs/getting-started.md', label: 'Read docs/getting-started.md' },
+          { type: 'read', path: '/outside/spill.txt', label: 'Read spill', previewable: false }
+        ]
+      },
+      {
         id: 'turn-closed',
         threadId: 't1',
         turnId: 'turn-0',
@@ -77,6 +102,7 @@ describe('collectTimelineFilePreviewPaths', () => {
       'src/old.md',
       'docs/new.md',
       'README.md',
+      'docs/getting-started.md',
       'nested/foo.md'
     ]);
   });

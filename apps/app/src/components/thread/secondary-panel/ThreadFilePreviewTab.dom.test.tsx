@@ -50,6 +50,18 @@ describe('file opener host preview lifetime', () => {
     expect(mocks.hostFileContent).toHaveBeenLastCalledWith('cli-session', '.zcc/report.md', 'p2');
   });
 
+  it('uses resolved relPath from hostFileContent in chrome when a bare filename resolves to a subdirectory', async () => {
+    mocks.hostFileContent.mockResolvedValue({
+      content: '# Getting Started',
+      encoding: 'utf8',
+      relPath: 'docs/getting-started.md'
+    });
+    const view = render(<ThreadFilePreviewTab path="getting-started.md" threadId="t1" />);
+    await view.findByRole('heading', { name: 'Getting Started' });
+    const chrome = view.getByTestId('thread-file-preview-chrome');
+    expect(chrome.textContent).toContain('docs/getting-started.md');
+  });
+
   it('loads CLI workspace images using the same project scope', async () => {
     mocks.hostFileContent.mockResolvedValue({ content: 'iVBORw0KGgo=', encoding: 'base64', contentType: 'image/png' });
     const view = render(<ThreadFilePreviewTab path="shot.png" threadId="cli-session" projectId="p1" />);

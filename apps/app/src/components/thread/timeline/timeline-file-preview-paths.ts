@@ -19,8 +19,8 @@ export function reuseStringListIfEqual(
 }
 
 /**
- * Workspace paths from file-change / file-read rows, in timeline order so a
- * later write wins when resolving a bare `` `file.md` `` chip.
+ * Workspace paths from file-change / file-read / read-intent rows, in timeline
+ * order so a later write wins when resolving a bare `` `file.md` `` chip.
  */
 export function collectTimelineFilePreviewPaths(
   rows: readonly ThreadTimelineViewRow[]
@@ -36,8 +36,14 @@ function visit(rows: readonly ThreadTimelineViewRow[], out: string[]): void {
       if (row.workKind === 'file-change') {
         if (row.change.path) out.push(row.change.path);
         if (row.change.movePath) out.push(row.change.movePath);
-      } else if (row.workKind === 'file-read' && row.path) {
+      } else if (row.workKind === 'file-read' && row.path && row.previewable !== false) {
         out.push(row.path);
+      } else if (row.workKind === 'command' || row.workKind === 'tool') {
+        for (const intent of row.activityIntents) {
+          if (intent.type === 'read' && intent.path && intent.previewable !== false) {
+            out.push(intent.path);
+          }
+        }
       } else if (row.workKind === 'delegation') {
         visit(row.childRows, out);
       }

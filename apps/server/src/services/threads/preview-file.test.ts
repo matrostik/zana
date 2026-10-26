@@ -112,6 +112,22 @@ describe('openThreadFilePreview', () => {
     expect(result.source).toBe('thread-storage');
   });
 
+  it('routes absolute paths inside thread-storage to thread-storage even when source=workspace', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'zcc-preview-data-'));
+    const d = deps({ dataDir });
+    const absStorageFile = join(dataDir, 'thread-storage', 'thr-1', 'output', 'review-report.md');
+    const result = openThreadFilePreview(d, {
+      threadId: 'thr-1',
+      source: 'workspace',
+      path: absStorageFile
+    });
+    expect(result.path).toBe('output/review-report.md');
+    expect(result.source).toBe('thread-storage');
+    expect(threadOpenSignalSchema.parse(d.emitted[0])).toMatchObject({
+      file: { source: 'thread-storage', path: 'output/review-report.md', lineNumber: null }
+    });
+  });
+
   it('rejects thread-storage escapes', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'zcc-preview-data-'));
     const d = deps({ dataDir });
