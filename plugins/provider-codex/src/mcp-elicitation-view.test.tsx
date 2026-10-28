@@ -8,9 +8,13 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { PluginPendingInteractionProps } from "@zana-ai/zcc-plugin-sdk/app";
-import { CodexMcpElicitationView } from "./mcp-elicitation-view.js";
 import { normalizeCodexMcpForm } from "./mcp-elicitation-form.js";
 import type { CodexMcpElicitation } from "./mcp-elicitation.js";
+import { collectTestPluginApp } from "@zana-ai/zcc-plugin-sdk/testing/app";
+import app from "../app.tsx";
+
+const RegisteredElicitation = collectTestPluginApp(app, "provider-codex")
+  .pendingInteractions.find((slot) => slot.id === "mcp-elicitation")!.component;
 const common = { serverName: "calendar", message: "Please provide details" };
 const tool = {
   ...common,
@@ -38,7 +42,7 @@ function show(
     cancel: vi.fn(async () => undefined),
     ...overrides,
   };
-  return { ...render(<CodexMcpElicitationView {...props} />), ...props };
+  return { ...render(<RegisteredElicitation {...props} />), ...props };
 }
 afterEach(() => {
   cleanup();
