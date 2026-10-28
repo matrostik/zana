@@ -423,17 +423,35 @@ interface ListedPath {
   name: string;
 }
 
+async function matchesExactHostName(root: string, path: string, actualName: string, expectedName: string): Promise<boolean> {
+  if (actualName === expectedName) return true;
+  if (process.platform !== 'win32' || actualName.toLocaleLowerCase('en-US') !== expectedName.toLocaleLowerCase('en-US')) return false;
+  try {
+    const actual = await fs.realpath(join(root, path));
+    const requested = await fs.realpath(join(root, dirname(path), expectedName));
+    return actual === requested;
+  } catch {
+    return false;
+  }
+}
+
 async function walkListedPaths(command: {
   root: string;
   includeFiles: boolean;
   includeDirectories: boolean;
   stopAfter?: number;
+  exactName?: string;
+  deadline?: number;
 }): Promise<{ paths: ListedPath[]; truncated: boolean }> {
   const paths: ListedPath[] = [];
   const stack = [command.root];
   let visits = 0;
   let truncated = false;
   while (stack.length > 0) {
+    if (command.deadline !== undefined && Date.now() >= command.deadline) {
+      truncated = true;
+      break;
+    }
     if (command.stopAfter !== undefined && paths.length >= command.stopAfter) {
       truncated = true;
       break;
@@ -443,13 +461,19 @@ async function walkListedPaths(command: {
       break;
     }
     const dir = stack.pop()!;
-    let dirents;
+    let directory;
     try {
-      dirents = await fs.readdir(dir, { withFileTypes: true });
+      directory = await fs.opendir(dir);
     } catch {
+      if (command.exactName) truncated = true;
       continue;
     }
-    for (const entry of dirents) {
+    try {
+      for await (const entry of directory) {
+      if (command.deadline !== undefined && Date.now() >= command.deadline) {
+        truncated = true;
+        break;
+      }
       visits += 1;
       if (visits > LIST_PATHS_VISIT_CAP) {
         truncated = true;
@@ -469,8 +493,13 @@ async function walkListedPaths(command: {
         continue;
       }
       if (entry.isFile() && command.includeFiles) {
-        paths.push({ kind: 'file', path: rel, name: entry.name });
+        if (!command.exactName || await matchesExactHostName(command.root, rel, entry.name, command.exactName)) {
+          paths.push({ kind: 'file', path: rel, name: entry.name });
+        }
       }
+      }
+    } catch {
+      if (command.exactName) truncated = true;
     }
     if (truncated) break;
   }
@@ -480,6 +509,8 @@ async function walkListedPaths(command: {
 export async function listHostPaths(command: {
   path: string;
   query?: string;
+  exactName?: string;
+  timeoutMs?: number;
   limit: number;
   includeFiles: boolean;
   includeDirectories: boolean;
@@ -494,15 +525,21 @@ export async function listHostPaths(command: {
   }
   const root = await fs.realpath(command.path);
   const query = command.query?.trim() ?? '';
+  const deadline = command.exactName
+    ? Date.now() + Math.min(command.timeoutMs ?? 5000, 5000)
+    : undefined;
   const walked = await walkListedPaths({
     root,
     includeFiles: command.includeFiles,
     includeDirectories: command.includeDirectories,
-    ...(query ? {} : { stopAfter: command.limit + 1 })
+    ...(!query && !command.exactName ? { stopAfter: command.limit + 1 } : {}),
+    ...(command.exactName ? { exactName: command.exactName, deadline } : {})
   });
   const ranked: HostPathEntry[] = [];
   for (const entry of walked.paths) {
-    const match = rankListedPath(entry.path, query);
+    const match = command.exactName
+      ? { score: 0, positions: [] }
+      : rankListedPath(entry.path, query);
     if (!match) continue;
     ranked.push({
       kind: entry.kind,

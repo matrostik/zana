@@ -261,6 +261,29 @@ describe('host filesystem mutations', () => {
 });
 
 describe('host filesystem discovery', () => {
+  it('finds only exact basenames and reports an unfinished name search', async () => {
+    const root = tmpRoot();
+    mkdirSync(join(root, 'docs'));
+    writeFileSync(join(root, 'docs', 'guide.md'), 'match');
+    writeFileSync(join(root, 'other-guide.md'), 'near match');
+    const listed = await listHostPaths({
+      path: root,
+      exactName: 'guide.md',
+      limit: 10,
+      includeFiles: true,
+      includeDirectories: false
+    });
+    expect(listed.paths.map(({ path }) => path)).toEqual(['docs/guide.md']);
+    expect(listed.truncated).toBe(false);
+  });
+
+  it('preserves case-sensitive filename distinction on POSIX hosts', async () => {
+    const root = tmpRoot();
+    writeFileSync(join(root, 'Guide.md'), 'match');
+    const listed = await listHostPaths({ path: root, exactName: 'guide.md', limit: 10, includeFiles: true, includeDirectories: false });
+    if (process.platform !== 'win32') expect(listed.paths).toEqual([]);
+  });
+
   it('lists files and directories, skips dots/node_modules/symlinks, and ranks a query', async () => {
     const root = tmpRoot();
     mkdirSync(join(root, 'src'));

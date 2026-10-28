@@ -293,11 +293,65 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # File URL parsing and preview path confinement cross OS boundaries. Keep a
+  # focused built-Electron regression on every supported desktop/runtime OS.
+  preview-cross-platform:
+    name: File preview (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2025, macos-15, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Linux Electron display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          pnpm exec playwright install --with-deps chromium
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Run file preview production-boundary regression
+        if: runner.os != 'Linux'
+        run: pnpm test:e2e -- e2e/thread-file-preview-ambiguity.spec.ts
+
+      - name: Run file preview production-boundary regression on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:e2e -- e2e/thread-file-preview-ambiguity.spec.ts
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: file-preview-${{ matrix.os }}
+          path: |
+            playwright-report
+            e2e/.artifacts
+          retention-days: 7
+          if-no-files-found: ignore
+
   # Preserve the existing required check name while making every job load-bearing.
   verify:
     name: Typecheck and test
     runs-on: ubuntu-latest
-    needs: [unit, unit-packages, coverage, e2e, connect-postgres]
+    needs: [unit, unit-packages, coverage, e2e, preview-cross-platform, connect-postgres]
     if: always()
     steps:
       - name: Require unit and production-boundary verification
@@ -306,10 +360,12 @@ jobs:
           PACKAGES_RESULT: ${{ needs.unit-packages.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           BOUNDARY_RESULT: ${{ needs.e2e.result }}
+          PREVIEW_MATRIX_RESULT: ${{ needs.preview-cross-platform.result }}
           POSTGRES_RESULT: ${{ needs.connect-postgres.result }}
         run: |
           test "$UNIT_RESULT" = success
           test "$PACKAGES_RESULT" = success
           test "$COVERAGE_RESULT" = success
           test "$BOUNDARY_RESULT" = success
+          test "$PREVIEW_MATRIX_RESULT" = success
           test "$POSTGRES_RESULT" = success

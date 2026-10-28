@@ -653,6 +653,8 @@ export const HostListPathsCommandSchema = z.object({
   type: z.literal('host.list_paths'),
   path: PathSchema,
   query: z.string().max(FILE_LIST_QUERY_MAX_LENGTH).optional(),
+  exactName: z.string().min(1).max(FILE_LIST_QUERY_MAX_LENGTH).optional(),
+  timeoutMs: z.number().int().positive().max(5000).optional(),
   limit: z.number().int().positive().max(FILE_LIST_LIMIT_MAX),
   includeFiles: z.boolean(),
   includeDirectories: z.boolean()

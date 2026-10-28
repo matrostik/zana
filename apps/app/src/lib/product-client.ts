@@ -7,6 +7,7 @@ import { sharedExtensions } from './shared-extensions.js';
 import type { SystemVoiceStatusResponse } from '@zana-ai/zcc-server-contract';
 import type { CcApi } from '@zana-ai/zcc-desktop-contract';
 import type { Host } from '@zana-ai/zcc-domain/thread-runtime';
+import type { PreviewPathRequest, PreviewPathResult } from '@zana-ai/zcc-server-contract';
 import type { CreatePeerConnectionResponse, PausePeerLinkResponse, PeerConnection, PeerConnectionListResponse, PeerLeftover, PeerLeftoverListResponse, PeerLinkActivityResponse, PeerLinkListResponse, PeerRemoteLoginCheckResponse, RemovePeerLinkResponse, RemovePeerLinkResult, RepairPeerLinkResponse } from '@zana-ai/zcc-server-contract';
 import type {
   AgentMessage,
@@ -900,6 +901,12 @@ function httpProduct(): Pick<
       editMessage: async (threadId, body) =>
         apiJson(`/threads/${encodeURIComponent(threadId)}/edit-message`, {
           method: 'POST',
+          body: JSON.stringify(body)
+        }),
+      resolvePreviewPath: async (threadId: string, body: PreviewPathRequest): Promise<PreviewPathResult> =>
+        apiJson(`/threads/${encodeURIComponent(threadId)}/preview-path/resolve`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body)
         }),
       hostFileContent: async (threadId, path, projectId) =>
