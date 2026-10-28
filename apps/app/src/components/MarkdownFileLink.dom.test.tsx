@@ -105,6 +105,15 @@ it('deduplicates relevant hints and omits hints for explicit paths', async () =>
   }));
 });
 
+it('forwards hints with differing basename case for bare tokens', async () => {
+  h.resolve.mockResolvedValue({ kind: 'resolved', path: 'docs/Guide.md' });
+  render(<MarkdownFileLink token="guide.md" threadId="thread-1" hints={['docs/Guide.md']} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  await waitFor(() => expect(h.resolve).toHaveBeenCalledWith('thread-1', {
+    path: 'guide.md', hints: ['docs/Guide.md']
+  }));
+});
+
 it('falls back to full search instead of truncating over-limit ambiguity hints', async () => {
   h.resolve.mockResolvedValue({ kind: 'not_found', path: 'guide.md' });
   const hints = Array.from({ length: 51 }, (_, index) => `dir-${index}/guide.md`);

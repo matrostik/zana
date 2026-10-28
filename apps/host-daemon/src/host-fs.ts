@@ -492,6 +492,8 @@ async function walkListedPaths(command: {
       }
     } catch {
       if (command.exactName) truncated = true;
+    } finally {
+      await directory.close?.().catch(() => {});
     }
   }
   return { paths, truncated };

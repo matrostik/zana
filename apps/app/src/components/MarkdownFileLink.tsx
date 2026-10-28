@@ -7,7 +7,11 @@ const MAX_PREVIEW_HINTS = 50;
 
 function requestHints(token: string, hints: readonly string[]): string[] {
   if (/[\\/]/u.test(token) || /^[a-z]:/iu.test(token)) return [];
-  const relevant = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === token))];
+  const lowerToken = token.toLowerCase();
+  const relevant = [...new Set(hints.filter((path) => {
+    const base = path.split(/[/\\\\]/u).at(-1);
+    return base?.toLowerCase() === lowerToken;
+  }))];
   // A partial hint set cannot prove that a basename is unique. Let the server
   // perform its bounded exact-name search instead of truncating ambiguity data.
   return relevant.length <= MAX_PREVIEW_HINTS ? relevant : [];

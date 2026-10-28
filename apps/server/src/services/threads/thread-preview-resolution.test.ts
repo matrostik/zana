@@ -70,6 +70,14 @@ describe('resolvePreviewPathCandidate', () => {
       .resolves.toEqual({ kind: 'resolved', path: 'docs/Guide.md' });
   });
 
+  it('matches hints with differing basename casing when caseInsensitive is true', async () => {
+    const exists = vi.fn(async (path: string) => path === 'docs/Guide.md');
+    const search = vi.fn(async () => ({ paths: ['docs/Guide.md'], truncated: false }));
+    await expect(resolvePreviewPathCandidate('guide.md', ['docs/Guide.md'], exists, search, false, true))
+      .resolves.toEqual({ kind: 'resolved', path: 'docs/Guide.md' });
+    expect(exists).toHaveBeenCalledWith('docs/Guide.md');
+  });
+
   it('returns ambiguous when a single hint matches and a root file also exists', async () => {
     const exists = vi.fn(async (path: string) => path === 'docs/report.md' || path === 'report.md');
     const search = vi.fn();

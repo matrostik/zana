@@ -53,7 +53,10 @@ export async function resolvePreviewPathCandidate(
     return (await exists(requested)) ? { kind: 'resolved', path: requested } : { kind: 'not_found' };
   }
 
-  const matches = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === requested))];
+  const matches = [...new Set(hints.filter((path) => {
+    const base = path.split(/[/\\\\]/u).at(-1);
+    return caseInsensitive ? base?.toLowerCase() === requested.toLowerCase() : base === requested;
+  }))];
   const { candidates, add } = createCandidateCollector(caseInsensitive);
   for (const path of matches) {
     if (await exists(path)) add(path);
