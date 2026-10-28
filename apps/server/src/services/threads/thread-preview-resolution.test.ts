@@ -63,6 +63,36 @@ describe('resolvePreviewPathCandidate', () => {
     await expect(resolvePreviewPathCandidate('report.md', [], exists, search))
       .resolves.toEqual({ kind: 'incomplete', paths: ['docs/report.md'] });
   });
+
+  it('returns all existing matching hints when three or more choices exist', async () => {
+    const exists = vi.fn(async (path: string) => ['docs/guide.md', 'examples/guide.md', 'archive/guide.md'].includes(path));
+    const search = vi.fn();
+    await expect(resolvePreviewPathCandidate('guide.md', ['docs/guide.md', 'examples/guide.md', 'archive/guide.md'], exists, search))
+      .resolves.toEqual({ kind: 'ambiguous', paths: ['docs/guide.md', 'examples/guide.md', 'archive/guide.md'] });
+    expect(search).not.toHaveBeenCalled();
+    expect(exists).toHaveBeenCalledTimes(3);
+  });
+
+  it('caps hint search at LOOKUP_LIMIT', async () => {
+    let checked = 0;
+    const exists = vi.fn(async () => { checked++; return true; });
+    const search = vi.fn();
+    const hints = Array.from({ length: 60 }, (_, i) => `dir${i}/report.md`);
+    const result = await resolvePreviewPathCandidate('report.md', hints, exists, search);
+    expect(result.kind).toBe('ambiguous');
+    expect(checked).toBe(50);
+  });
+
+  it('resolves unique search match and handles empty search match', async () => {
+    const exists = vi.fn(async () => false);
+    const search1 = vi.fn(async () => ({ paths: ['unique/report.md'], truncated: false }));
+    await expect(resolvePreviewPathCandidate('report.md', [], exists, search1))
+      .resolves.toEqual({ kind: 'resolved', path: 'unique/report.md' });
+
+    const search2 = vi.fn(async () => ({ paths: [], truncated: false }));
+    await expect(resolvePreviewPathCandidate('report.md', [], exists, search2))
+      .resolves.toEqual({ kind: 'not_found' });
+  });
 });
 
 describe('resolveThreadPreviewPath', () => {
@@ -165,5 +195,91 @@ describe('resolveThreadPreviewPath', () => {
     await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path }))
       .resolves.toEqual({ kind: 'resolved', path });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns all existing choices when three or more duplicate hints match', async () => {
+    rpc.mockResolvedValue({ sizeBytes: 12, modifiedAtMs: 1 });
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', {
+      path: 'guide.md',
+      hints: ['docs/guide.md', 'examples/guide.md', 'archive/guide.md']
+    })).resolves.toEqual({
+      kind: 'ambiguous',
+      paths: ['docs/guide.md', 'examples/guide.md', 'archive/guide.md']
+    });
+    expect(rpc).toHaveBeenCalledTimes(3);
+  });
+
+  it('falls through from a stale single hint to a live search match elsewhere', async () => {
+    rpc
+      .mockRejectedValueOnce({ code: 'path_not_found' })
+      .mockRejectedValueOnce({ code: 'path_not_found' })
+      .mockResolvedValueOnce({
+        paths: [{ kind: 'file', path: 'docs/guide.md', name: 'guide.md', score: 0, positions: [] }],
+        truncated: false
+      });
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', {
+      path: 'guide.md',
+      hints: ['old/guide.md']
+    })).resolves.toEqual({ kind: 'resolved', path: 'docs/guide.md' });
+    expect(rpc).toHaveBeenCalledTimes(3);
+    expect(rpc.mock.calls[0]![0].command).toMatchObject({ type: 'host.file_metadata', path: '/srv/checkouts/feature/old/guide.md' });
+    expect(rpc.mock.calls[1]![0].command).toMatchObject({ type: 'host.file_metadata', path: '/srv/checkouts/feature/guide.md' });
+    expect(rpc.mock.calls[2]![0].command).toMatchObject({ type: 'host.list_paths', exactName: 'guide.md' });
+  });
+
+  it('times out when deadline expires before checking existence', async () => {
+    const nowSpy = vi.spyOn(Date, 'now');
+    const start = 1_000_000;
+    nowSpy.mockReturnValueOnce(start).mockReturnValue(start + 6000);
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: 'slow.md' }))
+      .rejects.toMatchObject({ status: 504, code: 'preview-timeout' });
+    nowSpy.mockRestore();
+  });
+
+  it('rethrows host errors other than path_not_found', async () => {
+    rpc.mockRejectedValue({ code: 'permission_denied', message: 'EACCES' });
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: 'secret.md' }))
+      .rejects.toMatchObject({ code: 'permission_denied' });
+  });
+
+  it('resolves via local project when thread is unknown', async () => {
+    h.thread = null;
+    ctx.toProjects = vi.fn(() => [{ id: 'proj-local', path: '/srv/checkouts/proj', remote: false, hostId: 'linux-host' }]);
+    ctx.hostHub.resolveHostId = vi.fn(() => 'linux-host');
+    rpc.mockResolvedValue({ sizeBytes: 12, modifiedAtMs: 1 });
+    await expect(resolveThreadPreviewPath(ctx, 'unknown-thread', { path: 'guide.md', projectId: 'proj-local' }))
+      .resolves.toEqual({ kind: 'resolved', path: 'guide.md' });
+  });
+
+  it('rejects unknown thread when project is remote or missing', async () => {
+    h.thread = null;
+    ctx.toProjects = vi.fn(() => [{ id: 'proj-remote', path: '/srv/remote', remote: true, hostId: 'remote-host' }]);
+    await expect(resolveThreadPreviewPath(ctx, 'unknown-thread', { path: 'guide.md', projectId: 'proj-remote' }))
+      .rejects.toMatchObject({ status: 404, code: 'unknown-thread' });
+    await expect(resolveThreadPreviewPath(ctx, 'unknown-thread', { path: 'guide.md', projectId: 'missing-proj' }))
+      .rejects.toMatchObject({ status: 404, code: 'unknown-thread' });
+  });
+
+  it('rejects unprovisioned environment', async () => {
+    h.thread.environmentId = null;
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: 'guide.md' }))
+      .rejects.toMatchObject({ status: 409, code: 'environment_not_ready' });
+  });
+
+  it('rejects paths escaping thread workspace', async () => {
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: 'docs/../../secret.txt' }))
+      .rejects.toMatchObject({ status: 403, code: 'path-escape' });
+  });
+
+  it('rejects local preview paths that are not files or not found', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'preview-local-err-'));
+    ctx.dataDir = dataDir;
+    const dirPath = join(dataDir, 'attachments', 'project-1', 'sub-dir');
+    mkdirSync(dirPath, { recursive: true });
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: dirPath }))
+      .rejects.toMatchObject({ status: 404, code: 'path_not_found' });
+    const missingPath = join(dataDir, 'attachments', 'project-1', 'missing.png');
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: missingPath }))
+      .rejects.toMatchObject({ status: 404, code: 'path_not_found' });
   });
 });

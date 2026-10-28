@@ -8,6 +8,7 @@ vi.mock('./thread/secondary-panel/useThreadOpenFileSignal.js', () => ({
   dispatchThreadOpenFile: h.open
 }));
 import { MarkdownFileLink } from './MarkdownFileLink.js';
+import { MarkdownContent } from './MarkdownContent.js';
 
 beforeEach(() => { vi.resetAllMocks(); });
 afterEach(cleanup);
@@ -101,4 +102,49 @@ it('falls back to full search instead of truncating over-limit ambiguity hints',
   render(<MarkdownFileLink token="guide.md" threadId="thread-many" hints={hints} />);
   fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
   await waitFor(() => expect(h.resolve).toHaveBeenCalledWith('thread-many', { path: 'guide.md', hints: [] }));
+});
+
+it('resolves a bare filename when a single timeline hint is stale and opens the live server match', async () => {
+  h.resolve.mockResolvedValue({ kind: 'resolved', path: 'docs/guide.md' });
+  render(
+    <MarkdownContent
+      text="Check `guide.md`"
+      threadId="thread-1"
+      filePathHints={['old/guide.md']}
+    />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  await waitFor(() => expect(h.resolve).toHaveBeenCalledWith('thread-1', {
+    path: 'guide.md',
+    hints: ['old/guide.md']
+  }));
+  expect(h.open).toHaveBeenCalledWith('thread-1', 'docs/guide.md');
+});
+
+it('renders three or more duplicate basename choices from server ambiguity', async () => {
+  h.resolve.mockResolvedValue({
+    kind: 'ambiguous',
+    paths: ['docs/guide.md', 'examples/guide.md', 'archive/guide.md']
+  });
+  render(<MarkdownFileLink token="guide.md" threadId="thread-1" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  expect(await screen.findByRole('button', { name: 'docs/guide.md' })).toBeDefined();
+  expect(await screen.findByRole('button', { name: 'examples/guide.md' })).toBeDefined();
+  expect(await screen.findByRole('button', { name: 'archive/guide.md' })).toBeDefined();
+});
+
+it('renders checkedPath in not_found error message', async () => {
+  h.resolve.mockResolvedValue({ kind: 'not_found', path: 'missing.md', checkedPath: '/work/missing.md' });
+  render(<MarkdownFileLink token="missing.md" threadId="thread-err" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview missing.md' }));
+  expect((await screen.findByRole('status')).textContent).toContain('Could not find missing.md (checked /work/missing.md)');
+});
+
+it('shows three or more ambiguity choices when multiple matches exist', async () => {
+  h.resolve.mockResolvedValue({ kind: 'ambiguous', paths: ['docs/guide.md', 'examples/guide.md', 'archive/guide.md'] });
+  render(<MarkdownFileLink token="guide.md" threadId="thread-tri" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  expect(await screen.findByRole('button', { name: 'docs/guide.md' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'examples/guide.md' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'archive/guide.md' })).toBeTruthy();
 });

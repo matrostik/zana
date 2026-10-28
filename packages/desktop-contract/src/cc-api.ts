@@ -707,7 +707,7 @@ export interface CcApi {
       | { kind: 'resolved'; path: string }
       | { kind: 'ambiguous'; paths: string[] }
       | { kind: 'incomplete'; paths: string[] }
-      | { kind: 'not_found'; path: string }
+      | { kind: 'not_found'; path: string; checkedPath?: string }
     >;
     storageFiles(threadId: string): Promise<{
       files: Array<{ path: string; name: string }>;

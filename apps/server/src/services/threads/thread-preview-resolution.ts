@@ -10,6 +10,9 @@ import { isSafeRelPath } from '../../http/library-via-host.js';
 import { confinePathToRoot, threadPathApi } from './thread-path-confine.js';
 import { threadLocalPreviewRoots } from './thread-preview-roots.js';
 
+const LOOKUP_LIMIT = 50;
+const LOOKUP_TIMEOUT_MS = 5000;
+
 export type PreviewPathCandidateResult =
   | { kind: 'resolved'; path: string }
   | { kind: 'ambiguous' | 'incomplete'; paths: string[] }
@@ -30,8 +33,9 @@ export async function resolvePreviewPathCandidate(
   const existingMatches: string[] = [];
   for (const path of matches) {
     if (await exists(path)) existingMatches.push(path);
-    if (existingMatches.length === 2) return { kind: 'ambiguous', paths: existingMatches };
+    if (existingMatches.length >= LOOKUP_LIMIT) break;
   }
+  if (existingMatches.length > 1) return { kind: 'ambiguous', paths: existingMatches };
   if (existingMatches.length === 1) return { kind: 'resolved', path: existingMatches[0]! };
   if (await exists(requested)) return { kind: 'resolved', path: requested };
 
@@ -43,8 +47,6 @@ export async function resolvePreviewPathCandidate(
   return { kind: 'not_found' };
 }
 const activeByHost = new Map<string, number>();
-const LOOKUP_LIMIT = 50;
-const LOOKUP_TIMEOUT_MS = 5000;
 
 function isMissing(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error

@@ -1,3 +1,4 @@
+import { promises as fs } from 'node:fs';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -282,6 +283,74 @@ describe('host filesystem discovery', () => {
     writeFileSync(join(root, 'Guide.md'), 'match');
     const listed = await listHostPaths({ path: root, exactName: 'guide.md', limit: 10, includeFiles: true, includeDirectories: false });
     if (process.platform !== 'win32') expect(listed.paths).toEqual([]);
+  });
+
+  it('truncates search when deadline is exceeded', async () => {
+    const root = tmpRoot();
+    writeFileSync(join(root, 'guide.md'), 'content');
+    const listed = await listHostPaths({
+      path: root,
+      exactName: 'guide.md',
+      timeoutMs: -1,
+      limit: 10,
+      includeFiles: true,
+      includeDirectories: false
+    });
+    expect(listed.truncated).toBe(true);
+  });
+
+  it('matches Windows case differences on exactName lookup', async () => {
+    const root = tmpRoot();
+    writeFileSync(join(root, 'Guide.md'), 'match');
+    const listed = await listHostPaths({
+      path: root,
+      exactName: 'guide.md',
+      limit: 10,
+      includeFiles: true,
+      includeDirectories: false
+    });
+    if (process.platform === 'win32') {
+      expect(listed.paths.map((p) => p.name)).toEqual(['Guide.md']);
+    }
+  });
+
+  it('marks exactName search truncated if opening directory throws', async () => {
+    const root = tmpRoot();
+    const spy = vi.spyOn(fs, 'opendir').mockRejectedValueOnce(new Error('EACCES'));
+    try {
+      const listed = await listHostPaths({
+      path: root,
+      exactName: 'guide.md',
+      limit: 10,
+      includeFiles: true,
+      includeDirectories: false
+    });
+      expect(listed.truncated).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('marks exactName search truncated if reading directory entries throws', async () => {
+    const root = tmpRoot();
+    const fakeDir = {
+      async *[Symbol.asyncIterator]() {
+        throw new Error('read error');
+      }
+    };
+    const spy = vi.spyOn(fs, 'opendir').mockResolvedValueOnce(fakeDir as any);
+    try {
+      const listed = await listHostPaths({
+      path: root,
+      exactName: 'guide.md',
+      limit: 10,
+      includeFiles: true,
+      includeDirectories: false
+    });
+      expect(listed.truncated).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('lists files and directories, skips dots/node_modules/symlinks, and ranks a query', async () => {

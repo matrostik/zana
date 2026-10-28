@@ -3071,6 +3071,81 @@ describe('product HTTP thread file preview', () => {
   });
 });
 
+describe('product HTTP thread preview path resolution', () => {
+  it('resolves thread preview paths, validates inputs, and maps errors', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'zcc-product-preview-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'zcc-product-preview-proj-'));
+    writeFileSync(
+      join(dataDir, 'projects.json'),
+      JSON.stringify({
+        version: 1,
+        projects: [{ id: 'proj-1', name: 'Alpha', path: projectRoot, createdAt: 1, lastActiveAt: 1 }]
+      })
+    );
+    server = await startTestProductServer({
+      dataDir,
+      origins: { serverPort: 0, devAppPort: 5173 }
+    });
+    const host = upsertHost(server.ctx.db, { name: 'laptop', hostKeyHash: 'h'.repeat(64) });
+    const environment = createEnvironment(server.ctx.db, {
+      projectId: 'proj-1',
+      hostId: host.id,
+      path: projectRoot
+    });
+    createConversationThread(server.ctx.db, {
+      id: 'sess-preview',
+      providerId: 'test',
+      projectId: 'proj-1',
+      environmentId: environment.id,
+      hostId: host.id,
+      title: 'Preview test'
+    });
+
+    vi.spyOn(server.ctx.hostHub, 'resolveHostId').mockReturnValue(host.id);
+    const rpc = vi.spyOn(server.ctx.hostHub, 'callHostOnlineRpc').mockImplementation(async (req: any) => {
+      if (req.command.type === 'host.file_metadata') {
+        if (req.command.path.endsWith('guide.md')) {
+          return { sizeBytes: 10, modifiedAtMs: 1 };
+        }
+        throw { code: 'path_not_found' };
+      }
+      return { paths: [], truncated: false };
+    });
+
+    const ok = await fetch(`${server.url}api/v1/threads/sess-preview/preview-path/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'guide.md' })
+    });
+    expect(ok.status).toBe(200);
+    await expect(ok.json()).resolves.toMatchObject({ kind: 'resolved', path: 'guide.md' });
+
+    const invalid = await fetch(`${server.url}api/v1/threads/sess-preview/preview-path/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: '../escape.txt' })
+    });
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toMatchObject({ error: 'invalid-request' });
+
+    const scopeMismatch = await fetch(`${server.url}api/v1/threads/sess-preview/preview-path/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'guide.md', projectId: 'other-proj' })
+    });
+    expect(scopeMismatch.status).toBe(403);
+    await expect(scopeMismatch.json()).resolves.toMatchObject({ error: 'scope-mismatch' });
+
+    rpc.mockRejectedValueOnce(new Error('Connection dropped'));
+    const hostErr = await fetch(`${server.url}api/v1/threads/sess-preview/preview-path/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'missing.md' })
+    });
+    expect(hostErr.status).toBe(500);
+  });
+});
+
 describe('product HTTP thread terminal open', () => {
   it('fail-closes when the experiment is off and emits a terminal intent when on', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'zcc-product-term-open-'));

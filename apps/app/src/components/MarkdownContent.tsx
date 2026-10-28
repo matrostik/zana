@@ -19,7 +19,7 @@ import {
   rewriteLocalhostLinkHref
 } from '../lib/localhost-link-rewrite-preference.js';
 import { handleHttpLinkClick } from '../lib/in-app-browser-link-preference.js';
-import { parseLocalFileMarkdownHref, resolveThreadFilePreviewPath } from './markdown-local-file.js';
+import { parseInlineFileCodePath, parseLocalFileMarkdownHref, resolveThreadFilePreviewPath } from './markdown-local-file.js';
 import { MarkdownFileLink } from './MarkdownFileLink.js';
 import { parseThreadMentionHref, remarkThreadMentions } from './markdown-thread-mentions.js';
 import { getThreadRoutePath } from '../lib/route-paths.js';
@@ -332,12 +332,19 @@ export const MarkdownContent = memo(function MarkdownContent({
             const className = typeof props.className === 'string' ? props.className : '';
             const fenced = /(^|\s)language-/.test(className) || /(^|\s)hljs(\s|$)/.test(className);
             const token = inlineCodeText(props.children);
-            const path = !fenced && !exportable && threadId
-              ? resolveThreadFilePreviewPath(token, filePathHints)
+            const rawPath = !fenced && !exportable && threadId
+              ? parseInlineFileCodePath(token)
               : null;
-            if (path && threadId) {
+            if (rawPath && threadId) {
+              const previewPath = resolveThreadFilePreviewPath(token, filePathHints);
               return (
-                <MarkdownFileLink token={path} title={path} threadId={threadId} projectId={projectId} hints={filePathHints}>
+                <MarkdownFileLink
+                  token={rawPath}
+                  title={previewPath ?? rawPath}
+                  threadId={threadId}
+                  projectId={projectId}
+                  hints={filePathHints}
+                >
                   {props.children}
                 </MarkdownFileLink>
               );
