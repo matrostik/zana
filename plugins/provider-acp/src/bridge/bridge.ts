@@ -190,6 +190,7 @@ interface AcpThreadSession {
   agentLabel: string;
   supportsImageInput: boolean;
   supportsLoadSession: boolean;
+  supportsAdditionalDirectories: boolean;
   policy: AcpSessionPolicy;
   cwd: string;
   pendingInstructions: string | undefined;
@@ -2180,6 +2181,14 @@ type AcpSessionStartRequest =
       sourceProviderThreadId: string;
     };
 
+function additionalSessionDirectories(
+  params: AcpSessionParams,
+  supported: boolean,
+): { additionalDirectories?: string[] } {
+  const directories = [...new Set(params.workspaceWriteRoots.filter(root => root !== params.cwd))];
+  return supported && directories.length > 0 ? { additionalDirectories: directories } : {};
+}
+
 async function startAgentSession(
   request: AcpSessionStartRequest,
 ): Promise<AcpThreadSession> {
@@ -2267,6 +2276,7 @@ async function startAgentSession(
     agentLabel,
     supportsImageInput: false,
     supportsLoadSession: false,
+    supportsAdditionalDirectories: false,
     policy: {
       permissionMode: params.permissionMode,
       permissionEscalation: params.permissionEscalation,
@@ -2324,6 +2334,8 @@ async function startAgentSession(
       );
     }
     session.supportsLoadSession = supportsLoadSession;
+    session.supportsAdditionalDirectories = initializeResult.agentCapabilities?.sessionCapabilities?.additionalDirectories != null;
+    const extraDirectories = additionalSessionDirectories(params, session.supportsAdditionalDirectories);
     const mcpServers = await buildSessionMcpServers(
       params,
       initializeResult.agentCapabilities?.mcpCapabilities?.http === true,
@@ -2352,6 +2364,7 @@ async function startAgentSession(
           sessionId: request.sourceProviderThreadId,
           cwd: params.cwd,
           mcpServers,
+          ...extraDirectories,
         },
         resultSchema: acpSessionForkResultSchema,
       });
@@ -2380,6 +2393,7 @@ async function startAgentSession(
             sessionId: request.resumeProviderThreadId,
             cwd: params.cwd,
             mcpServers,
+            ...extraDirectories,
           },
           resultSchema: z.union([acpConfigStateResultSchema, z.null()]),
         });
@@ -2400,7 +2414,7 @@ async function startAgentSession(
       session.pendingLoadUsageUpdate = undefined;
       const newSession = await connection.request({
         method: "session/new",
-        params: { cwd: params.cwd, mcpServers },
+        params: { cwd: params.cwd, mcpServers, ...extraDirectories },
         resultSchema: acpSessionNewResultSchema,
       });
       sessionId = newSession.sessionId;
@@ -2648,6 +2662,13 @@ async function reconcileSessionPolicy(
     ...session.construction,
     permissionMode: options.permissionMode,
     permissionEscalation: options.permissionEscalation,
+    workspaceWriteRoots:
+      options.providerOptions?.additionalWorkspaceWriteRoots !== undefined
+        ? [
+            session.cwd,
+            ...decodeAdditionalWorkspaceWriteRoots(options.providerOptions),
+          ]
+        : session.policy.workspaceWriteRoots,
   };
   const restart =
     !isDeepStrictEqual(
@@ -2664,8 +2685,19 @@ async function reconcileSessionPolicy(
         construction.permissionMode,
       ),
     );
+  const rootsChanged = !isDeepStrictEqual(
+    additionalSessionDirectories(
+      session.construction,
+      session.supportsAdditionalDirectories,
+    ),
+    additionalSessionDirectories(
+      construction,
+      session.supportsAdditionalDirectories,
+    ),
+  );
   cancelPendingPermissions(session);
-  if (!restart) {
+  if (!restart && !rootsChanged) {
+    session.policy.workspaceWriteRoots = construction.workspaceWriteRoots;
     session.policy.permissionMode = construction.permissionMode;
     session.policy.permissionEscalation = construction.permissionEscalation;
     session.construction = construction;

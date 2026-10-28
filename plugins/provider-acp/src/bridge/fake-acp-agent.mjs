@@ -609,7 +609,12 @@ async function handleMessage(message) {
               ? { mcpCapabilities: { http: true } }
               : {}),
             promptCapabilities: { image: false },
-            ...(forkSession ? { sessionCapabilities: { fork: {} } } : {}),
+            ...(forkSession || process.env.FAKE_ACP_ADDITIONAL_DIRECTORIES
+              ? { sessionCapabilities: {
+                  ...(forkSession ? {fork:{}} : {}),
+                  ...(process.env.FAKE_ACP_ADDITIONAL_DIRECTORIES ? {additionalDirectories: process.env.FAKE_ACP_ADDITIONAL_DIRECTORIES === "null" ? null : {}} : {}),
+                } }
+              : {}),
           },
           ...(authMethods.length > 0
             ? { authMethods: authMethods.map((id) => ({ id })) }

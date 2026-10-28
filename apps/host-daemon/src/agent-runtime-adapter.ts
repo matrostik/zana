@@ -349,6 +349,7 @@ export function createAgentRuntimeAdapter(options: {
     return createRuntime({
       workspacePath: cwd,
       threadStorageRootPath: storageRoot,
+      additionalWorkspaceWriteRoots: [storageRoot],
       skillRoots: loadRuntimeSkillRoots(skillDataDir),
       ...(bridgeBundleDir ? { bridgeBundleDir } : {}),
       onEvent: (event) => {

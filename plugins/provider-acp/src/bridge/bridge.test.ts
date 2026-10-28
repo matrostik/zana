@@ -3433,6 +3433,134 @@ describe("acp bridge", () => {
     startedProviderThreadIds.pop();
   });
 
+  it.each([
+    ["thread/start", "session/new", {}],
+    ["thread/resume", "session/load", { FAKE_ACP_LOAD_SESSION: "1" }],
+    ["thread/fork", "session/fork", { FAKE_ACP_FORK_SESSION: "1" }],
+  ] as const)(
+    "forwards only approved extra roots on %s for capable agents",
+    async (requestMethod, sessionMethod, capabilities) => {
+      const requestLog = join(workspaceDir, "root-requests.jsonl");
+      const extraRoot = join(workspaceDir, "extra");
+      const id = sendRequest(requestMethod, {
+        threadId: "thread-extra-dirs",
+        cwd: workspaceDir,
+        instructionMode: "append",
+        ...(requestMethod === "thread/resume"
+          ? { providerThreadId: "source-roots" }
+          : requestMethod === "thread/fork"
+            ? { sourceProviderThreadId: "source-roots" }
+            : {}),
+        options: executionOptions({
+          providerOptions: {
+            ...launchProviderOptions({
+              envVars: {
+                ...capabilities,
+                FAKE_ACP_ADDITIONAL_DIRECTORIES: "1",
+                FAKE_ACP_REQUEST_LOG: requestLog,
+              },
+            }),
+            additionalWorkspaceWriteRoots: [workspaceDir, extraRoot, extraRoot],
+          },
+        }),
+      });
+      const response = await waitForResponse(id);
+      expect(response.error).toBeUndefined();
+      const providerThreadId = (response.result as { providerThreadId: string })
+        .providerThreadId;
+      startedProviderThreadIds.push(providerThreadId);
+      const forwarded = loggedAcpRequests(requestLog).find(
+        (r) => r.method === sessionMethod,
+      );
+      expect(forwarded?.params).toMatchObject({
+        cwd: workspaceDir,
+        additionalDirectories: [extraRoot],
+      });
+    },
+  );
+
+  it.each([undefined, "null", "1"])(
+    "omits native directories when capability or extra roots are absent (%s)",
+    async (capability) => {
+      const requestLog = join(workspaceDir, "no-extra-dirs.jsonl");
+      await startThread({
+        additionalWorkspaceWriteRoots:
+          capability === "1" ? [workspaceDir] : [join(workspaceDir, "extra")],
+        envVars: {
+          FAKE_ACP_REQUEST_LOG: requestLog,
+          ...(capability ? { FAKE_ACP_ADDITIONAL_DIRECTORIES: capability } : {}),
+        },
+      });
+      expect(
+        loggedAcpRequests(requestLog).find((r) => r.method === "session/new")
+          ?.params,
+      ).not.toHaveProperty("additionalDirectories");
+    },
+  );
+
+  it("restores a capable session when only the approved write roots change", async () => {
+    const requestLog = join(workspaceDir, "changed-roots.jsonl");
+    const launch = {
+      envVars: {
+        FAKE_ACP_LOAD_SESSION: "1",
+        FAKE_ACP_ADDITIONAL_DIRECTORIES: "1",
+        FAKE_ACP_REQUEST_LOG: requestLog,
+      },
+    };
+    const { providerThreadId } = await startThread({
+      ...launch,
+      additionalWorkspaceWriteRoots: [join(workspaceDir, "old")],
+    });
+    for (const roots of [
+      [join(workspaceDir, "new")],
+      [join(workspaceDir, "new")],
+      [],
+    ]) {
+      await completeTurnWith(
+        providerThreadId,
+        "echo-argv",
+        executionOptions({
+          providerOptions: {
+            ...launchProviderOptions(launch),
+            additionalWorkspaceWriteRoots: roots,
+          },
+        }),
+      );
+    }
+    const lifecycles = loggedAcpRequests(requestLog).filter(
+      (r) => r.method === "session/new" || r.method === "session/load",
+    );
+    expect(lifecycles).toHaveLength(3);
+    expect(lifecycles[1]?.params?.additionalDirectories).toEqual([
+      join(workspaceDir, "new"),
+    ]);
+    expect(lifecycles[2]?.params).not.toHaveProperty("additionalDirectories");
+    expect(notifications("session/replaced").at(-1)?.params).toMatchObject({
+      providerThreadId,
+      contextLost: false,
+    });
+  });
+
+  it("does not restart an unsupported agent when approved write roots change", async () => {
+    const requestLog = join(workspaceDir, "unsupported-roots.jsonl");
+    const { providerThreadId } = await startThread({
+      envVars: { FAKE_ACP_REQUEST_LOG: requestLog },
+    });
+    await completeTurnWith(
+      providerThreadId,
+      "echo-argv",
+      executionOptions({
+        providerOptions: {
+          additionalWorkspaceWriteRoots: [join(workspaceDir, "new")],
+        },
+      }),
+    );
+    expect(
+      loggedAcpRequests(requestLog).filter((r) => r.method === "initialize"),
+    ).toHaveLength(1);
+    expect(notifications("session/replaced")).toHaveLength(0);
+  });
+
   it("forks an advertised ACP session with the target cwd and MCP servers", async () => {
     const forkLog = join(workspaceDir, "fork-params.json");
     const forkId = sendRequest("thread/fork", {
