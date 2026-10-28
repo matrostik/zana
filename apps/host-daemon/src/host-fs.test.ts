@@ -282,7 +282,7 @@ describe('host filesystem discovery', () => {
     const root = tmpRoot();
     writeFileSync(join(root, 'Guide.md'), 'match');
     const listed = await listHostPaths({ path: root, exactName: 'guide.md', limit: 10, includeFiles: true, includeDirectories: false });
-    if (!existsSync(join(root, 'guide.md'))) expect(listed.paths).toEqual([]);
+    if (!existsSync(join(root, 'guide.md'))) { expect(listed.paths).toEqual([]); } else { expect(listed.paths.map((p) => p.name)).toEqual(['Guide.md']); }
   });
 
   it('truncates search when deadline is exceeded', async () => {
@@ -309,8 +309,10 @@ describe('host filesystem discovery', () => {
       includeFiles: true,
       includeDirectories: false
     });
-    if (process.platform === 'win32' || process.platform === 'darwin') {
+    if (existsSync(join(root, 'guide.md'))) {
       expect(listed.paths.map((p) => p.name)).toEqual(['Guide.md']);
+    } else {
+      expect(listed.paths).toEqual([]);
     }
   });
 

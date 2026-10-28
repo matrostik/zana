@@ -1,4 +1,4 @@
-import { isAbsolute } from 'node:path';
+import { isAbsolute, win32 } from 'node:path';
 import { stat } from 'node:fs/promises';
 import { resolveContainedReal } from '@zana-ai/zcc-path-confine';
 import type { HostFileMetadataResult, HostListPathsResult } from '@zana-ai/zcc-contracts/host-rpc';
@@ -27,7 +27,8 @@ export async function resolvePreviewPathCandidate(
   hints: readonly string[],
   exists: (path: string) => Promise<boolean>,
   search: () => Promise<{ paths: string[]; truncated: boolean }>,
-  explicitPath = !isBarePreviewPath(requested)
+  explicitPath = !isBarePreviewPath(requested),
+  caseInsensitive = false
 ): Promise<PreviewPathCandidateResult> {
   if (explicitPath) {
     return (await exists(requested)) ? { kind: 'resolved', path: requested } : { kind: 'not_found' };
@@ -36,13 +37,15 @@ export async function resolvePreviewPathCandidate(
   const matches = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === requested))];
   const candidates = new Set<string>();
   const addCandidate = (path: string, preferNew = false) => {
-    for (const existing of candidates) {
-      if (existing.toLowerCase() === path.toLowerCase()) {
-        if (preferNew) {
-          candidates.delete(existing);
-          candidates.add(path);
+    if (caseInsensitive) {
+      for (const existing of candidates) {
+        if (existing.toLowerCase() === path.toLowerCase()) {
+          if (preferNew) {
+            candidates.delete(existing);
+            candidates.add(path);
+          }
+          return;
         }
-        return;
       }
     }
     candidates.add(path);
@@ -220,12 +223,15 @@ export async function resolveThreadPreviewPath(
   const requestedRel = access.confine(requested);
   if (!requestedRel) throw new ProjectFsError(403, 'path-escape', 'path is not inside the thread workspace');
 
+  const isCaseInsensitive = threadPathApi(root) === win32 || process.platform === 'darwin';
+
   const result = await resolvePreviewPathCandidate(
     requestedRel,
     hintPaths,
     access.exists,
     access.search,
-    !isBare
+    !isBare,
+    isCaseInsensitive
   );
   return result.kind === 'not_found'
     ? {
