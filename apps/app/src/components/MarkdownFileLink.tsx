@@ -134,9 +134,13 @@ export function MarkdownFileLink({
       ) : null}
       {state.kind === 'incomplete' ? (
         <span role="status">
-          Could not check every folder. Choose a result or use a full path.
-          <ChoiceButtons paths={state.paths} threadId={threadId} generation={state.generation}
-            currentGeneration={generation} />
+          {state.paths.length > 0
+            ? 'Could not check every folder. Choose a result or use a full path.'
+            : 'Could not check every folder. Use a full path.'}
+          {state.paths.length > 0 ? (
+            <ChoiceButtons paths={state.paths} threadId={threadId} generation={state.generation}
+              currentGeneration={generation} />
+          ) : null}
         </span>
       ) : null}
       {state.kind === 'error' ? (

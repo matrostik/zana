@@ -56,6 +56,13 @@ describe('resolvePreviewPathCandidate', () => {
       .resolves.toEqual({ kind: 'ambiguous', paths: ['docs/report.md', 'output/report.md'] });
   });
 
+  it('deduplicates case-differing hint and search matches, preferring the on-disk casing', async () => {
+    const exists = vi.fn(async (path: string) => path.toLowerCase() === 'docs/guide.md');
+    const search = vi.fn(async () => ({ paths: ['docs/Guide.md'], truncated: false }));
+    await expect(resolvePreviewPathCandidate('guide.md', ['docs/guide.md'], exists, search))
+      .resolves.toEqual({ kind: 'resolved', path: 'docs/Guide.md' });
+  });
+
   it('returns ambiguous when a single hint matches and a root file also exists', async () => {
     const exists = vi.fn(async (path: string) => path === 'docs/report.md' || path === 'report.md');
     const search = vi.fn();

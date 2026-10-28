@@ -18,12 +18,16 @@ export type PreviewPathCandidateResult =
   | { kind: 'ambiguous' | 'incomplete'; paths: string[] }
   | { kind: 'not_found' };
 
+export function isBarePreviewPath(path: string): boolean {
+  return !/[\\/]/u.test(path) && !/^[a-z]:/iu.test(path);
+}
+
 export async function resolvePreviewPathCandidate(
   requested: string,
   hints: readonly string[],
   exists: (path: string) => Promise<boolean>,
   search: () => Promise<{ paths: string[]; truncated: boolean }>,
-  explicitPath = requested.includes('/') || requested.includes('\\')
+  explicitPath = !isBarePreviewPath(requested)
 ): Promise<PreviewPathCandidateResult> {
   if (explicitPath) {
     return (await exists(requested)) ? { kind: 'resolved', path: requested } : { kind: 'not_found' };
@@ -31,8 +35,21 @@ export async function resolvePreviewPathCandidate(
 
   const matches = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === requested))];
   const candidates = new Set<string>();
+  const addCandidate = (path: string, preferNew = false) => {
+    for (const existing of candidates) {
+      if (existing.toLowerCase() === path.toLowerCase()) {
+        if (preferNew) {
+          candidates.delete(existing);
+          candidates.add(path);
+        }
+        return;
+      }
+    }
+    candidates.add(path);
+  };
+
   for (const path of matches) {
-    if (await exists(path)) candidates.add(path);
+    if (await exists(path)) addCandidate(path);
     if (candidates.size >= LOOKUP_LIMIT) break;
   }
 
@@ -41,7 +58,7 @@ export async function resolvePreviewPathCandidate(
   }
 
   if (await exists(requested)) {
-    candidates.add(requested);
+    addCandidate(requested);
     if (candidates.size > 1) {
       return { kind: 'ambiguous', paths: [...candidates] };
     }
@@ -50,7 +67,7 @@ export async function resolvePreviewPathCandidate(
 
   const result = await search();
   for (const path of result.paths) {
-    candidates.add(path);
+    addCandidate(path, true);
     if (candidates.size >= LOOKUP_LIMIT) break;
   }
 
@@ -194,7 +211,7 @@ export async function resolveThreadPreviewPath(
   if (localPath) return { kind: 'resolved', path: localPath };
   if (!root) throw new ProjectFsError(409, 'environment_not_ready', 'environment is not provisioned');
   const hostId = thread ? thread.hostId : ctx.hostHub.resolveHostId(project?.hostId);
-  const isBare = !/[\\/]/u.test(requested) && !/^[a-z]:/iu.test(requested);
+  const isBare = isBarePreviewPath(requested);
   const access = createHostLookup(ctx, hostId, root, requested, Date.now() + LOOKUP_TIMEOUT_MS);
   const hintPaths = isBare
     ? [...new Set((input.hints ?? []).map(access.confine).filter((path): path is string =>

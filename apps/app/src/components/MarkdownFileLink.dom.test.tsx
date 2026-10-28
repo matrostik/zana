@@ -31,6 +31,15 @@ it('shows an incomplete-search message without guessing a file', async () => {
   expect(h.open).not.toHaveBeenCalled();
 });
 
+it('shows an incomplete-search message when no matches were found', async () => {
+  h.resolve.mockResolvedValue({ kind: 'incomplete', paths: [] });
+  render(<MarkdownFileLink token="guide.md" threadId="thread-1" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  const status = await screen.findByRole('status');
+  expect(status.textContent).toBe('Could not check every folder. Use a full path.');
+  expect(h.open).not.toHaveBeenCalled();
+});
+
 it('opens a uniquely resolved path and passes thread scope, project and hints', async () => {
   h.resolve.mockResolvedValue({ kind: 'resolved', path: 'docs/guide.md' });
   render(<MarkdownFileLink token="guide.md" threadId="thread-2" projectId="project-2" hints={['docs/guide.md']} />);
