@@ -68,3 +68,37 @@ it('preserves file URL anchors and resolves their normalized path', async () => 
   expect(h.resolve).toHaveBeenCalledWith('thread-5', { path: 'D:/repo/docs/guide.md', hints: [] });
   await waitFor(() => expect(h.open).toHaveBeenCalledWith('thread-5', 'docs/guide.md'));
 });
+
+it('does not allow choices from an old token or thread to open after rerender', async () => {
+  h.resolve.mockResolvedValue({ kind: 'ambiguous', paths: ['docs/old.md', 'archive/old.md'] });
+  const view = render(<MarkdownFileLink token="old.md" threadId="thread-old" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview old.md' }));
+  const oldChoice = await screen.findByRole('button', { name: 'docs/old.md' });
+  view.rerender(<MarkdownFileLink token="new.md" threadId="thread-new" />);
+  expect(screen.queryByRole('button', { name: 'docs/old.md' })).toBeNull();
+  fireEvent.click(oldChoice);
+  expect(h.open).not.toHaveBeenCalled();
+});
+
+it('deduplicates relevant hints and omits hints for explicit paths', async () => {
+  h.resolve.mockResolvedValue({ kind: 'not_found', path: 'guide.md' });
+  const hints = ['docs/guide.md', 'docs/guide.md', 'examples/other.md', 'examples/guide.md'];
+  const view = render(<MarkdownFileLink token="guide.md" threadId="thread-1" hints={hints} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  await waitFor(() => expect(h.resolve).toHaveBeenCalledWith('thread-1', {
+    path: 'guide.md', hints: ['docs/guide.md', 'examples/guide.md']
+  }));
+  view.rerender(<MarkdownFileLink token="docs/guide.md" threadId="thread-1" hints={hints} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  await waitFor(() => expect(h.resolve).toHaveBeenLastCalledWith('thread-1', {
+    path: 'docs/guide.md', hints: []
+  }));
+});
+
+it('falls back to full search instead of truncating over-limit ambiguity hints', async () => {
+  h.resolve.mockResolvedValue({ kind: 'not_found', path: 'guide.md' });
+  const hints = Array.from({ length: 51 }, (_, index) => `dir-${index}/guide.md`);
+  render(<MarkdownFileLink token="guide.md" threadId="thread-many" hints={hints} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
+  await waitFor(() => expect(h.resolve).toHaveBeenCalledWith('thread-many', { path: 'guide.md', hints: [] }));
+});

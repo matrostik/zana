@@ -1,3 +1,15 @@
+import { isAbsolute, join } from 'node:path';
+import { stat } from 'node:fs/promises';
+import { resolveContainedReal } from '@zana-ai/zcc-path-confine';
+import type { HostFileMetadataResult, HostListPathsResult } from '@zana-ai/zcc-contracts/host-rpc';
+import { getConversationThread, getEnvironment } from '@zana-ai/zcc-db';
+import type { PreviewPathRequest, PreviewPathResult } from '@zana-ai/zcc-server-contract';
+import type { ProductHttpContext } from '../../http/product-context.js';
+import { ProjectFsError } from '../../http/project-fs-via-host.js';
+import { isSafeRelPath } from '../../http/library-via-host.js';
+import { confinePathToRoot, threadPathApi } from './thread-path-confine.js';
+import { threadLocalPreviewRoots } from './thread-preview-roots.js';
+
 export type PreviewPathCandidateResult =
   | { kind: 'resolved'; path: string }
   | { kind: 'ambiguous' | 'incomplete'; paths: string[] }
@@ -20,7 +32,6 @@ export async function resolvePreviewPathCandidate(
   if (hint && await exists(hint)) return { kind: 'resolved', path: hint };
   if (await exists(requested)) return { kind: 'resolved', path: requested };
 
-  if (explicitPath) return { kind: 'not_found' };
   const result = await search();
   const paths = [...new Set(result.paths)];
   if (result.truncated) return { kind: 'incomplete', paths };
@@ -28,14 +39,6 @@ export async function resolvePreviewPathCandidate(
   if (paths.length === 1) return { kind: 'resolved', path: paths[0]! };
   return { kind: 'not_found' };
 }
-import type { HostFileMetadataResult, HostListPathsResult } from '@zana-ai/zcc-contracts/host-rpc';
-import { getConversationThread, getEnvironment } from '@zana-ai/zcc-db';
-import type { PreviewPathRequest, PreviewPathResult } from '@zana-ai/zcc-server-contract';
-import type { ProductHttpContext } from '../../http/product-context.js';
-import { ProjectFsError } from '../../http/project-fs-via-host.js';
-import { isSafeRelPath } from '../../http/library-via-host.js';
-import { confinePathToRoot, threadPathApi } from './thread-path-confine.js';
-
 const activeByHost = new Map<string, number>();
 const LOOKUP_LIMIT = 50;
 const LOOKUP_TIMEOUT_MS = 5000;
@@ -65,10 +68,21 @@ export async function resolveThreadPreviewPath(
   const root = thread
     ? (thread.environmentId ? getEnvironment(ctx.db, thread.environmentId)?.path : null)
     : project?.path;
+  const requested = input.path;
+  if (isAbsolute(requested)) {
+    for (const localRoot of threadLocalPreviewRoots(ctx.dataDir, thread?.projectId ?? project?.id)) {
+      const localRel = confinePathToRoot(localRoot, requested);
+      if (!localRel || !isSafeRelPath(localRel)) continue;
+      const real = await resolveContainedReal(localRoot, localRel);
+      if (!real) throw new ProjectFsError(404, 'path_not_found', 'file not found');
+      const info = await stat(real);
+      if (!info.isFile()) throw new ProjectFsError(404, 'path_not_found', 'file not found');
+      return { kind: 'resolved', path: requested };
+    }
+  }
   if (!root) throw new ProjectFsError(409, 'environment_not_ready', 'environment is not provisioned');
   const hostId = thread ? thread.hostId : ctx.hostHub.resolveHostId(project?.hostId);
   const paths = threadPathApi(root);
-  const requested = input.path;
   const isBare = !/[\\/]/u.test(requested) && !/^[a-z]:/iu.test(requested);
   const confined = (candidate: string): string | null => {
     const rel = confinePathToRoot(root, candidate);
@@ -116,19 +130,21 @@ export async function resolveThreadPreviewPath(
           type: 'host.list_paths',
           path: root,
           exactName: requested,
-          timeoutMs,
+          timeoutMs: Math.max(1, timeoutMs - 500),
           limit: LOOKUP_LIMIT,
           includeFiles: true,
           includeDirectories: false
         }
       });
       const found = result.paths
-        .filter((entry) => entry.kind === 'file' && entry.name === requested)
+        .filter((entry) => entry.kind === 'file')
         .map((entry) => confined(entry.path))
         .filter((path): path is string => Boolean(path));
       return { paths: [...new Set(found)], truncated: result.truncated || Date.now() >= deadline };
     } finally {
-      if (active) activeByHost.set(hostId, active); else activeByHost.delete(hostId);
+      const remaining = (activeByHost.get(hostId) ?? 1) - 1;
+      if (remaining > 0) activeByHost.set(hostId, remaining);
+      else activeByHost.delete(hostId);
     }
   };
 

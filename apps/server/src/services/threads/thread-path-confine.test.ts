@@ -26,6 +26,8 @@ describe('confinePathToRoot', () => {
     expect(confinePathToRoot('relative/repo', 'guide.md')).toBeNull();
     expect(confinePathToRoot('/work/repo', 'C:\\outside\\guide.md')).toBeNull();
     expect(confinePathToRoot('D:\\work\\repo', 'D:\\outside\\guide.md')).toBeNull();
+    expect(confinePathToRoot('D:\\work\\repo', '/docs/guide.md')).toBeNull();
+    expect(confinePathToRoot('D:\\work\\repo', 'D:docs/guide.md')).toBeNull();
     expect(confinePathToRoot('/work/repo', `docs/${'x'.repeat(1030)}.md`)).toBeNull();
   });
 

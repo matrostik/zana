@@ -16,8 +16,16 @@ export function confinePathToRoot(root: string, candidate: string): string | nul
   const paths = threadPathApi(root);
   if (!paths.isAbsolute(root)) return null;
   if (paths === posix && /^(?:[a-z]:[\\/]|\\\\)/iu.test(candidate)) return null;
+  if (paths === win32 && /^[a-z]:(?![\\/])/iu.test(candidate)) return null;
+  if (paths === win32 && paths.isAbsolute(candidate)) {
+    const rootDevice = win32.parse(root).root.toLowerCase();
+    const candidateDevice = win32.parse(candidate).root.toLowerCase();
+    if (!candidateDevice || candidateDevice !== rootDevice) return null;
+  }
   const resolvedRoot = paths.resolve(root);
-  const resolved = paths.isAbsolute(candidate) ? paths.resolve(candidate) : paths.resolve(resolvedRoot, candidate);
+  const resolved = paths.isAbsolute(candidate)
+    ? paths.resolve(candidate)
+    : paths.resolve(resolvedRoot, candidate);
   const rel = paths.relative(resolvedRoot, resolved);
   if (!rel || rel.startsWith('..') || paths.isAbsolute(rel)) return null;
   const normalized = rel.split(paths.sep).join('/');
