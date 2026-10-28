@@ -3203,7 +3203,12 @@ describe("bridge", () => {
       const sourceDir = mkdtempSync(join(tmpdir(), "zcc-oauth-claude-"));
       writeFileSync(join(sourceDir, ".claude.json"), JSON.stringify({ oauthAccount: { emailAddress: "a@b.c" } }));
       process.env.CLAUDE_CONFIG_DIR = sourceDir;
-      delete process.env.ANTHROPIC_API_KEY;
+      const savedAuth = Object.fromEntries(
+        Object.entries(process.env).filter(([key]) =>
+          /^(ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|CLAUDE_CODE_USE_[A-Z_]+)$/.test(key),
+        ),
+      );
+      for (const key of Object.keys(savedAuth)) delete process.env[key];
       const bridge = createBridgeJsonRpcTestHarness(handleLine);
       try {
         bridge.sendRequest(1, "thread/resume", {
@@ -3225,6 +3230,7 @@ describe("bridge", () => {
         expect(forkSessionMock).not.toHaveBeenCalled();
       } finally {
         bridge.restore();
+        Object.assign(process.env, savedAuth);
         rmSync(sourceDir, { recursive: true, force: true });
       }
     });

@@ -52,6 +52,7 @@ describe('agent runtime thread adapter', () => {
       await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
       finish({ providerThreadId: 'provider-thread' }); await starting;
       expect(status()).toBe('idle');
+      expect(runtimeOptions.additionalWorkspaceWriteRoots).toEqual([join(cwd, 'thread-storage')]);
       const live = vi.spyOn(runtime, 'getLiveThreadIds').mockReturnValue([threadId]);
       expect(status()).toBe('active');
       live.mockReturnValue([]);
