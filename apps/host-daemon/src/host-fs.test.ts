@@ -299,6 +299,30 @@ describe('host filesystem discovery', () => {
     expect(listed.truncated).toBe(true);
   });
 
+  it('marks exactName search truncated when deadline expires during entry processing', async () => {
+    const root = tmpRoot();
+    writeFileSync(join(root, 'guide.md'), 'content');
+    let callCount = 0;
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      callCount += 1;
+      return callCount <= 3 ? 1000 : 999999;
+    });
+    try {
+      const listed = await listHostPaths({
+        path: root,
+        exactName: 'guide.md',
+        timeoutMs: 1000,
+        limit: 10,
+        includeFiles: true,
+        includeDirectories: false
+      });
+      expect(listed.truncated).toBe(true);
+      expect(listed.paths.map((p) => p.name)).toEqual(['guide.md']);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it('matches Windows case differences on exactName lookup', async () => {
     const root = tmpRoot();
     writeFileSync(join(root, 'Guide.md'), 'match');

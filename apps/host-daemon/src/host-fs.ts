@@ -435,10 +435,16 @@ async function matchesExactHostName(root: string, path: string, actualName: stri
   }
 }
 
+function shouldStopWalk(command: { deadline?: number; stopAfter?: number }, pathCount: number, visits: number): boolean {
+  if (command.deadline !== undefined && Date.now() >= command.deadline) return true;
+  if (command.stopAfter !== undefined && pathCount >= command.stopAfter) return true;
+  return visits >= LIST_PATHS_VISIT_CAP;
+}
+
 async function processListedEntry(
   entry: Dirent,
   dir: string,
-  command: { root: string; includeFiles: boolean; includeDirectories: boolean; exactName?: string; deadline?: number },
+  command: { root: string; includeFiles: boolean; includeDirectories: boolean; exactName?: string },
   stack: string[]
 ): Promise<ListedPath | null> {
   if (entry.name.startsWith('.') || BROWSE_SKIP_NAMES.has(entry.name) || entry.isSymbolicLink()) return null;
@@ -451,10 +457,9 @@ async function processListedEntry(
   }
   if (entry.isFile() && command.includeFiles) {
     if (!command.exactName) return { kind: 'file', path: rel, name: entry.name };
-    if (command.deadline !== undefined && Date.now() >= command.deadline) return null;
-    const matches = await matchesExactHostName(command.root, rel, entry.name, command.exactName);
-    if (command.deadline !== undefined && Date.now() >= command.deadline) return null;
-    if (matches) return { kind: 'file', path: rel, name: entry.name };
+    if (await matchesExactHostName(command.root, rel, entry.name, command.exactName)) {
+      return { kind: 'file', path: rel, name: entry.name };
+    }
   }
   return null;
 }
@@ -472,43 +477,18 @@ async function walkListedPaths(command: {
   let visits = 0;
   let truncated = false;
   while (stack.length > 0) {
-    if (command.deadline !== undefined && Date.now() >= command.deadline) {
-      truncated = true;
-      break;
-    }
-    if (command.stopAfter !== undefined && paths.length >= command.stopAfter) {
-      truncated = true;
-      break;
-    }
-    if (visits >= LIST_PATHS_VISIT_CAP) {
-      truncated = true;
-      break;
-    }
+    if (shouldStopWalk(command, paths.length, visits)) { truncated = true; break; }
     const dir = stack.pop()!;
     let directory;
-    try {
-      directory = await fs.opendir(dir);
-    } catch {
-      if (command.exactName) truncated = true;
-      continue;
-    }
+    try { directory = await fs.opendir(dir); }
+    catch { if (command.exactName) truncated = true; continue; }
     try {
       for await (const entry of directory) {
-        if (command.deadline !== undefined && Date.now() >= command.deadline) {
-          truncated = true;
-          break;
-        }
         visits += 1;
-        if (visits > LIST_PATHS_VISIT_CAP) {
-          truncated = true;
-          break;
-        }
+        if (shouldStopWalk(command, paths.length, visits)) { truncated = true; break; }
         const listed = await processListedEntry(entry, dir, command, stack);
         if (listed) paths.push(listed);
-        if (command.stopAfter !== undefined && paths.length >= command.stopAfter) {
-          truncated = true;
-          break;
-        }
+        if (shouldStopWalk(command, paths.length, visits)) { truncated = true; break; }
       }
     } catch {
       if (command.exactName) truncated = true;
