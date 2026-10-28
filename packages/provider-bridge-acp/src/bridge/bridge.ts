@@ -1771,7 +1771,7 @@ async function startAgentSession(
   const childEnv = {
     ...withoutBridgeRuntimeEnv(process.env),
     ...params.envVars,
-    ...dialect.launchEnv,
+    ...dialect.launchEnv?.(params.permissionMode),
   };
   const connection = createAcpAgentConnection({
     command: params.agent.command,
@@ -2279,6 +2279,10 @@ function reconcileExecutionSettings(
         construction.permissionCli,
         construction.permissionMode,
       ),
+    ) ||
+    !isDeepStrictEqual(
+      session.dialect.launchEnv?.(session.construction.permissionMode),
+      session.dialect.launchEnv?.(construction.permissionMode),
     ) ||
     !isDeepStrictEqual(
       launchModelSelection(session.construction),
