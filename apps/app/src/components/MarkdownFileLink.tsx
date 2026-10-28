@@ -7,7 +7,7 @@ const MAX_PREVIEW_HINTS = 50;
 
 function requestHints(token: string, hints: readonly string[]): string[] {
   if (/[\\/]/u.test(token) || /^[a-z]:/iu.test(token)) return [];
-  const relevant = [...new Set(hints.filter((path) => path.split(/[/\\]/u).at(-1) === token))];
+  const relevant = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === token))];
   // A partial hint set cannot prove that a basename is unique. Let the server
   // perform its bounded exact-name search instead of truncating ambiguity data.
   return relevant.length <= MAX_PREVIEW_HINTS ? relevant : [];
@@ -78,6 +78,94 @@ function usePreviewResolution(
   return { state, resolve, generation };
 }
 
+function FileLinkTrigger({
+  token,
+  title,
+  link,
+  href,
+  children,
+  loading,
+  onResolve
+}: {
+  token: string;
+  title: string;
+  link: boolean;
+  href?: string;
+  children?: ReactNode;
+  loading: boolean;
+  onResolve: () => void;
+}) {
+  const basename = token.split(/[/\\\\]/u).pop() ?? token;
+  const label = loading ? 'Resolving…' : children ?? token;
+  if (link) {
+    return (
+      <a
+        className="inbox-md-file-link"
+        href={href ?? token}
+        aria-label={`Preview ${basename}`}
+        aria-disabled={loading}
+        title={title}
+        onClick={(event) => { event.preventDefault(); if (!loading) onResolve(); }}
+      >
+        {label}
+      </a>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="inbox-md-file-chip"
+      data-testid="inbox-md-file-chip"
+      aria-label={`Preview ${basename}`}
+      title={title}
+      disabled={loading}
+      onClick={onResolve}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ResolutionStatus({
+  state,
+  token,
+  threadId,
+  generation,
+  onRetry
+}: {
+  state: LinkState;
+  token: string;
+  threadId: string;
+  generation: { current: number };
+  onRetry: () => void;
+}) {
+  if (state.kind === 'choices') {
+    return (
+      <span role="group" aria-label={`Choose a file matching ${token}`}>
+        <ChoiceButtons paths={state.paths} threadId={threadId} generation={state.generation} currentGeneration={generation} />
+      </span>
+    );
+  }
+  if (state.kind === 'incomplete') {
+    return (
+      <span role="status">
+        {state.paths.length > 0 ? 'Could not check every folder. Choose a result or use a full path.' : 'Could not check every folder. Use a full path.'}
+        {state.paths.length > 0 ? (
+          <ChoiceButtons paths={state.paths} threadId={threadId} generation={state.generation} currentGeneration={generation} />
+        ) : null}
+      </span>
+    );
+  }
+  if (state.kind === 'error') {
+    return (
+      <span role="status">
+        {state.message} <button type="button" onClick={onRetry}>Try again</button>
+      </span>
+    );
+  }
+  return null;
+}
+
 export function MarkdownFileLink({
   token,
   title = token,
@@ -98,56 +186,26 @@ export function MarkdownFileLink({
   href?: string;
 }) {
   const { state, resolve, generation } = usePreviewResolution(token, threadId, projectId, hints);
-  const basename = token.split(/[/\\]/u).pop() ?? token;
 
   return (
     <span className="inbox-md-file-link-wrap">
-      {link ? (
-        <a
-          className="inbox-md-file-link"
-          href={href ?? token}
-          aria-label={`Preview ${basename}`}
-          aria-disabled={state.kind === 'loading'}
-          title={title}
-          onClick={(event) => { event.preventDefault(); if (state.kind !== 'loading') void resolve(); }}
-        >
-          {state.kind === 'loading' ? 'Resolving…' : children ?? token}
-        </a>
-      ) : (
-        <button
-          type="button"
-          className="inbox-md-file-chip"
-          data-testid="inbox-md-file-chip"
-          aria-label={`Preview ${basename}`}
-          title={title}
-          disabled={state.kind === 'loading'}
-          onClick={() => { void resolve(); }}
-        >
-          {state.kind === 'loading' ? 'Resolving…' : children ?? token}
-        </button>
-      )}
-      {state.kind === 'choices' ? (
-        <span role="group" aria-label={`Choose a file matching ${token}`}>
-          <ChoiceButtons paths={state.paths} threadId={threadId} generation={state.generation}
-            currentGeneration={generation} />
-        </span>
-      ) : null}
-      {state.kind === 'incomplete' ? (
-        <span role="status">
-          {state.paths.length > 0
-            ? 'Could not check every folder. Choose a result or use a full path.'
-            : 'Could not check every folder. Use a full path.'}
-          {state.paths.length > 0 ? (
-            <ChoiceButtons paths={state.paths} threadId={threadId} generation={state.generation}
-              currentGeneration={generation} />
-          ) : null}
-        </span>
-      ) : null}
-      {state.kind === 'error' ? (
-        <span role="status">
-          {state.message} <button type="button" onClick={() => { void resolve(); }}>Try again</button>
-        </span>
-      ) : null}
+      <FileLinkTrigger
+        token={token}
+        title={title}
+        link={link}
+        href={href}
+        loading={state.kind === 'loading'}
+        onResolve={() => { void resolve(); }}
+      >
+        {children}
+      </FileLinkTrigger>
+      <ResolutionStatus
+        state={state}
+        token={token}
+        threadId={threadId}
+        generation={generation}
+        onRetry={() => { void resolve(); }}
+      />
     </span>
   );
 }

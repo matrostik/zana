@@ -1,4 +1,4 @@
-import { isAbsolute, win32 } from 'node:path';
+import { win32 } from 'node:path';
 import { stat } from 'node:fs/promises';
 import { resolveContainedReal } from '@zana-ai/zcc-path-confine';
 import type { HostFileMetadataResult, HostListPathsResult } from '@zana-ai/zcc-contracts/host-rpc';
@@ -22,21 +22,9 @@ export function isBarePreviewPath(path: string): boolean {
   return !/[\\/]/u.test(path) && !/^[a-z]:/iu.test(path);
 }
 
-export async function resolvePreviewPathCandidate(
-  requested: string,
-  hints: readonly string[],
-  exists: (path: string) => Promise<boolean>,
-  search: () => Promise<{ paths: string[]; truncated: boolean }>,
-  explicitPath = !isBarePreviewPath(requested),
-  caseInsensitive = false
-): Promise<PreviewPathCandidateResult> {
-  if (explicitPath) {
-    return (await exists(requested)) ? { kind: 'resolved', path: requested } : { kind: 'not_found' };
-  }
-
-  const matches = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === requested))];
+function createCandidateCollector(caseInsensitive: boolean) {
   const candidates = new Set<string>();
-  const addCandidate = (path: string, preferNew = false) => {
+  const add = (path: string, preferNew = false) => {
     if (caseInsensitive) {
       for (const existing of candidates) {
         if (existing.toLowerCase() === path.toLowerCase()) {
@@ -50,27 +38,38 @@ export async function resolvePreviewPathCandidate(
     }
     candidates.add(path);
   };
+  return { candidates, add };
+}
 
+export async function resolvePreviewPathCandidate(
+  requested: string,
+  hints: readonly string[],
+  exists: (path: string) => Promise<boolean>,
+  search: () => Promise<{ paths: string[]; truncated: boolean }>,
+  explicitPath = !isBarePreviewPath(requested),
+  caseInsensitive = false
+): Promise<PreviewPathCandidateResult> {
+  if (explicitPath) {
+    return (await exists(requested)) ? { kind: 'resolved', path: requested } : { kind: 'not_found' };
+  }
+
+  const matches = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === requested))];
+  const { candidates, add } = createCandidateCollector(caseInsensitive);
   for (const path of matches) {
-    if (await exists(path)) addCandidate(path);
+    if (await exists(path)) add(path);
     if (candidates.size >= LOOKUP_LIMIT) break;
   }
-
-  if (candidates.size > 1) {
-    return { kind: 'ambiguous', paths: [...candidates] };
-  }
+  if (candidates.size > 1) return { kind: 'ambiguous', paths: [...candidates] };
 
   if (await exists(requested)) {
-    addCandidate(requested);
-    if (candidates.size > 1) {
-      return { kind: 'ambiguous', paths: [...candidates] };
-    }
+    add(requested);
+    if (candidates.size > 1) return { kind: 'ambiguous', paths: [...candidates] };
     return { kind: 'resolved', path: requested };
   }
 
   const result = await search();
   for (const path of result.paths) {
-    addCandidate(path, true);
+    add(path, true);
     if (candidates.size >= LOOKUP_LIMIT) break;
   }
 
@@ -172,7 +171,8 @@ async function resolveLocalPreviewPath(
   projectId: string | null,
   requested: string
 ): Promise<string | null> {
-  if (!isAbsolute(requested)) return null;
+  const dataPaths = threadPathApi(ctx.dataDir);
+  if (!dataPaths.isAbsolute(requested)) return null;
   for (const root of threadLocalPreviewRoots(ctx.dataDir, projectId)) {
     const relPath = confinePathToRoot(root, requested);
     if (!relPath || !isSafeRelPath(relPath)) continue;
@@ -216,14 +216,19 @@ export async function resolveThreadPreviewPath(
   const hostId = thread ? thread.hostId : ctx.hostHub.resolveHostId(project?.hostId);
   const isBare = isBarePreviewPath(requested);
   const access = createHostLookup(ctx, hostId, root, requested, Date.now() + LOOKUP_TIMEOUT_MS);
+  const isCaseInsensitive = threadPathApi(root) === win32;
+  const hintMatches = (candidatePath: string) => {
+    const base = access.paths.basename(candidatePath);
+    return isCaseInsensitive
+      ? base.toLowerCase() === requested.toLowerCase()
+      : base === requested;
+  };
   const hintPaths = isBare
     ? [...new Set((input.hints ?? []).map(access.confine).filter((path): path is string =>
-      Boolean(path && access.paths.basename(path) === requested)))].slice(0, LOOKUP_LIMIT)
+      Boolean(path && hintMatches(path))))].slice(0, LOOKUP_LIMIT)
     : [];
   const requestedRel = access.confine(requested);
   if (!requestedRel) throw new ProjectFsError(403, 'path-escape', 'path is not inside the thread workspace');
-
-  const isCaseInsensitive = threadPathApi(root) === win32 || process.platform === 'darwin';
 
   const result = await resolvePreviewPathCandidate(
     requestedRel,

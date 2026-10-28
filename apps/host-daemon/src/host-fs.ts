@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { dirname, join, basename, relative, sep } from 'node:path';
 import { isAbsolute } from 'node:path';
 import { Buffer, isUtf8 } from 'node:buffer';
-import { promises as fs, type Stats } from 'node:fs';
+import { promises as fs, type Dirent, type Stats } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { isWithin } from '@zana-ai/zcc-path-confine';
@@ -435,6 +435,30 @@ async function matchesExactHostName(root: string, path: string, actualName: stri
   }
 }
 
+async function processListedEntry(
+  entry: Dirent,
+  dir: string,
+  command: { root: string; includeFiles: boolean; includeDirectories: boolean; exactName?: string; deadline?: number },
+  stack: string[]
+): Promise<ListedPath | null> {
+  if (entry.name.startsWith('.') || BROWSE_SKIP_NAMES.has(entry.name) || entry.isSymbolicLink()) return null;
+  const fullPath = join(dir, entry.name);
+  const rel = posixRelative(command.root, fullPath);
+  if (!rel || rel.startsWith('..')) return null;
+  if (entry.isDirectory()) {
+    stack.push(fullPath);
+    return command.includeDirectories ? { kind: 'directory', path: rel, name: entry.name } : null;
+  }
+  if (entry.isFile() && command.includeFiles) {
+    if (!command.exactName) return { kind: 'file', path: rel, name: entry.name };
+    if (command.deadline !== undefined && Date.now() >= command.deadline) return null;
+    const matches = await matchesExactHostName(command.root, rel, entry.name, command.exactName);
+    if (command.deadline !== undefined && Date.now() >= command.deadline) return null;
+    if (matches) return { kind: 'file', path: rel, name: entry.name };
+  }
+  return null;
+}
+
 async function walkListedPaths(command: {
   root: string;
   includeFiles: boolean;
@@ -470,33 +494,21 @@ async function walkListedPaths(command: {
     }
     try {
       for await (const entry of directory) {
-      if (command.deadline !== undefined && Date.now() >= command.deadline) {
-        truncated = true;
-        break;
-      }
-      visits += 1;
-      if (visits > LIST_PATHS_VISIT_CAP) {
-        truncated = true;
-        break;
-      }
-      if (entry.name.startsWith('.')) continue;
-      if (BROWSE_SKIP_NAMES.has(entry.name)) continue;
-      if (entry.isSymbolicLink()) continue;
-      const fullPath = join(dir, entry.name);
-      const rel = posixRelative(command.root, fullPath);
-      if (!rel || rel.startsWith('..')) continue;
-      if (entry.isDirectory()) {
-        if (command.includeDirectories) {
-          paths.push({ kind: 'directory', path: rel, name: entry.name });
+        if (command.deadline !== undefined && Date.now() >= command.deadline) {
+          truncated = true;
+          break;
         }
-        stack.push(fullPath);
-        continue;
-      }
-      if (entry.isFile() && command.includeFiles) {
-        if (!command.exactName || await matchesExactHostName(command.root, rel, entry.name, command.exactName)) {
-          paths.push({ kind: 'file', path: rel, name: entry.name });
+        visits += 1;
+        if (visits > LIST_PATHS_VISIT_CAP) {
+          truncated = true;
+          break;
         }
-      }
+        const listed = await processListedEntry(entry, dir, command, stack);
+        if (listed) paths.push(listed);
+        if (command.stopAfter !== undefined && paths.length >= command.stopAfter) {
+          truncated = true;
+          break;
+        }
       }
     } catch {
       if (command.exactName) truncated = true;
