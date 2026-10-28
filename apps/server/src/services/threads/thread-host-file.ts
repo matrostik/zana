@@ -7,11 +7,14 @@ import type { ProductHttpContext } from '../../http/product-context.js';
 import { ThreadCreateError } from '../../http/thread-create.js';
 import { ProjectFsError } from '../../http/project-fs-via-host.js';
 import { isSafeRelPath } from '../../http/library-via-host.js';
-import { confinePathToRoot } from './thread-path-confine.js';
+import { confinePathToRoot, threadPathApi } from './thread-path-confine.js';
 import { threadLocalPreviewRoots } from './thread-preview-roots.js';
 import { PROMPT_ATTACHMENT_MAX_BYTES } from '@zana-ai/zcc-domain/thread-runtime';
 
 const IMAGE_EXT = new Set(['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif']);
+function unavailableMessage(root: string, path: string, requested: string): string {
+  return `file not found or unavailable in the authorized project. Requested: ${requested}. Tried: ${threadPathApi(root).resolve(root, path)}`;
+}
 export const IMAGE_READ_MAX_BYTES = PROMPT_ATTACHMENT_MAX_BYTES;
 
 export function imageContentType(path: string): string | null {
@@ -57,7 +60,7 @@ export async function readThreadHostFile(
       const localPath = confinePathToRoot(root, candidate);
       if (!localPath || !isSafeRelPath(localPath)) continue;
       const real = await resolveContainedReal(root, localPath);
-      if (!real) throw new ProjectFsError(404, 'path_not_found', 'file not found');
+      if (!real) throw new ProjectFsError(404, 'path_not_found', unavailableMessage(root, localPath, candidate));
       const file = await open(real, 'r');
       try {
         const info = await file.stat();
@@ -112,7 +115,7 @@ export async function readThreadHostFile(
     };
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'path_not_found') {
-      throw new ProjectFsError(404, 'path_not_found', 'file not found');
+      throw new ProjectFsError(404, 'path_not_found', unavailableMessage(root, relPath, candidate));
     }
     if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'too_large') {
       throw new ProjectFsError(413, 'too_large', 'file exceeds the read cap');

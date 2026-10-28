@@ -38,8 +38,19 @@ exec cat
     }, projectPath);
     sessionId = ids.sessionId;
     await expect(window.getByTestId('agent-session-view')).toBeVisible();
-    await expect.poll(() => existsSync(join(projectPath, '.preview-mcp-url'))).toBe(true);
-    const mcpUrl = readFileSync(join(projectPath, '.preview-mcp-url'), 'utf8');
+    let mcpUrl: string;
+    if (process.platform === 'win32') {
+      // The POSIX fake-agent shell cannot execute on Windows. Exercise the
+      // session-scoped MCP and CLI panel independently of that spawn fixture.
+      const userData = await app.electron.evaluate(({ app }) => app.getPath('userData'));
+      const portFile = join(userData, 'mcp-port-dev.json');
+      await expect.poll(() => existsSync(portFile)).toBe(true);
+      const { port } = JSON.parse(readFileSync(portFile, 'utf8')) as { port: number };
+      mcpUrl = `http://127.0.0.1:${port}/mcp/${ids.projectId}/${ids.sessionId}`;
+    } else {
+      await expect.poll(() => existsSync(join(projectPath, '.preview-mcp-url'))).toBe(true);
+      mcpUrl = readFileSync(join(projectPath, '.preview-mcp-url'), 'utf8');
+    }
     expect(mcpUrl).toContain(ids.sessionId);
     const preview = async (path: string) => {
       const response = await fetch(mcpUrl, {

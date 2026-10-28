@@ -153,6 +153,13 @@ export type HostFileContentResult = {
   encoding?: 'utf8' | 'base64';
   contentType?: string | null;
 };
+export type PreviewReadFailure = { error: string; errorCode?: string; errorStatus?: number };
+function previewReadFailure(error: unknown): PreviewReadFailure {
+  const row = error && typeof error === 'object' ? error as { code?: unknown; status?: unknown } : {};
+  return { error: error instanceof Error ? error.message : 'Could not read file',
+    ...(typeof row.code === 'string' ? { errorCode: row.code } : {}),
+    ...(typeof row.status === 'number' ? { errorStatus: row.status } : {}) };
+}
 
 export type ReadDataUrlResult = {
   ok: boolean;
@@ -336,7 +343,7 @@ async function loadImagePreview(
   threadId: string | undefined,
   path: string,
   options?: { skipLocal?: boolean; readDataUrl?: (path: string) => Promise<ReadDataUrlResult> }
-): Promise<{ content: string } | { error: string }> {
+): Promise<{ content: string } | PreviewReadFailure> {
   if (!threadId && !options?.skipLocal && typeof options?.readDataUrl === 'function') {
     try {
       const local = await options.readDataUrl(path);
@@ -360,7 +367,7 @@ async function loadImagePreview(
     if (preview) return { content: preview };
     return { error: 'Could not read file' };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : 'Could not read file' };
+    return previewReadFailure(err);
   }
 }
 
@@ -370,7 +377,7 @@ export async function loadFilePreview(
   threadId: string | undefined,
   path: string,
   options?: { skipLocal?: boolean; readDataUrl?: (path: string) => Promise<ReadDataUrlResult> }
-): Promise<{ content: string } | { error: string }> {
+): Promise<{ content: string } | PreviewReadFailure> {
   if (isPreviewImagePath(path)) {
     return loadImagePreview(hostFileContent, threadId, path, options);
   }
@@ -390,7 +397,7 @@ export async function loadFilePreview(
     const host = await hostFileContent(threadId, path);
     return { content: host.content };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : 'Could not read file' };
+    return previewReadFailure(err);
   }
 }
 

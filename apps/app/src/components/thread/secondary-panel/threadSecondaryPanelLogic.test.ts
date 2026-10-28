@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+it('preserves typed preview read failures', async () => {
+  const host = vi.fn().mockRejectedValue(Object.assign(new Error('File unavailable'), { code: 'path_not_found', status: 404 }));
+  expect(await loadFilePreview(vi.fn(), host, 't', 'missing.md')).toEqual({ error: 'File unavailable', errorCode: 'path_not_found', errorStatus: 404 });
+});
 import {
   contentFromLocalRead,
   copyText,

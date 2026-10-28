@@ -1,12 +1,18 @@
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { isAbsolute, posix, win32 } from 'node:path';
 
 const MAX_REL_PATH = 1024;
+/** Choose syntax from the authoritative owning root, not this server's OS. */
+export function threadPathApi(root: string): typeof posix {
+  return /^[a-z]:[/\\]|^\\\\/iu.test(root) ? win32 : posix;
+}
 
 /**
  * Map a renderer-supplied path onto a relative path inside `root`.
  * Rejects escapes, empty paths, and over-long candidates (Rule 2).
  */
 export function confinePathToRoot(root: string, candidate: string): string | null {
+  const { isAbsolute, relative, resolve, sep } = threadPathApi(root);
+  if (candidate.includes('\0') || (/^[a-z]:/iu.test(candidate) && !/^[a-z]:[/\\]/iu.test(root))) return null;
   if (!root || !candidate || !isAbsolute(root)) return null;
   const resolvedRoot = resolve(root);
   const resolved = isAbsolute(candidate) ? resolve(candidate) : resolve(resolvedRoot, candidate);

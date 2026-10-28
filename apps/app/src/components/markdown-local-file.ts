@@ -34,15 +34,20 @@ export function parseLocalFileMarkdownHref(href: string | undefined): string | n
   if (!trimmed || trimmed.startsWith('#') || BLOCKED_SCHEMES.test(trimmed)) return null;
   if (trimmed.startsWith('file://')) {
     try {
+      // URL normalizes dot segments; reject them before that information is lost.
+      const decoded = decodeURIComponent(trimmed.split(/[?#]/u)[0]!);
+      if (decoded.split(/[/\\]/u).some(part => part === '..') || /%2f|%5c/iu.test(trimmed)) return null;
       const url = new URL(trimmed);
       if (url.host && url.host !== 'localhost' && url.hostname !== '') return null;
-      const path = decodeURIComponent(url.pathname);
-      return looksLikeFilePath(path) ? path : path || null;
+      const path = decodeURIComponent(url.pathname).replace(/^\/([a-z]:\/)/iu, '$1');
+      return path && !path.includes('\0') ? path : null;
     } catch {
       return null;
     }
   }
   const path = trimmed.split('#')[0] ?? trimmed;
+  if (/^[a-z]:[/\\]/iu.test(path) && looksLikeFilePath(path)) return path.replace(/\\/gu, '/');
+  if (!/[/\\:]/u.test(path) && looksLikeFilePath(path)) return path;
   if (path.startsWith('/') && !path.startsWith('//') && looksLikeFilePath(path)) return path;
   if ((/^\.{0,2}\//u.test(path) || /^[\w.-]+\/[\w./-]+$/u.test(path)) && looksLikeFilePath(path)) {
     return path;
@@ -68,6 +73,7 @@ export function conversationFilePreviewPaths(
   for (const line of text.split(/\r?\n/u).slice(0, PREVIEW_PATH_LINE_CAP)) {
     const candidate = unwrapLabeledPathLine(line);
     if (!candidate || candidate.startsWith('```')) continue;
+    if (/^#{1,6}\s/u.test(line) && !/[/\\]/u.test(candidate)) continue;
     add(candidate);
     if (out.length >= PREVIEW_PATH_CAP) break;
   }
@@ -83,12 +89,13 @@ export function parseInlineFileCodePath(text: string | undefined): string | null
   if (!text || /[\r\n]/u.test(text)) return null;
   const path = stripPathDecorators(text);
   if (!path || path.startsWith('#') || BLOCKED_SCHEMES.test(path)) return null;
+  if (path.startsWith('file://')) return parseLocalFileMarkdownHref(path);
   return looksLikeInlineFileCode(path) ? path : null;
 }
 
 /**
  * Map an inline file token onto a known workspace path. Bare names take the
- * latest matching basename from `knownPaths` (file-change / file-read rows);
+ * unique matching basename from `knownPaths` (file-change / file-read rows);
  * slash paths and unmatched names pass through as-is.
  */
 export function resolveThreadFilePreviewPath(
@@ -99,10 +106,7 @@ export function resolveThreadFilePreviewPath(
   if (!parsed) return null;
   if (/[/\\]/u.test(parsed)) return parsed;
   const base = fileBaseName(parsed);
-  for (let i = knownPaths.length - 1; i >= 0; i--) {
-    const path = knownPaths[i];
-    if (!path) continue;
-    if (fileBaseName(path) === base) return path;
-  }
-  return parsed;
+  const matches = [...new Set(knownPaths.filter(path => fileBaseName(path) === base)
+    .map(path => path.replace(/\\/gu, '/').replace(/^(\.\/)+/u, '')))];
+  return matches.length === 1 ? matches[0]! : parsed;
 }

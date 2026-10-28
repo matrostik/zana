@@ -24,6 +24,15 @@ vi.mock('../../../plugins/plugin-slots.js', async () => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); localStorage.clear(); });
 
 describe('file opener host preview lifetime', () => {
+  it('shows the requested path and a conditional generation hint, then retries', async () => {
+    mocks.hostFileContent.mockRejectedValueOnce(Object.assign(new Error('file not found or unavailable. Tried: /project/output/report.md'), { code: 'path_not_found', status: 404 })).mockResolvedValueOnce({ content: '# Generated report' });
+    const view = render(<ThreadFilePreviewTab path="output/report.md" threadId="t1" openerKey="host" />);
+    await view.findByText(/If another step generates this file/);
+    expect(view.getByRole('heading', { name: 'Could not open output/report.md' })).toBeTruthy();
+    expect(view.getByText(/Tried: \/project\/output\/report.md/)).toBeTruthy();
+    fireEvent.click(view.getByRole('button', { name: 'Try again' }));
+    await view.findByRole('heading', { name: 'Generated report' });
+  });
   it('keeps Open with choices scoped to their file type and honors a changed explicit opener', async () => {
     mocks.hostFileContent.mockResolvedValue({ content: '# Report' });
     const view = render(<ThreadFilePreviewTab path="first.md" threadId="t1" />);

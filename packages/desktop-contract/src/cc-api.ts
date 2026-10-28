@@ -1,4 +1,5 @@
 import type { ThreadHistoryQuery, ThreadHistoryPage, ConversationTranscript } from '@zana-ai/zcc-domain/product';
+import type { PreviewPathRequest, PreviewPathResult } from '@zana-ai/zcc-domain/product';
 import type { DesktopBrowserApi } from './browser.js';
 import type { SquadLaunchPrefill, SquadProposalErrorCode } from '@zana-ai/zcc-domain/squad-proposal';
 import type { MarketplaceCatalogRow } from '@zana-ai/zcc-domain';
@@ -695,6 +696,7 @@ export interface CcApi {
       model?: string;
       reasoningLevel?: string;
     }): Promise<{ ok: true; operationId: string; requestSequence: number }>;
+    resolvePreviewPath(threadId: string, input: PreviewPathRequest): Promise<PreviewPathResult>;
     hostFileContent(threadId: string, path: string, projectId?: string): Promise<{
       path: string;
       relPath: string;

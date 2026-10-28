@@ -900,6 +900,8 @@ function httpProduct(): Pick<
           method: 'POST',
           body: JSON.stringify(body)
         }),
+      resolvePreviewPath: async (threadId, input) =>
+        apiJson(`/threads/${encodeURIComponent(threadId)}/preview-path/resolve`, { method: 'POST', body: JSON.stringify(input) }),
       hostFileContent: async (threadId, path, projectId) =>
         apiJson(`/threads/${encodeURIComponent(threadId)}/host-files/content?path=${encodeURIComponent(path)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`),
       storageFiles: async (threadId) =>

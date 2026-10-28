@@ -20,6 +20,7 @@ import {
 } from '../lib/localhost-link-rewrite-preference.js';
 import { handleHttpLinkClick } from '../lib/in-app-browser-link-preference.js';
 import { parseLocalFileMarkdownHref, resolveThreadFilePreviewPath } from './markdown-local-file.js';
+import { MarkdownFileLink } from './MarkdownFileLink.js';
 import { parseThreadMentionHref, remarkThreadMentions } from './markdown-thread-mentions.js';
 import { dispatchThreadOpenFile } from './thread/secondary-panel/useThreadOpenFileSignal.js';
 import { getThreadRoutePath } from '../lib/route-paths.js';
@@ -252,7 +253,8 @@ export const MarkdownContent = memo(function MarkdownContent({
       <div className="inbox-md">
         <ReactMarkdown
         remarkPlugins={remarkPlugins}
-        urlTransform={(url) => transformMarkdownMediaUrl(url, defaultUrlTransform)}
+        urlTransform={(url) => parseLocalFileMarkdownHref(url) ? url
+          : /^file:/iu.test(url) ? '' : transformMarkdownMediaUrl(url, defaultUrlTransform)}
         rehypePlugins={[
           // html-only avoids KaTeX's sibling MathML+HTML trees, which React
           // warns about as an unkeyed list.
@@ -278,6 +280,9 @@ export const MarkdownContent = memo(function MarkdownContent({
             const localPath = parseLocalFileMarkdownHref(
               typeof props.href === 'string' ? props.href : undefined
             );
+            if (localPath && threadId && !storage) {
+              return <MarkdownFileLink href={props.href} path={localPath} threadId={threadId} projectId={projectId} candidates={filePathHints}>{props.children}</MarkdownFileLink>;
+            }
             if (localPath) {
               return (
                 <a
@@ -330,22 +335,10 @@ export const MarkdownContent = memo(function MarkdownContent({
               ? resolveThreadFilePreviewPath(token, filePathHints)
               : null;
             if (path && threadId) {
-              const name = path.split(/[/\\]/u).pop() ?? path;
               return (
-                <button
-                  type="button"
-                  className="inbox-md-file-chip"
-                  data-testid="inbox-md-file-chip"
-                  aria-label={`Preview ${name}`}
-                  title={path}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    dispatchThreadOpenFile(threadId, path);
-                  }}
-                >
+                <MarkdownFileLink path={path} threadId={threadId} projectId={projectId} candidates={filePathHints}>
                   {props.children}
-                </button>
+                </MarkdownFileLink>
               );
             }
             return <code className={className || undefined}>{props.children}</code>;

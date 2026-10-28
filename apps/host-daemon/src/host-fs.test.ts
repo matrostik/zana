@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { promises as fs } from 'node:fs';
 import { HostCommandError } from './host-command-error.js';
 import {
   browseHostDirectory,
@@ -261,6 +262,36 @@ describe('host filesystem mutations', () => {
 });
 
 describe('host filesystem discovery', () => {
+  it.runIf(process.platform === 'win32')('matches the actual Windows filesystem case semantics', async () => {
+    const root = tmpRoot();
+    mkdirSync(join(root, 'docs'));
+    writeFileSync(join(root, 'docs', 'Guide.md'), 'guide');
+    const result = await listHostPaths({ path: root, exactName: 'guide.md', limit: 50, includeFiles: true, includeDirectories: false });
+    expect(result.paths.map(entry => entry.path)).toEqual(['docs/Guide.md']);
+  });
+  it('marks unreadable traversal incomplete instead of proving uniqueness', async () => {
+    const root = tmpRoot();
+    const spy = vi.spyOn(fs, 'readdir').mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'EACCES' }));
+    try {
+      expect(await listHostPaths({ path: root, exactName: 'guide.md', limit: 50, includeFiles: true, includeDirectories: false })).toMatchObject({ paths: [], truncated: true });
+    } finally { spy.mockRestore(); }
+  });
+  it('stops lookup on its own deadline', async () => {
+    const root = tmpRoot();
+    const spy = vi.spyOn(Date, 'now').mockReturnValueOnce(0).mockReturnValue(6000);
+    try {
+      expect(await listHostPaths({ path: root, exactName: 'guide.md', timeoutMs: 5000, limit: 50, includeFiles: true, includeDirectories: false })).toMatchObject({ paths: [], truncated: true });
+    } finally { spy.mockRestore(); }
+  });
+  it('filters exact basenames before applying result limits', async () => {
+    const root = tmpRoot();
+    mkdirSync(join(root, 'docs'));
+    writeFileSync(join(root, 'docs', 'guide.md'), 'guide');
+    writeFileSync(join(root, 'guide.md.bak'), 'unrelated');
+    const result = await listHostPaths({ path: root, query: 'guide', exactName: 'guide.md', timeoutMs: 5000, limit: 1, includeFiles: true, includeDirectories: false });
+    expect(result.paths.map(entry => entry.path)).toEqual(['docs/guide.md']);
+    expect(result.truncated).toBe(false);
+  });
   it('lists files and directories, skips dots/node_modules/symlinks, and ranks a query', async () => {
     const root = tmpRoot();
     mkdirSync(join(root, 'src'));

@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { previewPathRequestSchema, type PreviewPathRequest, type PreviewPathResult } from './api/preview-path.js';
 import { hc, type ClientRequestOptions } from "hono/client";
 import type {
   AppTheme,
@@ -1646,6 +1647,12 @@ export const publicApiRoutes = {
         threadHostFileContentQuerySchema,
       ),
       response: binaryResponse<Uint8Array>(),
+    }),
+    resolvePreviewPath: defineRoute({
+      path: '/threads/:id/preview-path/resolve',
+      method: 'post',
+      request: jsonRequest<PathId, PreviewPathRequest>(previewPathRequestSchema),
+      response: jsonResponse<PreviewPathResult>(),
     }),
     worktreeFile: defineRoute({
       path: "/threads/:id/worktree/files/:filePath{.+}",

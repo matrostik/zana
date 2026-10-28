@@ -526,6 +526,7 @@ const api: CcApi = {
     editMessage: async () => {
       throw new Error('threads require the product server');
     },
+    resolvePreviewPath: async () => { throw new Error('threads require the product server'); },
     hostFileContent: async () => {
       throw new Error('threads require the product server');
     },

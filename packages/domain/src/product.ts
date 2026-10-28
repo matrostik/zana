@@ -1,4 +1,5 @@
 import type { ApiErrorResumeConfig } from './api-error-resume.js';
+export type { PreviewPathRequest, PreviewPathResult } from './file-preview.js';
 import type { AgentsViewId } from './agents-view.js';
 export { isAgentsViewId, type AgentsViewId } from './agents-view.js';
 import type { ProjectIcon } from './project-icons.js';

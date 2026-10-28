@@ -44,6 +44,7 @@ export function ThreadFilePreviewView({
   path,
   content,
   error,
+  errorCode,
   threadId,
   projectId,
   storage = false,
@@ -54,6 +55,7 @@ export function ThreadFilePreviewView({
   path: string;
   content: string | null;
   error: string | null;
+  errorCode?: string;
   threadId?: string;
   projectId?: string | null;
   storage?: boolean;
@@ -68,12 +70,13 @@ export function ThreadFilePreviewView({
     return (
       <div className="thread-file-preview-error" role="status">
         <FileText size={28} strokeWidth={1.5} aria-hidden />
-        <h3>{tooLarge ? 'Source is too large to display' : 'Could not open this file'}</h3>
+        <h3>{tooLarge ? 'Source is too large to display' : `Could not open ${path}`}</h3>
         <p>{tooLarge
           ? isHtmlPreviewPath(path)
             ? 'Switch to Preview to view the page.'
             : 'Try opening a smaller file or a shorter excerpt.'
           : error}</p>
+        {errorCode === 'path_not_found' ? <p>If another step generates this file, run that step, then try again.</p> : null}
         {onRetry ? <button type="button" onClick={onRetry}>Try again</button> : null}
       </div>
     );
@@ -326,7 +329,7 @@ export function ThreadFilePreviewTab({
   const reveal = useFilePreviewReveal({ path, threadId, projectId: projectId ?? undefined,
     source: storage ? 'thread-storage' : 'workspace' }, previewRevision + retryRevision);
   const binary = binaryPreviewKind(path) !== null;
-  const [loaded, setLoaded] = useState<{ scope: string; content: string | null; error: string | null }>({ scope: contentScope, content: null, error: null });
+  const [loaded, setLoaded] = useState<{ scope: string; content: string | null; error: string | null; errorCode?: string; errorStatus?: number }>({ scope: contentScope, content: null, error: null });
   const content = loaded.scope === contentScope ? loaded.content : null;
   const error = loaded.scope === contentScope ? loaded.error : null;
   const openers = useSyncExternalStore(subscribePluginSlots, listFileOpeners, listFileOpeners);
@@ -385,7 +388,8 @@ export function ThreadFilePreviewTab({
     ).then((result) => {
       if (!cancelled) setLoaded(previous => ({ scope: contentScope,
         content: ('content' in result ? result.content : null) ?? (previous.scope === contentScope ? previous.content : null),
-        error: 'error' in result ? result.error : null }));
+        error: 'error' in result ? result.error : null,
+        ...('error' in result ? { errorCode: result.errorCode, errorStatus: result.errorStatus } : {}) }));
     });
     return () => { cancelled = true; };
   }, [path, storage, threadId, projectId, livePlan, videoSrc, htmlMode, previewRevision, retryRevision, contentScope, binary]);
@@ -435,6 +439,7 @@ export function ThreadFilePreviewTab({
       path={path}
       content={content}
       error={error}
+      errorCode={loaded.scope === contentScope ? loaded.errorCode : undefined}
       threadId={threadId}
       projectId={projectId}
       storage={storage}

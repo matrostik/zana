@@ -428,12 +428,14 @@ async function walkListedPaths(command: {
   includeFiles: boolean;
   includeDirectories: boolean;
   stopAfter?: number;
+  deadline?: number;
 }): Promise<{ paths: ListedPath[]; truncated: boolean }> {
   const paths: ListedPath[] = [];
   const stack = [command.root];
   let visits = 0;
   let truncated = false;
   while (stack.length > 0) {
+    if (command.deadline !== undefined && Date.now() >= command.deadline) { truncated = true; break; }
     if (command.stopAfter !== undefined && paths.length >= command.stopAfter) {
       truncated = true;
       break;
@@ -447,9 +449,11 @@ async function walkListedPaths(command: {
     try {
       dirents = await fs.readdir(dir, { withFileTypes: true });
     } catch {
+      if (command.deadline !== undefined) truncated = true;
       continue;
     }
     for (const entry of dirents) {
+      if (command.deadline !== undefined && Date.now() >= command.deadline) { truncated = true; break; }
       visits += 1;
       if (visits > LIST_PATHS_VISIT_CAP) {
         truncated = true;
@@ -480,10 +484,13 @@ async function walkListedPaths(command: {
 export async function listHostPaths(command: {
   path: string;
   query?: string;
+  exactName?: string;
+  timeoutMs?: number;
   limit: number;
   includeFiles: boolean;
   includeDirectories: boolean;
 }): Promise<HostListPathsResult> {
+  const deadline = Date.now() + Math.min(command.timeoutMs ?? 5000, 5000);
   assertAbsolute(command.path, 'Path');
   const info = await fs.lstat(command.path);
   if (info.isSymbolicLink()) {
@@ -498,10 +505,21 @@ export async function listHostPaths(command: {
     root,
     includeFiles: command.includeFiles,
     includeDirectories: command.includeDirectories,
-    ...(query ? {} : { stopAfter: command.limit + 1 })
+    ...(command.exactName || query ? {} : { stopAfter: command.limit + 1 }),
+    ...(command.exactName ? { deadline } : {})
   });
   const ranked: HostPathEntry[] = [];
   for (const entry of walked.paths) {
+    if (command.exactName) {
+      if (Date.now() >= deadline) { walked.truncated = true; break; }
+      if (entry.name !== command.exactName && (process.platform !== 'win32' || entry.name.toLowerCase() !== command.exactName.toLowerCase())) continue;
+      try {
+        const actual = await fs.realpath(join(root, entry.path));
+        if (!isWithin(actual, root)) { walked.truncated = true; continue; }
+        // Verify equivalence on the filesystem, including case-sensitive Windows directories.
+        if (entry.name !== command.exactName && await fs.realpath(join(root, dirname(entry.path), command.exactName)) !== actual) continue;
+      } catch { walked.truncated = true; continue; }
+    }
     const match = rankListedPath(entry.path, query);
     if (!match) continue;
     ranked.push({

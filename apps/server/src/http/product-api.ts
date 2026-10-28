@@ -111,6 +111,7 @@ import { listQueuedMessages, createQueuedMessage, updateQueuedMessage, deleteQue
 import { readLastThreadExecution } from '../services/threads/thread-last-execution.js';
 import { markThreadRead } from '../services/threads/thread-reads.js';
 import { readThreadHostFile } from '../services/threads/thread-host-file.js';
+import { resolveThreadPreviewPath } from '../services/threads/thread-preview-resolution.js';
 import { sendVideoPreview } from './video-preview.js';
 import { sendHtmlPreview } from './html-preview.js';
 import { listThreadStorageFiles, readThreadStorageFile } from '../services/threads/thread-storage.js';
@@ -1581,6 +1582,16 @@ export async function handleProductHttp(
       return true;
     }
 
+    const previewResolve = routeParams(path, '/api/v1/threads/:id/preview-path/resolve');
+    if (previewResolve && method === 'POST') {
+      try {
+        let body: unknown;
+        try { body = await readJsonBody(request, 60_000); }
+        catch { throw new ProjectFsError(400, 'invalid-request', 'Invalid or oversized preview request'); }
+        sendJson(response, 200, await resolveThreadPreviewPath(ctx, previewResolve.id, body));
+      } catch (error) { sendHostFailure(response, error); }
+      return true;
+    }
     const threadHostFile = routeParams(path, '/api/v1/threads/:id/host-files/content');
     if (threadHostFile && method === 'GET') {
       try {

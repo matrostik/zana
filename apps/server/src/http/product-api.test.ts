@@ -66,6 +66,18 @@ afterEach(async () => {
 });
 
 describe('product HTTP', () => {
+  it('validates and confines preview resolution at the HTTP boundary', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'zcc-preview-resolve-'));
+    writeFileSync(join(dataDir, 'projects.json'), JSON.stringify({ version: 1, projects: [{ id: 'p', path: dataDir, name: 'Preview', createdAt: 1, lastActiveAt: 1 }] }));
+    server = await startTestProductServer({ dataDir, origins: { serverPort: 0, devAppPort: 5173 } });
+    const resolve = (body: unknown) => fetch(`${server!.url}api/v1/threads/session/preview-path/resolve`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    expect((await resolve({ path: '../secret.md', projectId: 'p' })).status).toBe(400);
+    expect((await resolve({ path: 'a.md' })).status).toBe(404);
+    expect((await resolve({ path: join(tmpdir(), 'outside.md'), projectId: 'p' })).status).toBe(403);
+    const response = await resolve({ path: './docs/guide.md', projectId: 'p' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ kind: 'resolved', source: 'workspace', path: 'docs/guide.md' });
+  });
   it('validates project moves and preserves status codes at the HTTP boundary', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'zcc-product-move-'));
     writeFileSync(join(dataDir, 'projects.json'), JSON.stringify({ version: 1, projects: [

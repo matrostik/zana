@@ -15,6 +15,12 @@ import { IMAGE_READ_MAX_BYTES, imageContentType, readThreadHostFile } from './th
 import type { ProductHttpContext } from '../../http/product-context.js';
 
 describe('readThreadHostFile', () => {
+  it('reports the authorized attempted path without changing missing/escape policy', async () => {
+    vi.mocked(getConversationThread).mockReturnValueOnce({ id: 't', hostId: 'h', environmentId: 'e' } as never);
+    vi.mocked(getEnvironment).mockReturnValueOnce({ path: '/remote/checkout' } as never);
+    const context = { db: {}, hostHub: { callHostOnlineRpc: vi.fn().mockRejectedValue({ code: 'path_not_found' }) } } as unknown as ProductHttpContext;
+    await expect(readThreadHostFile(context, 't', 'output/review-report.md')).rejects.toMatchObject({ code: 'path_not_found', message: expect.stringContaining('/remote/checkout/output/review-report.md') });
+  });
   it('404s for an unknown thread', async () => {
     vi.mocked(getConversationThread).mockReturnValueOnce(null);
     await expect(readThreadHostFile({ db: {} } as ProductHttpContext, 'missing', 'README.md'))

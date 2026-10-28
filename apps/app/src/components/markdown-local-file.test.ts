@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { fileURLToPath } from 'node:url';
 import {
   conversationFilePreviewPaths,
   parseInlineFileCodePath,
@@ -8,6 +9,19 @@ import {
 import { parseThreadMentionHref, splitThreadMentionText } from './markdown-thread-mentions.js';
 
 describe('parseLocalFileMarkdownHref', () => {
+  it.each(['file:///D:/Dev/report.md', 'file:///d:/a%20b/%E2%9C%93%23x.md', 'file://localhost/D:/report.md#L2'])('decodes Windows URL %s', (url) => {
+    expect(parseLocalFileMarkdownHref(url)?.replace(/\\/gu, '/')).toBe(fileURLToPath(url, { windows: true }).replace(/\\/gu, '/'));
+  });
+  it.each(['file:///tmp/a%20b.md', 'file:///tmp/%E2%9C%93%23x.md#heading'])('decodes POSIX URL %s', (url) => {
+    expect(parseLocalFileMarkdownHref(url)).toBe(fileURLToPath(url, { windows: false }));
+  });
+  it.each(['file:///D:/a%2fb.md', 'file:///D:/a%5cb.md', 'file:///tmp/%ZZ.md', 'file://server/share/a.md', 'file:///tmp/../secret.md', 'file:///tmp/%2e%2e/secret.md'])('rejects unsafe URL %s', (url) => {
+    expect(parseLocalFileMarkdownHref(url)).toBeNull();
+  });
+  it('accepts direct drive paths and bare Markdown links', () => {
+    expect(parseLocalFileMarkdownHref('D:\\Dev\\report.md')).toBe('D:/Dev/report.md');
+    expect(parseLocalFileMarkdownHref('report.md')).toBe('report.md');
+  });
   it('accepts file URLs and absolute paths with a file extension', () => {
     expect(parseLocalFileMarkdownHref('file:///workspace/README.md')).toBe('/workspace/README.md');
     expect(parseLocalFileMarkdownHref('/tmp/app.ts')).toBe('/tmp/app.ts');
@@ -83,10 +97,13 @@ describe('resolveThreadFilePreviewPath', () => {
     expect(resolveThreadFilePreviewPath('true')).toBeNull();
   });
 
-  it('maps a bare name onto the latest matching known path', () => {
+  it('does not guess between distinct matching known paths', () => {
     expect(
       resolveThreadFilePreviewPath('foo.md', ['src/a.ts', 'docs/foo.md', 'lib/foo.md'])
-    ).toBe('lib/foo.md');
+    ).toBe('foo.md');
+  });
+  it('deduplicates equivalent hints', () => {
+    expect(resolveThreadFilePreviewPath('foo.md', ['docs/foo.md', './docs/foo.md'])).toBe('docs/foo.md');
   });
 });
 

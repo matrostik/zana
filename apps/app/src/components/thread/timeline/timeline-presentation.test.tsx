@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { MarkdownContent } from '../../MarkdownContent.js';
 import { WorkRowBody } from './WorkRowBody.js';
 import { ThreadGoalBanner, ThreadWorkingIndicator } from './ThreadBanners.js';
 import { ConversationRow } from './ConversationRow.js';
@@ -19,6 +20,15 @@ const workBase = {
   kind: 'work' as const,
   callId: 'c1'
 };
+it('preserves direct Windows drive links for confined preview handling', () => {
+  const html = renderToStaticMarkup(<MarkdownContent threadId="t" text="[Drive](D:/Dev/report.md)" />);
+  expect(html).toContain('href="D:/Dev/report.md"');
+  expect(html).toContain('title="D:/Dev/report.md"');
+});
+it('does not forward unsupported file authorities to external navigation', () => {
+  const html = renderToStaticMarkup(<MarkdownContent threadId="t" text="[Unsafe](file://server/share/report.md)" />);
+  expect(html).not.toContain('href="file://server');
+});
 
 describe('timeline title helpers', () => {
   it('formats decorations and CSS classes', () => {
