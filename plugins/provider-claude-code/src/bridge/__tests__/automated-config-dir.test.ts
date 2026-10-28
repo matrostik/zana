@@ -217,7 +217,7 @@ describe("automated config dir projects link", () => {
     const dataDir = mkdtempSync(join(tmpdir(), "zcc-cfglink-data-"));
     const missing = join(dataDir, "no-claude-home");
     try {
-      expect(() => createAutomatedConfigDir(dataDir, "thread-1", { sourceConfigDir: missing }))
+      expect(() => createAutomatedConfigDir(dataDir, "thread-1", { sourceConfigDir: missing, env: {} }))
         .toThrow(/authentication-unavailable/);
       expect(existsSync(missing)).toBe(false);
     } finally {
