@@ -1479,7 +1479,7 @@ function AgentScriptWorkspace(props: AgentScriptPanelProps) {
 
   const bottomActive: BottomTab = compact ? 'problems' : studio.bottomTab;
   const bottom = layout !== 'legacy' && (wide || compactTool === 'code') ? (
-    <BottomPanel open={studio.bottomOpen} active={bottomActive} problems={problemsCount} compact={compact}
+    <BottomPanel storageKey={`salesforce:studio:bottom:${draftScope}`} open={studio.bottomOpen} active={bottomActive} problems={problemsCount} compact={compact}
       testFailures={suites.reduce((count, suite) => count + suite.cases.filter(scenario => suite.lastResults?.[scenario.id]?.outcome === 'fail').length, 0)}
       onToggle={() => patch({ bottomOpen: !studio.bottomOpen })} onSelect={tab => patch({ bottomTab: tab, bottomOpen: true })}
       render={(tab, visible) => {
