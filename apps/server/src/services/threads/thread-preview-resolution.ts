@@ -1,4 +1,4 @@
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { stat } from 'node:fs/promises';
 import { resolveContainedReal } from '@zana-ai/zcc-path-confine';
 import type { HostFileMetadataResult, HostListPathsResult } from '@zana-ai/zcc-contracts/host-rpc';
@@ -43,59 +43,28 @@ const activeByHost = new Map<string, number>();
 const LOOKUP_LIMIT = 50;
 const LOOKUP_TIMEOUT_MS = 5000;
 
-
 function isMissing(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error
     && (error as { code: unknown }).code === 'path_not_found');
 }
 
-/** Resolve a Markdown file token against the thread's authoritative checkout. */
-export async function resolveThreadPreviewPath(
+function createHostLookup(
   ctx: ProductHttpContext,
-  threadId: string,
-  input: PreviewPathRequest
-): Promise<PreviewPathResult> {
-  const thread = getConversationThread(ctx.db, threadId);
-  const project = !thread && input.projectId
-    ? ctx.toProjects().find((row) => row.id === input.projectId)
-    : null;
-  if (!thread && (!project?.path || project.remote)) {
-    throw new ProjectFsError(404, 'unknown-thread', 'thread is not registered');
-  }
-  if (thread && input.projectId && input.projectId !== thread.projectId) {
-    throw new ProjectFsError(403, 'scope-mismatch', 'preview scope does not match the thread');
-  }
-  const root = thread
-    ? (thread.environmentId ? getEnvironment(ctx.db, thread.environmentId)?.path : null)
-    : project?.path;
-  const requested = input.path;
-  if (isAbsolute(requested)) {
-    for (const localRoot of threadLocalPreviewRoots(ctx.dataDir, thread?.projectId ?? project?.id)) {
-      const localRel = confinePathToRoot(localRoot, requested);
-      if (!localRel || !isSafeRelPath(localRel)) continue;
-      const real = await resolveContainedReal(localRoot, localRel);
-      if (!real) throw new ProjectFsError(404, 'path_not_found', 'file not found');
-      const info = await stat(real);
-      if (!info.isFile()) throw new ProjectFsError(404, 'path_not_found', 'file not found');
-      return { kind: 'resolved', path: requested };
-    }
-  }
-  if (!root) throw new ProjectFsError(409, 'environment_not_ready', 'environment is not provisioned');
-  const hostId = thread ? thread.hostId : ctx.hostHub.resolveHostId(project?.hostId);
+  hostId: string,
+  root: string,
+  requested: string,
+  deadline: number
+): {
+  paths: ReturnType<typeof threadPathApi>;
+  confine(candidate: string): string | null;
+  exists(relPath: string): Promise<boolean>;
+  search(): Promise<{ paths: string[]; truncated: boolean }>;
+} {
   const paths = threadPathApi(root);
-  const isBare = !/[\\/]/u.test(requested) && !/^[a-z]:/iu.test(requested);
-  const confined = (candidate: string): string | null => {
+  const confine = (candidate: string): string | null => {
     const rel = confinePathToRoot(root, candidate);
     return rel && isSafeRelPath(rel) ? rel : null;
   };
-  const hintPaths = isBare
-    ? [...new Set((input.hints ?? []).map(confined).filter((path): path is string =>
-      Boolean(path && paths.basename(path) === requested)))].slice(0, LOOKUP_LIMIT)
-    : [];
-  const requestedRel = confined(requested);
-  if (!requestedRel) throw new ProjectFsError(403, 'path-escape', 'path is not inside the thread workspace');
-  const deadline = Date.now() + LOOKUP_TIMEOUT_MS;
-
   const exists = async (relPath: string): Promise<boolean> => {
     const timeoutMs = deadline - Date.now();
     if (timeoutMs <= 0) throw new ProjectFsError(504, 'preview-timeout', 'File lookup timed out. Try again.');
@@ -115,7 +84,6 @@ export async function resolveThreadPreviewPath(
       throw error;
     }
   };
-
   const search = async (): Promise<{ paths: string[]; truncated: boolean }> => {
     const timeoutMs = deadline - Date.now();
     if (timeoutMs <= 0) return { paths: [], truncated: true };
@@ -138,7 +106,7 @@ export async function resolveThreadPreviewPath(
       });
       const found = result.paths
         .filter((entry) => entry.kind === 'file')
-        .map((entry) => confined(entry.path))
+        .map((entry) => confine(entry.path))
         .filter((path): path is string => Boolean(path));
       return { paths: [...new Set(found)], truncated: result.truncated || Date.now() >= deadline };
     } finally {
@@ -147,12 +115,64 @@ export async function resolveThreadPreviewPath(
       else activeByHost.delete(hostId);
     }
   };
+  return { paths, confine, exists, search };
+}
+
+async function resolveLocalPreviewPath(
+  ctx: ProductHttpContext,
+  projectId: string | null,
+  requested: string
+): Promise<string | null> {
+  if (!isAbsolute(requested)) return null;
+  for (const root of threadLocalPreviewRoots(ctx.dataDir, projectId)) {
+    const relPath = confinePathToRoot(root, requested);
+    if (!relPath || !isSafeRelPath(relPath)) continue;
+    const realPath = await resolveContainedReal(root, relPath);
+    if (!realPath) throw new ProjectFsError(404, 'path_not_found', 'file not found');
+    if (!(await stat(realPath)).isFile()) throw new ProjectFsError(404, 'path_not_found', 'file not found');
+    return requested;
+  }
+  return null;
+}
+
+/** Resolve a Markdown file token against the thread's authoritative checkout. */
+export async function resolveThreadPreviewPath(
+  ctx: ProductHttpContext,
+  threadId: string,
+  input: PreviewPathRequest
+): Promise<PreviewPathResult> {
+  const thread = getConversationThread(ctx.db, threadId);
+  const project = !thread && input.projectId
+    ? ctx.toProjects().find((row) => row.id === input.projectId)
+    : null;
+  if (!thread && (!project?.path || project.remote)) {
+    throw new ProjectFsError(404, 'unknown-thread', 'thread is not registered');
+  }
+  if (thread && input.projectId && input.projectId !== thread.projectId) {
+    throw new ProjectFsError(403, 'scope-mismatch', 'preview scope does not match the thread');
+  }
+  const root = thread
+    ? (thread.environmentId ? getEnvironment(ctx.db, thread.environmentId)?.path : null)
+    : project?.path;
+  const requested = input.path;
+  const localPath = await resolveLocalPreviewPath(ctx, thread?.projectId ?? project?.id ?? null, requested);
+  if (localPath) return { kind: 'resolved', path: localPath };
+  if (!root) throw new ProjectFsError(409, 'environment_not_ready', 'environment is not provisioned');
+  const hostId = thread ? thread.hostId : ctx.hostHub.resolveHostId(project?.hostId);
+  const isBare = !/[\\/]/u.test(requested) && !/^[a-z]:/iu.test(requested);
+  const access = createHostLookup(ctx, hostId, root, requested, Date.now() + LOOKUP_TIMEOUT_MS);
+  const hintPaths = isBare
+    ? [...new Set((input.hints ?? []).map(access.confine).filter((path): path is string =>
+      Boolean(path && access.paths.basename(path) === requested)))].slice(0, LOOKUP_LIMIT)
+    : [];
+  const requestedRel = access.confine(requested);
+  if (!requestedRel) throw new ProjectFsError(403, 'path-escape', 'path is not inside the thread workspace');
 
   const result = await resolvePreviewPathCandidate(
     requestedRel,
     hintPaths,
-    exists,
-    search,
+    access.exists,
+    access.search,
     !isBare
   );
   return result.kind === 'not_found'
