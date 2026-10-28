@@ -303,6 +303,8 @@ export {
   approvalInteractionOutcomeSchema,
   userQuestionInteractionOutcomeSchema,
   providerInteractionOutcomeSchema,
+  interactionRequestPayloadSchema,
+  PLUGIN_INTERACTION_MAX_TITLE_LENGTH,
   permissionEscalationValues,
   reasoningEffortsForLevels,
   reasoningLevelSchema,

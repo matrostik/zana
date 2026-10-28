@@ -53,6 +53,7 @@ import {
 } from '../services/threads/conversation-host-recovery.js';
 import {
   conversationLifecycleEventForHostEvent,
+  isRootConversationCompactionCompleted,
   isNestedConversationTurnCompletion
 } from '../services/threads/conversation-host-event-status.js';
 import { shouldSyncPlanForConversationEvent, syncPlanFromLatestEvents } from '../services/threads/conversation-plan.js';
@@ -512,7 +513,9 @@ export function createHostHub(
             payload: stored.payload
           });
           if (shouldSyncPlanForConversationEvent(eventType)) planThreads.add(event.threadId);
-          if (isBackgroundTaskLifecyclePayload(eventType, event.payload)) {
+          if (isBackgroundTaskLifecyclePayload(eventType, event.payload)
+            || isRootConversationCompactionCompleted(eventType, event.payload,
+              turnId => getConversationTurnStart(db, conversation.id, turnId))) {
             const threadId = event.threadId;
             afterCommit.push(() => options?.onConversationEvent?.({
               threadId,
