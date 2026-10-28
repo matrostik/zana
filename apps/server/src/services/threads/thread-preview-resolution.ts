@@ -26,21 +26,35 @@ export async function resolvePreviewPathCandidate(
   explicitPath = requested.includes('/') || requested.includes('\\')
 ): Promise<PreviewPathCandidateResult> {
   if (explicitPath) {
-    return await exists(requested) ? { kind: 'resolved', path: requested } : { kind: 'not_found' };
+    return (await exists(requested)) ? { kind: 'resolved', path: requested } : { kind: 'not_found' };
   }
 
-  const matches = [...new Set(hints.filter((path) => path.split(/[/\\]/u).at(-1) === requested))];
-  const existingMatches: string[] = [];
+  const matches = [...new Set(hints.filter((path) => path.split(/[/\\\\]/u).at(-1) === requested))];
+  const candidates = new Set<string>();
   for (const path of matches) {
-    if (await exists(path)) existingMatches.push(path);
-    if (existingMatches.length >= LOOKUP_LIMIT) break;
+    if (await exists(path)) candidates.add(path);
+    if (candidates.size >= LOOKUP_LIMIT) break;
   }
-  if (existingMatches.length > 1) return { kind: 'ambiguous', paths: existingMatches };
-  if (existingMatches.length === 1) return { kind: 'resolved', path: existingMatches[0]! };
-  if (await exists(requested)) return { kind: 'resolved', path: requested };
+
+  if (candidates.size > 1) {
+    return { kind: 'ambiguous', paths: [...candidates] };
+  }
+
+  if (await exists(requested)) {
+    candidates.add(requested);
+    if (candidates.size > 1) {
+      return { kind: 'ambiguous', paths: [...candidates] };
+    }
+    return { kind: 'resolved', path: requested };
+  }
 
   const result = await search();
-  const paths = [...new Set(result.paths)];
+  for (const path of result.paths) {
+    candidates.add(path);
+    if (candidates.size >= LOOKUP_LIMIT) break;
+  }
+
+  const paths = [...candidates];
   if (result.truncated) return { kind: 'incomplete', paths };
   if (paths.length > 1) return { kind: 'ambiguous', paths };
   if (paths.length === 1) return { kind: 'resolved', path: paths[0]! };
@@ -49,8 +63,9 @@ export async function resolvePreviewPathCandidate(
 const activeByHost = new Map<string, number>();
 
 function isMissing(error: unknown): boolean {
-  return Boolean(error && typeof error === 'object' && 'code' in error
-    && (error as { code: unknown }).code === 'path_not_found');
+  if (!error || typeof error !== 'object' || !('code' in error)) return false;
+  const code = (error as { code: unknown }).code;
+  return code === 'path_not_found' || code === 'invalid_path' || code === 'ENOTDIR' || code === 'ENOENT';
 }
 
 async function searchExactHostName(
@@ -71,9 +86,13 @@ async function searchExactHostName(
       hostId,
       timeoutMs,
       command: {
-        type: 'host.list_paths', path: root, exactName: requested,
-        timeoutMs: Math.max(1, timeoutMs - 500), limit: LOOKUP_LIMIT,
-        includeFiles: true, includeDirectories: false
+        type: 'host.list_paths',
+        path: root,
+        exactName: requested,
+        timeoutMs: Math.max(1, timeoutMs - 500),
+        limit: LOOKUP_LIMIT,
+        includeFiles: true,
+        includeDirectories: false
       }
     });
     const found = result.paths
@@ -139,7 +158,13 @@ async function resolveLocalPreviewPath(
     if (!relPath || !isSafeRelPath(relPath)) continue;
     const realPath = await resolveContainedReal(root, relPath);
     if (!realPath) throw new ProjectFsError(404, 'path_not_found', 'file not found');
-    if (!(await stat(realPath)).isFile()) throw new ProjectFsError(404, 'path_not_found', 'file not found');
+    try {
+      const s = await stat(realPath);
+      if (!s.isFile()) throw new ProjectFsError(404, 'path_not_found', 'file not found');
+    } catch (error) {
+      if (error instanceof ProjectFsError) throw error;
+      throw new ProjectFsError(404, 'path_not_found', 'file not found');
+    }
     return requested;
   }
   return null;
@@ -186,6 +211,10 @@ export async function resolveThreadPreviewPath(
     !isBare
   );
   return result.kind === 'not_found'
-    ? { kind: 'not_found', path: requestedRel, checkedPath: access.paths.resolve(root, requestedRel) }
+    ? {
+        kind: 'not_found',
+        path: requestedRel,
+        ...(!isBare ? { checkedPath: access.paths.resolve(root, requestedRel) } : {})
+      }
     : result;
 }

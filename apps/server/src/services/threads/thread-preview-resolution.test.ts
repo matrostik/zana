@@ -43,9 +43,24 @@ describe('resolvePreviewPathCandidate', () => {
 
   it('checks duplicate hints and falls through when they are stale', async () => {
     const exists = vi.fn(async (path: string) => path === 'docs/report.md');
-    const search = vi.fn(async () => ({ paths: ['output/report.md'], truncated: false }));
+    const search = vi.fn(async () => ({ paths: ['docs/report.md'], truncated: false }));
     await expect(resolvePreviewPathCandidate('report.md', ['old/report.md', 'docs/report.md'], exists, search))
       .resolves.toEqual({ kind: 'resolved', path: 'docs/report.md' });
+    expect(search).toHaveBeenCalledOnce();
+  });
+
+  it('returns ambiguous when a single surviving hint has another match in checkout search', async () => {
+    const exists = vi.fn(async (path: string) => path === 'docs/report.md');
+    const search = vi.fn(async () => ({ paths: ['output/report.md'], truncated: false }));
+    await expect(resolvePreviewPathCandidate('report.md', ['old/report.md', 'docs/report.md'], exists, search))
+      .resolves.toEqual({ kind: 'ambiguous', paths: ['docs/report.md', 'output/report.md'] });
+  });
+
+  it('returns ambiguous when a single hint matches and a root file also exists', async () => {
+    const exists = vi.fn(async (path: string) => path === 'docs/report.md' || path === 'report.md');
+    const search = vi.fn();
+    await expect(resolvePreviewPathCandidate('report.md', ['docs/report.md'], exists, search))
+      .resolves.toEqual({ kind: 'ambiguous', paths: ['docs/report.md', 'report.md'] });
     expect(search).not.toHaveBeenCalled();
   });
 
@@ -106,7 +121,15 @@ describe('resolveThreadPreviewPath', () => {
   });
 
   it('confines timeline hints and reads them from the thread host and environment', async () => {
-    rpc.mockResolvedValue({ sizeBytes: 12, modifiedAtMs: 1 });
+    rpc.mockImplementation(async ({ command }: any) => {
+      if (command.type === 'host.file_metadata') {
+        if (command.path === '/srv/checkouts/feature/docs/guide.md') {
+          return { sizeBytes: 12, modifiedAtMs: 1 };
+        }
+        throw { code: 'path_not_found' };
+      }
+      return { paths: [], truncated: false };
+    });
     await expect(resolveThreadPreviewPath(ctx, 'thread-1', {
       path: 'guide.md', hints: ['../secret/guide.md', 'docs/guide.md']
     })).resolves.toEqual({ kind: 'resolved', path: 'docs/guide.md' });
@@ -122,6 +145,15 @@ describe('resolveThreadPreviewPath', () => {
       .resolves.toEqual({ kind: 'not_found', path: 'output/report.md', checkedPath: '/srv/checkouts/feature/output/report.md' });
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc.mock.calls[0]![0].command.type).toBe('host.file_metadata');
+  });
+
+  it('omits checkedPath when a bare filename is not found anywhere in checkout', async () => {
+    rpc.mockImplementation(async ({ command }: any) => {
+      if (command.type === 'host.file_metadata') throw { code: 'path_not_found' };
+      return { paths: [], truncated: false };
+    });
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: 'nowhere.md' }))
+      .resolves.toEqual({ kind: 'not_found', path: 'nowhere.md' });
   });
 
   it('uses the thread environment on a Windows server when the thread host is Linux', async () => {
@@ -141,7 +173,7 @@ describe('resolveThreadPreviewPath', () => {
   });
 
   it('keeps a host-confirmed Windows case-equivalent filename', async () => {
-    h.environment.path = 'D:\\srv\\checkouts\\feature';
+    h.environment.path = 'D:\\\\srv\\\\checkouts\\\\feature';
     rpc.mockRejectedValueOnce({ code: 'path_not_found' }).mockResolvedValueOnce({
       paths: [{ kind: 'file', path: 'docs/Guide.md', name: 'Guide.md', score: 0, positions: [] }],
       truncated: false
@@ -185,14 +217,26 @@ describe('resolveThreadPreviewPath', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('resolves authorized server-owned attachments even without a provisioned environment', async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), 'preview-local-root-'));
-    h.environment = null;
+  it('resolves attachments under the product data dir for thread previews', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'preview-data-dir-'));
+    ctx.dataDir = dataDir;
+    const filePath = join(dataDir, 'attachments', 'project-1', 'image.png');
+    mkdirSync(dirname(filePath), { recursive: true });
+    writeFileSync(filePath, 'png-bytes');
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: filePath }))
+      .resolves.toEqual({ kind: 'resolved', path: filePath });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('resolves attachments under the product data dir for project-only previews', async () => {
+    h.thread = null;
+    ctx.toProjects = vi.fn(() => [{ id: 'project-1', path: '/srv/checkouts/project-1', remote: false, hostId: 'linux-host' }]);
+    const dataDir = mkdtempSync(join(tmpdir(), 'preview-data-dir-'));
+    ctx.dataDir = dataDir;
     const path = join(dataDir, 'attachments', 'project-1', 'image.png');
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, 'image');
-    ctx.dataDir = dataDir;
-    await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path }))
+    writeFileSync(path, 'png-bytes');
+    await expect(resolveThreadPreviewPath(ctx, 'orphan-thread', { path, projectId: 'project-1' }))
       .resolves.toEqual({ kind: 'resolved', path });
     expect(rpc).not.toHaveBeenCalled();
   });
@@ -225,6 +269,21 @@ describe('resolveThreadPreviewPath', () => {
     expect(rpc.mock.calls[0]![0].command).toMatchObject({ type: 'host.file_metadata', path: '/srv/checkouts/feature/old/guide.md' });
     expect(rpc.mock.calls[1]![0].command).toMatchObject({ type: 'host.file_metadata', path: '/srv/checkouts/feature/guide.md' });
     expect(rpc.mock.calls[2]![0].command).toMatchObject({ type: 'host.list_paths', exactName: 'guide.md' });
+  });
+
+  it('falls through when metadata throws invalid_path or ENOTDIR for directory matches', async () => {
+    rpc
+      .mockRejectedValueOnce({ code: 'invalid_path' })
+      .mockRejectedValueOnce({ code: 'ENOTDIR' })
+      .mockResolvedValueOnce({
+        paths: [{ kind: 'file', path: 'src/guide.md', name: 'guide.md', score: 0, positions: [] }],
+        truncated: false
+      });
+    await expect(resolveThreadPreviewPath(ctx, 'thread-1', {
+      path: 'guide.md',
+      hints: ['docs/guide.md']
+    })).resolves.toEqual({ kind: 'resolved', path: 'src/guide.md' });
+    expect(rpc).toHaveBeenCalledTimes(3);
   });
 
   it('times out when deadline expires before checking existence', async () => {

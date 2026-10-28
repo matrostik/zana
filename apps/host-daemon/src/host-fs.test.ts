@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -278,11 +278,11 @@ describe('host filesystem discovery', () => {
     expect(listed.truncated).toBe(false);
   });
 
-  it('preserves case-sensitive filename distinction on POSIX hosts', async () => {
+  it('preserves case-sensitive filename distinction on case-sensitive filesystems', async () => {
     const root = tmpRoot();
     writeFileSync(join(root, 'Guide.md'), 'match');
     const listed = await listHostPaths({ path: root, exactName: 'guide.md', limit: 10, includeFiles: true, includeDirectories: false });
-    if (process.platform !== 'win32') expect(listed.paths).toEqual([]);
+    if (!existsSync(join(root, 'guide.md'))) expect(listed.paths).toEqual([]);
   });
 
   it('truncates search when deadline is exceeded', async () => {

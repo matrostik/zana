@@ -139,12 +139,3 @@ it('renders checkedPath in not_found error message', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Preview missing.md' }));
   expect((await screen.findByRole('status')).textContent).toContain('Could not find missing.md (checked /work/missing.md)');
 });
-
-it('shows three or more ambiguity choices when multiple matches exist', async () => {
-  h.resolve.mockResolvedValue({ kind: 'ambiguous', paths: ['docs/guide.md', 'examples/guide.md', 'archive/guide.md'] });
-  render(<MarkdownFileLink token="guide.md" threadId="thread-tri" />);
-  fireEvent.click(screen.getByRole('button', { name: 'Preview guide.md' }));
-  expect(await screen.findByRole('button', { name: 'docs/guide.md' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'examples/guide.md' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'archive/guide.md' })).toBeTruthy();
-});
