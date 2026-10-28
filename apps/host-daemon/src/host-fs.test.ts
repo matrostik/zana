@@ -309,7 +309,7 @@ describe('host filesystem discovery', () => {
       includeFiles: true,
       includeDirectories: false
     });
-    if (process.platform === 'win32') {
+    if (process.platform === 'win32' || process.platform === 'darwin') {
       expect(listed.paths.map((p) => p.name)).toEqual(['Guide.md']);
     }
   });
@@ -326,6 +326,37 @@ describe('host filesystem discovery', () => {
       includeDirectories: false
     });
       expect(listed.truncated).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('continues scanning remaining directories when one directory throws, returning results with truncated: true', async () => {
+    const root = tmpRoot();
+    const badDir = join(root, 'a_bad');
+    const goodDir = join(root, 'z_good');
+    mkdirSync(badDir);
+    mkdirSync(goodDir);
+    writeFileSync(join(goodDir, 'guide.md'), 'found');
+
+    const originalOpendir = fs.opendir;
+    const spy = vi.spyOn(fs, 'opendir').mockImplementation(async (dirPath: any, opts: any) => {
+      if (typeof dirPath === 'string' && dirPath.includes('a_bad')) {
+        throw new Error('EACCES: permission denied');
+      }
+      return originalOpendir(dirPath, opts);
+    });
+
+    try {
+      const listed = await listHostPaths({
+        path: root,
+        exactName: 'guide.md',
+        limit: 10,
+        includeFiles: true,
+        includeDirectories: false
+      });
+      expect(listed.truncated).toBe(true);
+      expect(listed.paths.map((p) => p.name)).toEqual(['guide.md']);
     } finally {
       spy.mockRestore();
     }

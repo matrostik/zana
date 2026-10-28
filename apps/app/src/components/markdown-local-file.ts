@@ -32,11 +32,11 @@ export function parseLocalFileMarkdownHref(href: string | undefined): string | n
   if (!href) return null;
   const trimmed = href.trim();
   if (!trimmed || trimmed.startsWith('#') || BLOCKED_SCHEMES.test(trimmed)) return null;
-  if (trimmed.startsWith('file://')) {
+  if (/^file:\/\//iu.test(trimmed)) {
     try {
       const rawPath = trimmed.replace(/^file:\/\//iu, '').split(/[?#]/u)[0] ?? '';
       if (/%2f|%5c/iu.test(rawPath)) return null;
-      for (const segment of rawPath.split('/')) {
+      for (const segment of rawPath.split(/[/\\]/u)) {
         if (decodeURIComponent(segment) === '..') return null;
       }
       const url = new URL(trimmed);

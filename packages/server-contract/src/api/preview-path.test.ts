@@ -5,6 +5,7 @@ describe('thread preview path contracts', () => {
   it('caps basename lookup hints and requires a bounded path', () => {
     expect(previewPathRequestSchema.safeParse({ path: 'report.md', hints: ['docs/report.md'] }).success).toBe(true);
     expect(previewPathRequestSchema.safeParse({ path: '../report.md' }).success).toBe(false);
+    expect(previewPathRequestSchema.safeParse({ path: 'report.md', hints: ['../shared/report.md'] }).success).toBe(true);
     expect(previewPathRequestSchema.safeParse({ path: 'report.md', hints: Array(51).fill('a.md') }).success).toBe(false);
   });
 

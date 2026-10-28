@@ -3120,6 +3120,14 @@ describe('product HTTP thread preview path resolution', () => {
     expect(ok.status).toBe(200);
     await expect(ok.json()).resolves.toMatchObject({ kind: 'resolved', path: 'guide.md' });
 
+    const withParentHints = await fetch(`${server.url}api/v1/threads/sess-preview/preview-path/resolve`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: 'guide.md', hints: ['../secret/guide.md', 'guide.md'] })
+    });
+    expect(withParentHints.status).toBe(200);
+    await expect(withParentHints.json()).resolves.toMatchObject({ kind: 'resolved', path: 'guide.md' });
+
     const invalid = await fetch(`${server.url}api/v1/threads/sess-preview/preview-path/resolve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

@@ -33,6 +33,7 @@ describe('parseLocalFileMarkdownHref', () => {
   it('rejects http(s) and parent-segment escapes', () => {
     expect(parseLocalFileMarkdownHref('https://example.com/app.ts')).toBeNull();
     expect(parseLocalFileMarkdownHref('/tmp/../etc/passwd')).toBeNull();
+    expect(parseLocalFileMarkdownHref('file:///D:\\work\\repo\\..\\outside.md')).toBeNull();
   });
 });
 

@@ -425,7 +425,7 @@ interface ListedPath {
 
 async function matchesExactHostName(root: string, path: string, actualName: string, expectedName: string): Promise<boolean> {
   if (actualName === expectedName) return true;
-  if (process.platform !== 'win32' || actualName.toLocaleLowerCase('en-US') !== expectedName.toLocaleLowerCase('en-US')) return false;
+  if (actualName.toLocaleLowerCase('en-US') !== expectedName.toLocaleLowerCase('en-US')) return false;
   try {
     const actual = await fs.realpath(join(root, path));
     const requested = await fs.realpath(join(root, dirname(path), expectedName));
@@ -501,7 +501,6 @@ async function walkListedPaths(command: {
     } catch {
       if (command.exactName) truncated = true;
     }
-    if (truncated) break;
   }
   return { paths, truncated };
 }
