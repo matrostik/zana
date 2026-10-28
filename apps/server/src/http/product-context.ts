@@ -48,7 +48,7 @@ import {
   reconcileStoppingConversationThreadsOnHostConnect,
   resumeOpenConversationSessionsAfterHostRestart
 } from '../services/threads/conversation-lifecycle.js';
-import { publishConversationLifecycleOutcome } from '../services/threads/conversation-lifecycle-outcome.js';
+import { publishConversationLifecycleOutcome, scheduleConversationIdleFlush } from '../services/threads/conversation-lifecycle-outcome.js';
 import { healDisconnectedConversationThreadsForHost } from '../services/threads/conversation-host-recovery.js';
 import { HOST_ACTIVE_WORK_DISCONNECT_GRACE_MS } from '../services/threads/conversation-runtime-display.js';
 import { retryDueConversationSends, wakeLapsedEditHolds } from '../services/threads/conversation-deferred-messages.js';
@@ -312,10 +312,16 @@ export function createProductHttpContext(
         }
       }
     },
-    onConversationEvent: ({ threadId }) => {
+    onConversationEvent: ({ threadId, type }) => {
       const thread = getConversationThread(db, threadId);
       if (!thread) return;
       hub.emit('threads:updated', conversationThreadView(ctx, thread));
+      // Extension-started compaction can outlive its user turn. Its terminal
+      // turn event is then a duplicate lifecycle transition, so wake the queue
+      // from the committed root compaction event as well.
+      if (type === 'thread/compacted' && thread.status === 'idle') {
+        scheduleConversationIdleFlush(ctx, threadId);
+      }
     },
     onConversationLifecycle: ({ threadId, event, outcome }) => {
       if (!ctx) return;
