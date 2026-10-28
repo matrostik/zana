@@ -337,7 +337,7 @@ export const MarkdownContent = memo(function MarkdownContent({
               : null;
             if (path && threadId) {
               return (
-                <MarkdownFileLink token={token} title={path} threadId={threadId} projectId={projectId} hints={filePathHints}>
+                <MarkdownFileLink token={path} title={path} threadId={threadId} projectId={projectId} hints={filePathHints}>
                   {props.children}
                 </MarkdownFileLink>
               );

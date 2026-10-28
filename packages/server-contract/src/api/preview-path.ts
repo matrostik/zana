@@ -13,7 +13,11 @@ export const previewPathResultSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('resolved'), path: pathValue }).strict(),
   z.object({ kind: z.literal('ambiguous'), paths: z.array(pathValue).max(50) }).strict(),
   z.object({ kind: z.literal('incomplete'), paths: z.array(pathValue).max(50) }).strict(),
-  z.object({ kind: z.literal('not_found'), path: pathValue }).strict()
+  z.object({
+    kind: z.literal('not_found'),
+    path: pathValue,
+    checkedPath: z.string().min(1).max(4096).optional()
+  }).strict()
 ]);
 
 export type PreviewPathRequest = z.infer<typeof previewPathRequestSchema>;

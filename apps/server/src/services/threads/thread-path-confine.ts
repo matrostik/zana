@@ -18,8 +18,8 @@ export function confinePathToRoot(root: string, candidate: string): string | nul
   if (paths === posix && /^(?:[a-z]:[\\/]|\\\\)/iu.test(candidate)) return null;
   if (paths === win32 && /^[a-z]:(?![\\/])/iu.test(candidate)) return null;
   if (paths === win32 && paths.isAbsolute(candidate)) {
-    const rootDevice = win32.parse(root).root.toLowerCase();
-    const candidateDevice = win32.parse(candidate).root.toLowerCase();
+    const rootDevice = win32.parse(root).root.replace(/[\\/]+$/u, '').toLowerCase();
+    const candidateDevice = win32.parse(candidate).root.replace(/[\\/]+$/u, '').toLowerCase();
     if (!candidateDevice || candidateDevice !== rootDevice) return null;
   }
   const resolvedRoot = paths.resolve(root);

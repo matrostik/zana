@@ -36,4 +36,9 @@ describe('confinePathToRoot', () => {
     expect(confinePathToRoot('D:\\work\\repo', 'D:\\work\\repo\\docs\\guide.md'))
       .toBe('docs/guide.md');
   });
+
+  it('accepts Windows drive paths with equivalent slash styles', () => {
+    expect(confinePathToRoot('D:\\work\\repo', 'D:/work/repo/docs/guide.md'))
+      .toBe('docs/guide.md');
+  });
 });

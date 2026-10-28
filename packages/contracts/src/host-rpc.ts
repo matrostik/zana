@@ -95,8 +95,8 @@ import {
 // 46: canonical v2 peer forwarding and encrypted control, combined with host environment forwarding.
 // 47: bounded directory inspection for remote project registration and availability.
 // 48: durable machine project catalogue publication and bounded registration.
-// 49: provider bridge JSON options and opt-in host-owned live model inventories.
-export const HOST_RPC_PROTOCOL_VERSION = 49;
+// 50: exact-name file listing and host-owned listing deadlines.
+export const HOST_RPC_PROTOCOL_VERSION = 50;
 export const HOST_HEARTBEAT_INTERVAL_MS = 5_000;
 export const HOST_LEASE_TIMEOUT_MS = 30_000;
 const ProtocolVersionSchema = z.literal(HOST_RPC_PROTOCOL_VERSION);

@@ -41,6 +41,22 @@ describe('resolvePreviewPathCandidate', () => {
       .resolves.toEqual({ kind: 'ambiguous', paths: ['docs/report.md', 'output/report.md'] });
   });
 
+  it('checks duplicate hints and falls through when they are stale', async () => {
+    const exists = vi.fn(async (path: string) => path === 'docs/report.md');
+    const search = vi.fn(async () => ({ paths: ['output/report.md'], truncated: false }));
+    await expect(resolvePreviewPathCandidate('report.md', ['old/report.md', 'docs/report.md'], exists, search))
+      .resolves.toEqual({ kind: 'resolved', path: 'docs/report.md' });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it('searches when every duplicate hint is stale', async () => {
+    const exists = vi.fn(async () => false);
+    const search = vi.fn(async () => ({ paths: ['live/report.md'], truncated: false }));
+    await expect(resolvePreviewPathCandidate('report.md', ['old/report.md', 'removed/report.md'], exists, search))
+      .resolves.toEqual({ kind: 'resolved', path: 'live/report.md' });
+    expect(search).toHaveBeenCalledOnce();
+  });
+
   it('does not infer uniqueness from a truncated search', async () => {
     const exists = vi.fn(async () => false);
     const search = vi.fn(async () => ({ paths: ['docs/report.md'], truncated: true }));
@@ -73,7 +89,7 @@ describe('resolveThreadPreviewPath', () => {
   it('does not search after an explicit path is missing', async () => {
     rpc.mockRejectedValue({ code: 'path_not_found' });
     await expect(resolveThreadPreviewPath(ctx, 'thread-1', { path: 'output/report.md' }))
-      .resolves.toEqual({ kind: 'not_found', path: 'output/report.md' });
+      .resolves.toEqual({ kind: 'not_found', path: 'output/report.md', checkedPath: '/srv/checkouts/feature/output/report.md' });
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc.mock.calls[0]![0].command.type).toBe('host.file_metadata');
   });

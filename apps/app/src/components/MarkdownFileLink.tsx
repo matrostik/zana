@@ -68,7 +68,7 @@ function usePreviewResolution(
       } else if (result.kind === 'incomplete') {
         setState({ kind: 'incomplete', paths: result.paths, generation: request });
       } else {
-        setState({ kind: 'error', message: `Could not find ${result.path}` });
+        setState({ kind: 'error', message: `Could not find ${result.path}${'checkedPath' in result && result.checkedPath ? ` (checked ${result.checkedPath})` : ''}` });
       }
     } catch (error) {
       if (generation.current !== request) return;

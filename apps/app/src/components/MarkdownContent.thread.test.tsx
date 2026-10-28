@@ -87,6 +87,14 @@ describe('MarkdownContent thread extras', () => {
     expect(html).toContain('student-to-software-engineer.md');
   });
 
+  it('passes normalized inline code paths to the preview link', () => {
+    const html = renderToStaticMarkup(
+      <MarkdownContent text={'Preview ` **guide.md** `'} threadId="t1" />
+    );
+    expect(html).toContain('aria-label="Preview guide.md"');
+    expect(html).toContain('>**guide.md**</button>');
+  });
+
   it('leaves inline file chips inert without a thread, when exporting, or when not a path', () => {
     const inert = renderToStaticMarkup(
       <MarkdownContent text="Wrote `student-to-software-engineer.md` with the 5 steps." />

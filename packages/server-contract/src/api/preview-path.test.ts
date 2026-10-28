@@ -12,4 +12,10 @@ describe('thread preview path contracts', () => {
     expect(previewPathResultSchema.safeParse({ kind: 'resolved', path: 'docs/report.md' }).success).toBe(true);
     expect(previewPathResultSchema.safeParse({ kind: 'incomplete', paths: ['docs/report.md'] }).success).toBe(true);
   });
+
+  it('includes the authorized location checked for missing paths', () => {
+    expect(previewPathResultSchema.safeParse({
+      kind: 'not_found', path: 'docs/report.md', checkedPath: 'D:\\repo\\docs\\report.md'
+    }).success).toBe(true);
+  });
 });

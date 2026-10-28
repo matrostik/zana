@@ -27,9 +27,12 @@ export async function resolvePreviewPathCandidate(
   }
 
   const matches = [...new Set(hints.filter((path) => path.split(/[/\\]/u).at(-1) === requested))];
-  if (matches.length > 1) return { kind: 'ambiguous', paths: matches };
-  const hint = matches[0];
-  if (hint && await exists(hint)) return { kind: 'resolved', path: hint };
+  const existingMatches: string[] = [];
+  for (const path of matches) {
+    if (await exists(path)) existingMatches.push(path);
+    if (existingMatches.length === 2) return { kind: 'ambiguous', paths: existingMatches };
+  }
+  if (existingMatches.length === 1) return { kind: 'resolved', path: existingMatches[0]! };
   if (await exists(requested)) return { kind: 'resolved', path: requested };
 
   const result = await search();
@@ -46,6 +49,41 @@ const LOOKUP_TIMEOUT_MS = 5000;
 function isMissing(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error
     && (error as { code: unknown }).code === 'path_not_found');
+}
+
+async function searchExactHostName(
+  ctx: ProductHttpContext,
+  hostId: string,
+  root: string,
+  requested: string,
+  deadline: number,
+  confine: (candidate: string) => string | null
+): Promise<{ paths: string[]; truncated: boolean }> {
+  const timeoutMs = deadline - Date.now();
+  if (timeoutMs <= 0) return { paths: [], truncated: true };
+  const active = activeByHost.get(hostId) ?? 0;
+  if (active >= 2) throw new ProjectFsError(429, 'preview-busy', 'File lookup is busy. Try again.');
+  activeByHost.set(hostId, active + 1);
+  try {
+    const result = await ctx.hostHub.callHostOnlineRpc<HostListPathsResult>({
+      hostId,
+      timeoutMs,
+      command: {
+        type: 'host.list_paths', path: root, exactName: requested,
+        timeoutMs: Math.max(1, timeoutMs - 500), limit: LOOKUP_LIMIT,
+        includeFiles: true, includeDirectories: false
+      }
+    });
+    const found = result.paths
+      .filter((entry) => entry.kind === 'file')
+      .map((entry) => confine(entry.path))
+      .filter((path): path is string => Boolean(path));
+    return { paths: [...new Set(found)], truncated: result.truncated || Date.now() >= deadline };
+  } finally {
+    const remaining = (activeByHost.get(hostId) ?? 1) - 1;
+    if (remaining > 0) activeByHost.set(hostId, remaining);
+    else activeByHost.delete(hostId);
+  }
 }
 
 function createHostLookup(
@@ -84,37 +122,7 @@ function createHostLookup(
       throw error;
     }
   };
-  const search = async (): Promise<{ paths: string[]; truncated: boolean }> => {
-    const timeoutMs = deadline - Date.now();
-    if (timeoutMs <= 0) return { paths: [], truncated: true };
-    const active = activeByHost.get(hostId) ?? 0;
-    if (active >= 2) throw new ProjectFsError(429, 'preview-busy', 'File lookup is busy. Try again.');
-    activeByHost.set(hostId, active + 1);
-    try {
-      const result = await ctx.hostHub.callHostOnlineRpc<HostListPathsResult>({
-        hostId,
-        timeoutMs,
-        command: {
-          type: 'host.list_paths',
-          path: root,
-          exactName: requested,
-          timeoutMs: Math.max(1, timeoutMs - 500),
-          limit: LOOKUP_LIMIT,
-          includeFiles: true,
-          includeDirectories: false
-        }
-      });
-      const found = result.paths
-        .filter((entry) => entry.kind === 'file')
-        .map((entry) => confine(entry.path))
-        .filter((path): path is string => Boolean(path));
-      return { paths: [...new Set(found)], truncated: result.truncated || Date.now() >= deadline };
-    } finally {
-      const remaining = (activeByHost.get(hostId) ?? 1) - 1;
-      if (remaining > 0) activeByHost.set(hostId, remaining);
-      else activeByHost.delete(hostId);
-    }
-  };
+  const search = () => searchExactHostName(ctx, hostId, root, requested, deadline, confine);
   return { paths, confine, exists, search };
 }
 
@@ -176,6 +184,6 @@ export async function resolveThreadPreviewPath(
     !isBare
   );
   return result.kind === 'not_found'
-    ? { kind: 'not_found', path: requestedRel }
+    ? { kind: 'not_found', path: requestedRel, checkedPath: access.paths.resolve(root, requestedRel) }
     : result;
 }
