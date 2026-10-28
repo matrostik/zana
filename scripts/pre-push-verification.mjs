@@ -10,7 +10,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, hostname, tmpdir } from 'node:os';
-import { basename, join, posix, resolve } from 'node:path';
+import { basename, isAbsolute, join, posix, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as tinynod from './tinynod-pre-push-review.mjs';
 
@@ -575,8 +575,10 @@ export function windowsPnpm(path = process.env.PATH ?? '') {
     if (existsSync(exe)) return [exe];
     const shim = join(directory, 'pnpm.cmd');
     if (!existsSync(shim)) continue;
-    const script = readFileSync(shim, 'utf8').match(/"%~?dp0%?\\([^"%]+\.[cm]?js)"/i)?.[1];
-    if (script) return [process.execPath, join(directory, ...script.split('\\'))];
+    const contents = readFileSync(shim, 'utf8');
+    const script = contents.match(/"%~?dp0%?\\([^"%]+\.[cm]?js)"/i)?.[1]
+      ?? contents.match(/"((?:[A-Z]:\\|\\\\)[^"]+\.[cm]?js)"/i)?.[1];
+    if (script) return [process.execPath, isAbsolute(script) ? script : join(directory, ...script.split('\\'))];
   }
   return ['pnpm'];
 }
