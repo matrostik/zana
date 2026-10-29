@@ -541,6 +541,9 @@ const api: CcApi = {
     hostFileContent: async () => {
       throw new Error('threads require the product server');
     },
+    resolvePreviewPath: async () => {
+      throw new Error('threads require the product server');
+    },
     storageFiles: async () => ({ files: [], truncated: false, storageRootPath: '' }),
     storageContent: async () => {
       throw new Error('threads require the product server');

@@ -16327,6 +16327,13 @@ body.resizing-col .explorer-resizer::after {
   vertical-align: baseline;
 }
 
+.inbox-md .inbox-md-file-link {
+  color: var(--accent-gold);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
 .inbox-md .inbox-md-file-chip:hover,
 .inbox-md .inbox-md-file-chip:focus-visible {
   text-decoration: underline;

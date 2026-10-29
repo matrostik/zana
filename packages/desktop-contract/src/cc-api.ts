@@ -703,6 +703,12 @@ export interface CcApi {
       encoding: 'utf8' | 'base64';
       contentType: string | null;
     }>;
+    resolvePreviewPath(threadId: string, body: { path: string; hints?: string[]; projectId?: string }): Promise<
+      | { kind: 'resolved'; path: string }
+      | { kind: 'ambiguous'; paths: string[] }
+      | { kind: 'incomplete'; paths: string[] }
+      | { kind: 'not_found'; path: string; checkedPath?: string }
+    >;
     storageFiles(threadId: string): Promise<{
       files: Array<{ path: string; name: string }>;
       truncated: boolean;

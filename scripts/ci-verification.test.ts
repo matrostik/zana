@@ -344,12 +344,13 @@ it('combines complementary root and package coverage even when local ids differ'
 it('keeps the existing required CI check as an always-running gate over every job', () => {
   const workflow = readFileSync(resolve('.github/workflows/ci.yml'), 'utf8');
   expect(workflow).toContain('name: Typecheck and test');
-  expect(workflow).toContain('needs: [unit, unit-packages, coverage, e2e, connect-postgres]');
+  expect(workflow).toContain('needs: [unit, unit-packages, coverage, e2e, preview-cross-platform, connect-postgres]');
   expect(workflow).toContain('if: always()');
   expect(workflow).toContain('test "$UNIT_RESULT" = success');
   expect(workflow).toContain('test "$PACKAGES_RESULT" = success');
   expect(workflow).toContain('test "$COVERAGE_RESULT" = success');
   expect(workflow).toContain('test "$BOUNDARY_RESULT" = success');
+  expect(workflow).toContain('test "$PREVIEW_MATRIX_RESULT" = success');
   expect(workflow).toContain('test "$POSTGRES_RESULT" = success');
   expect(workflow).toContain('ZCC_CONNECT_TEST_DATABASE_URL: postgres://');
   expect(workflow).toContain('vitest run website/connect/postgres.test.ts website/connect/machines.postgres.test.ts');

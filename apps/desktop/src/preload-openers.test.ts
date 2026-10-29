@@ -29,3 +29,9 @@ it('forwards bulk plugin updates to main and returns the result', async () => {
   await expect(api.pluginApps.applyAllUpdates()).resolves.toEqual(result);
   expect(electron.invoke).toHaveBeenCalledExactlyOnceWith(IPC.pluginApps.applyAllUpdates);
 });
+
+it('throws when threads.resolvePreviewPath is called without product server', async () => {
+  await import('./preload.js');
+  const api = electron.expose.mock.calls.find(([name]) => name === 'cc')![1];
+  await expect(api.threads.resolvePreviewPath('t1', { path: 'a.md' })).rejects.toThrow('threads require the product server');
+});
