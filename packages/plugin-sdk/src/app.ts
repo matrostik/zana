@@ -85,6 +85,7 @@ export type {
   ZccNavigateToProjectOptions,
   ZccPanelAgentOptions,
   ZccPanelToolOptions,
+  ZccPanelScope,
   PluginProviderIconRegistration,
   PluginRegistrationSet,
   PluginSdkApp,
@@ -259,6 +260,10 @@ export function useZccDeepLinks(): ZccDeepLinks {
  */
 export function useWindowTitle(title: ZccWindowTitle | null | undefined): void {
   pluginRuntime().useWindowTitle?.(title);
+}
+
+export function useWindowCloseHandler(handler: ((signal: AbortSignal) => void | Promise<void>) | null): void {
+  pluginRuntime().useWindowCloseHandler?.(handler);
 }
 
 export function useComposer(): PluginComposerApi {

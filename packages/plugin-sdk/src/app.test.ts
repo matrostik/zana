@@ -9,6 +9,14 @@ import { collectPluginAppRegistrations } from './internal/plugin-app-collector.j
 import { shimLegacyExtensionManifest } from './legacy-shim.js';
 
 describe('definePluginApp', () => {
+  it('preserves per-tab footer ownership without changing the default', () => {
+    const slots = collectPluginApp('example', 1, definePluginApp(app => {
+      app.slots.projectTab({ id: 'workbench', label: 'Workbench', statusbar: 'hidden', component: () => null });
+      app.slots.projectTab({ id: 'other', label: 'Other', component: () => null });
+    }));
+    expect(slots.projectTabs[0]?.statusbar).toBe('hidden');
+    expect(slots.projectTabs[1]?.statusbar).toBeUndefined();
+  });
   it('does not recurse when the host runtime points definePluginApp at this function', () => {
     const g = globalThis as { __ZCC_PLUGIN_RUNTIME__?: { definePluginApp: typeof definePluginApp } };
     const previous = g.__ZCC_PLUGIN_RUNTIME__;

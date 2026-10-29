@@ -97,7 +97,7 @@ describe('AgentCard', () => {
   });
   it('opens the agent in the Studio window when no thread panel can take it', async () => {
     navigate.openThreadPanel.mockReturnValueOnce(false);
-    const studio = { id: 'studio', surface: 'workbench', window: 'plugin-view', commands: ['view.open'] };
+    const studio = { id: 'studio', surface: 'workbench', window: 'plugin-view', commands: ['view.open'], state: { resourceId: 'force-app/Bot.agent' } };
     const openInWindow = vi.fn(async () => true);
     Object.assign(navigate, { openInWindow });
     rpc.mockImplementation(async (_p, method) => method === 'agentFiles.read' ? file : method === 'control.views' ? { ok: true, views: [studio] }
