@@ -75,10 +75,37 @@ it('describes expectations and the fix-loop prompt', () => {
 
 it('asks for a file, and keeps the role-play view without one', () => {
   const { call } = setup({ path: null });
+  const views = within(screen.getByRole('group', { name: 'Tests view' })).getAllByRole('button');
+  expect(views.map(view => view.textContent)).toEqual(['Test cases', 'Test catalogue', 'Batch simulations', 'Role-play']);
+  expect(views.map(view => view.title)).toEqual([
+    'Replay saved scenarios and check expected outcomes for this agent.',
+    'Browse local test suites and Salesforce Testing Center tests, runs and results.',
+    'Run multiple AI customer conversations across scenarios and repeats.',
+    'Explore one AI customer conversation with its setup, chat and traces.'
+  ]);
   expect(screen.getByText('Open an agent file to test it.')).toBeTruthy();
   expect(call).not.toHaveBeenCalled();
   fireEvent.click(button('Role-play'));
   expect(screen.getByTestId('roleplay')).toBeTruthy();
+});
+
+it('selects Batch simulations and returns to Test cases before opening an agent', async () => {
+  setup({ path: null });
+  fireEvent.click(button('Batch simulations'));
+  expect(await screen.findByText('Open an agent file to simulate conversations with it.')).toBeTruthy();
+  expect(button('Batch simulations').getAttribute('aria-pressed')).toBe('true');
+  expect(button('Test cases').getAttribute('aria-pressed')).toBe('false');
+  fireEvent.click(button('Test cases'));
+  expect(screen.getByText('Open an agent file to test it.')).toBeTruthy();
+  expect(button('Test cases').getAttribute('aria-pressed')).toBe('true');
+  expect(button('Batch simulations').getAttribute('aria-pressed')).toBe('false');
+});
+
+it('keeps embedded local suites focused on cases without duplicate view navigation', async () => {
+  setup({ casesOnly: true });
+  expect(await screen.findByText(/tests\/MyBot\.scenario\.json/)).toBeTruthy();
+  expect(screen.queryByRole('group', { name: 'Tests view' })).toBeNull();
+  expect(button('Run all in Simulate')).toBeTruthy();
 });
 
 it('lists the cases with pinned, multi-turn and expectation hints', async () => {
@@ -419,7 +446,7 @@ it('reloads on suite changes while visible and switches to role-play', async () 
   fireEvent.click(button('Role-play'));
   expect(screen.getByTestId('roleplay')).toBeTruthy();
   expect(screen.queryByTestId('tests-table')).toBeNull();
-  fireEvent.click(button('Cases'));
+  fireEvent.click(button('Test cases'));
   expect(screen.getByTestId('roleplay').parentElement!.hidden).toBe(true);
   view.rerender(<TestsPane {...props} path="force-app/Other.agent" />);
   await waitFor(() => expect(calls(call, 'studio.suites.list').at(-1)).toMatchObject({ agentPath: 'force-app/Other.agent' }));
@@ -440,7 +467,7 @@ it('switches to the Org tests view', async () => {
     'studio.orgTests.runs': () => ({ ok: true, runs: [] })
   });
   await screen.findByTestId('tests-table');
-  fireEvent.click(button('All tests'));
+  fireEvent.click(button('Test catalogue'));
   expect(await screen.findByTestId('org-def-RefundTests')).toBeTruthy();
   expect(screen.queryByTestId('tests-table')).toBeNull();
   expect(calls(call, 'studio.orgTests.list')).toHaveLength(1);
