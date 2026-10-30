@@ -41,7 +41,8 @@ async function directory(path: string) {
   if (!stats.isDirectory() || stats.isSymbolicLink()) throw new Error('Plugin recovery directory must not be a symlink');
 }
 async function flush(file: string) {
-  const handle = await open(file, 'r');
+  // Windows requires a write-capable handle for fsync.
+  const handle = await open(file, 'r+');
   try { await handle.sync(); } finally { await handle.close(); }
 }
 function flushDirectory(path: string) {

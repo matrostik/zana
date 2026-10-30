@@ -23,8 +23,9 @@ export function ComposerModePicker({
   const [open, setOpen] = useExclusivePopover();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const selected = entries.find((entry) => entry.id === value) ?? entries[0];
-  const selectedLabel = selected?.label ?? entries[0]?.label ?? '';
+  const selected = entries.find((entry) => entry.id === value);
+  const missingLabel = value === 'plan' ? 'Plan' : value === 'agent' ? 'Agent' : value;
+  const selectedLabel = selected?.label ?? `${missingLabel || 'Mode'} (unavailable)`;
 
   useEffect(() => {
     if (!open || !triggerRef.current || !menuRef.current) return;

@@ -13,6 +13,12 @@ import {
   nextNativeRoleValue
 } from './composer-mode.js';
 
+it('shows an unavailable saved mode instead of displaying Agent as the selected mode', () => {
+  const html = renderToStaticMarkup(<ComposerModePicker value="plan" entries={composerModeEntries({ acpModeOptions: [] })} onChange={() => {}} />);
+  expect(html).toContain('Plan (unavailable)');
+  expect(html).not.toContain('>Agent<');
+});
+
 describe('composerModesForActions', () => {
   it('always includes Agent and adds Plan from the provider, not Goal', () => {
     expect(composerModesForActions([])).toEqual(['agent']);
@@ -262,7 +268,7 @@ describe('ComposerModePicker', () => {
     expect(html).not.toContain('Refresh roles');
   });
 
-  it('uses first entry label if selected mode is no longer offered', () => {
+  it('keeps a removed custom mode visible as unavailable', () => {
     const html = renderToStaticMarkup(
       <ComposerModePicker
         value="stale"
@@ -270,6 +276,6 @@ describe('ComposerModePicker', () => {
         onChange={() => undefined}
       />
     );
-    expect(html).toContain('Agent');
+    expect(html).toContain('stale (unavailable)');
   });
 });

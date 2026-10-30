@@ -44,7 +44,7 @@ import { fileURLToPath } from 'node:url';
 import { startLocalRegistry, type LocalRegistry, type DummyExtensionSpec } from './registry.js';
 import { EventRecorder } from '../sdk/events.js';
 import { linuxCiElectronArgs, linuxCiElectronEnv } from './linux-electron-launch.js';
-import { dropInheritedKeychainEnv, isolatedClaudePath, isolatedKeychainEnv, writeAppConfig } from './app-config.js';
+import { applyIsolatedClaudePath, dropInheritedKeychainEnv, isolatedKeychainEnv, writeAppConfig } from './app-config.js';
 import { isolateTmuxEnvironment, cleanupTmuxEnvironment } from './tmux-isolation.js';
 import { seedOpenCodeAuthState } from './opencode-auth.js';
 
@@ -258,8 +258,7 @@ export async function launchApp(home: string, opts: LaunchOptions = {}): Promise
   };
   // `claude doctor` and legacy fallbacks use PATH instead of claudeBinary.
   // Keep the guard ahead of inherited CLI directories for deterministic tests.
-  const isolatedPath = isolatedClaudePath(env.PATH, opts.allowLiveClaude);
-  if (isolatedPath !== undefined) env.PATH = isolatedPath;
+  applyIsolatedClaudePath(env, opts.allowLiveClaude);
   // A parent `electron-vite dev` / leftover diagnostic must not steal this
   // unpackaged E2E boot onto the live renderer or product server.
   if (!opts.env?.ELECTRON_RENDERER_URL) delete env.ELECTRON_RENDERER_URL;

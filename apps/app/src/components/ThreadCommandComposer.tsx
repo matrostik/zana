@@ -404,7 +404,8 @@ function ThreadComposerContent({
     if (!entry) return;
     setComposerMode(entry.id);
     options.setAcpMode(entry.nativeValue);
-  }, [composerModeEntriesForProvider, options]);
+    setError(current => current === composerModeError ? null : current);
+  }, [composerModeEntriesForProvider, options, composerModeError]);
   const provider = useMemo(() => options.provider ?? fallbackProviderOption(options.providerId), [options.provider, options.providerId]);
   const localCommands = useMemo(() => onRunTerminal ? [COMPOSER_TERMINAL_COMMAND] : [], [onRunTerminal]);
   const field = useComposerPromptField({
@@ -941,6 +942,8 @@ function ThreadComposerContent({
       {options.selectionError && !error ? <p className="thread-command-error" role="status">{options.selectionError}</p> : null}
       {permissionSelectionError && !error ? <p className="thread-command-error" role="status">{permissionSelectionError}</p> : null}
       {composerModeError && !error ? <p className="thread-command-error" role="status">{composerModeError}</p> : null}
+      {composerModeError ? <button type="button" className="thread-command-host-action-btn" disabled={busy}
+        onClick={() => setComposerWorkMode('agent')}>Switch to Agent</button> : null}
       {providerCli.error ? (
         <p className="thread-command-error" data-testid="provider-cli-install-error">{providerCli.error}</p>
       ) : null}

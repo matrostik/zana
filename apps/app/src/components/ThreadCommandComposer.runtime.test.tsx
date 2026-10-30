@@ -568,6 +568,22 @@ describe('Modern composer retained-draft guards', () => {
     expect(screen.getByTestId('thread-command-error').textContent).toBe('Saved permission mode is unavailable.');
   });
 
+  it('explicitly recovers an unavailable mode without sending or losing the draft', async () => {
+    const view = render(composer({ threadId: undefined }));
+    fireEvent.click(screen.getByRole('button', { name: 'Plan mode' }));
+    h.options.provider = { ...h.options.provider, composerActions: [] };
+    view.rerender(composer({ threadId: undefined }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByTestId('thread-command-error')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Agent' }));
+    expect(screen.queryByTestId('thread-command-error')).toBeNull();
+    expect(h.options.setAcpMode).toHaveBeenLastCalledWith(undefined);
+    expect(h.text).toBe('Draft');
+    expect(h.clear).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Plan mode' }).getAttribute('data-mode')).toBe('agent');
+  });
+
   it.each([
     ['provider selection', () => { h.options.selectionError = 'Provider gone.'; }, 'Provider gone.'],
     ['composer mode', () => { /* arranged below */ }, 'saved composer mode']

@@ -10,6 +10,16 @@ export function isolatedClaudePath(path: string | undefined, allowLiveClaude = f
   return [dirname(DISABLED_CLAUDE_BINARY), path].filter(Boolean).join(delimiter);
 }
 
+/** Node keeps only one case-insensitive PATH key on Windows; normalize before adding the guard. */
+export function applyIsolatedClaudePath(env: Record<string, string>, allowLiveClaude = false): void {
+  const pathKeys = Object.keys(env).filter(key => key.toUpperCase() === 'PATH');
+  const inherited = env.PATH ?? (pathKeys[0] ? env[pathKeys[0]] : undefined);
+  const isolated = isolatedClaudePath(inherited, allowLiveClaude);
+  if (isolated === undefined) return;
+  for (const key of pathKeys) delete env[key];
+  env.PATH = isolated;
+}
+
 /**
  * Isolated homes have no macOS login keychain, so `@salesforce/core` would ask macOS to
  * create one and open a "Keychain Not Found" dialog. The generic keychain keeps the key in

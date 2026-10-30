@@ -20,6 +20,15 @@ async function fixture() {
   return { dir, owned, previous, candidate, store };
 }
 
+it('restores and flushes a saved file on Windows', async () => {
+  const f = await fixture();
+  await writeFile(join(f.owned, 'kv.json'), 'before');
+  const journal = await f.store.prepare(f.previous, f.candidate, 0);
+  await writeFile(join(f.owned, 'kv.json'), 'after');
+  await f.store.restore(journal);
+  expect(await readFile(join(f.owned, 'kv.json'), 'utf8')).toBe('before');
+});
+
 it('makes a WAL-safe, private snapshot and restores only owned state, including deleted and new keys', async () => {
   const f = await fixture();
   await mkdir(join(f.owned, 'secrets/nested'), { recursive: true });
@@ -35,7 +44,7 @@ it('makes a WAL-safe, private snapshot and restores only owned state, including 
     expect(await f.store.list()).toEqual([journal]);
     expect(journal.files.map(file => file.path).sort()).toEqual(['data.db', 'kv.json', 'secrets/nested/token', 'settings.json']);
     const snapshot = join(f.dir, 'plugin-activations', journal.id, 'snapshot');
-    expect((await stat(join(snapshot, 'secrets/nested/token'))).mode & 0o777).toBe(0o600);
+    if (process.platform !== 'win32') expect((await stat(join(snapshot, 'secrets/nested/token'))).mode & 0o777).toBe(0o600);
     db.exec("UPDATE records SET value='after'"); db.close();
     await writeFile(join(f.owned, 'kv.json'), '{"new":2}'); await rm(join(f.owned, 'settings.json'));
     await writeFile(join(f.owned, 'secrets/new'), 'new secret');
