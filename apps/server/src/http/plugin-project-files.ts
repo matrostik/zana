@@ -9,8 +9,8 @@ import { confinePathToRoot, threadPathApi } from '../services/threads/thread-pat
 // BB monaco-editor resolveTarget, with Zana's authoritative project/source gate.
 const id = z.string().min(1).max(256);
 const file = z.object({
-  // Mirrors confinePathToRoot's MAX_REL_PATH so over-long paths fail validation, not confinement.
-  path: z.string().min(1).max(1024).refine(path => !/[\x00-\x1f]/.test(path)),
+  // Keep 4096 so absolute candidates within checkout are not rejected at validation before confinement.
+  path: z.string().min(1).max(4096).refine(path => !/[\x00-\x1f]/.test(path)),
   source: z.object({ kind: z.enum(['workspace', 'host', 'thread-storage']), projectId: id.nullable(),
     environmentId: id.nullable(), threadId: id.nullable(), hostId: id.optional() }).strict()
 }).strict();

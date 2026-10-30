@@ -7,8 +7,10 @@ import { HostRpcCommandSchema } from '@zana-ai/zcc-contracts/host-rpc';
 import { createCommandRuntime, dispatchHostCommand } from '../../../host-daemon/src/command-dispatch.js';
 import { readPluginProjectFile, writePluginProjectFile } from './plugin-project-files.js';
 import type { ProductHttpContext } from './product-context.js';
+
 const cleanups: Array<() => void> = [];
 afterEach(() => cleanups.splice(0).forEach(fn => fn()));
+
 function setup() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'plugin-machines-')));
   const a = join(root, 'a'), b = join(root, 'b'); mkdirSync(a); mkdirSync(b);
@@ -24,6 +26,7 @@ function setup() {
   const source = { kind: 'workspace', projectId: 'p', environmentId: null, threadId: null };
   return { root, a, b, ctx, rpc, project, source };
 }
+
 it('edits the selected machine through real confined host handlers and preserves newer edits', async () => {
   const { a, b, ctx, rpc, source } = setup();
   const args = { path: 'file.ts', source: { ...source, hostId: 'b' } };
@@ -38,6 +41,7 @@ it('edits the selected machine through real confined host handlers and preserves
   await expect(readPluginProjectFile(ctx, { ...args, path: 'escape/file.ts' })).rejects.toThrow();
   await expect(writePluginProjectFile(ctx, { ...args, path: 'escape/file.ts', content: 'bad', expectedSha256: file.sha256 })).rejects.toThrow();
 });
+
 it('confines writes even when creating missing parents', async () => {
   const { root, a, b, ctx, source } = setup();
   const selected = { ...source, hostId: 'b' };
@@ -56,6 +60,7 @@ it('confines writes even when creating missing parents', async () => {
   expect(() => readFileSync(join(root, 'outside/file.ts'))).toThrow();
   expect(() => readFileSync(join(a, 'new/file.ts'))).toThrow();
 });
+
 it('pins thread files to the saved environment and rejects forged associations', async () => {
   const { b, ctx, source } = setup();
   const env = createEnvironment(ctx.db, { projectId: 'p', hostId: 'b', path: b, status: 'ready' });
@@ -66,6 +71,7 @@ it('pins thread files to the saved environment and rejects forged associations',
   for (const patch of [{ hostId: 'a' }, { environmentId: 'wrong' }, { threadId: 'wrong' }]) await expect(readPluginProjectFile(ctx, { ...args, source: { ...args.source, ...patch } })).rejects.toThrow();
   await expect(readPluginProjectFile(ctx, { path: 'file.ts', source: { ...source, environmentId: 'missing' } })).rejects.toThrow();
 });
+
 it('rejects missing owners, oversized writes, invalid revisions and paths before host access', async () => {
   const { ctx, source, rpc, project } = setup();
   for (const patch of [{ kind: 'host' }, { projectId: null }, { projectId: 'missing' }, { hostId: 'missing' }]) await expect(readPluginProjectFile(ctx, { path: 'file.ts', source: { ...source, ...patch } })).rejects.toThrow();
@@ -77,31 +83,149 @@ it('rejects missing owners, oversized writes, invalid revisions and paths before
   ctx.db.sqlite.prepare('UPDATE hosts SET is_primary = 0').run();
   await expect(readPluginProjectFile(ctx, { path: 'file.ts', source })).rejects.toThrow('no execution machine');
 });
-it('rejects over-long paths at validation instead of as a confinement failure', async () => {
+
+it('rejects oversized inputs at validation and over-long relative paths at confinement', async () => {
   const { ctx, source, rpc } = setup();
-  const tooLong = `${'d/'.repeat(512)}file.ts`;
-  expect(tooLong.length).toBeGreaterThan(1024);
-  await expect(readPluginProjectFile(ctx, { path: tooLong, source })).rejects.toThrow('<=1024 characters');
-  await expect(writePluginProjectFile(ctx, { path: tooLong, source, content: 'x', expectedSha256: null })).rejects.toThrow('<=1024 characters');
+  const oversized = `${'d/'.repeat(2048)}file.ts`;
+  expect(oversized.length).toBeGreaterThan(4096);
+  await expect(readPluginProjectFile(ctx, { path: oversized, source })).rejects.toThrow('<=4096 characters');
+  await expect(writePluginProjectFile(ctx, { path: oversized, source, content: 'x', expectedSha256: null })).rejects.toThrow('<=4096 characters');
+
+  const overLongRel = `${'subdir/'.repeat(160)}file.ts`;
+  expect(overLongRel.length).toBeGreaterThan(1024);
+  expect(overLongRel.length).toBeLessThan(4096);
+  await expect(readPluginProjectFile(ctx, { path: overLongRel, source })).rejects.toThrow('File path is not inside the selected checkout');
   expect(rpc).not.toHaveBeenCalled();
 });
-it('resolves Windows drive paths without prepending process cwd', async () => {
+
+it('resolves Windows drive paths and confines candidates safely', async () => {
   const { ctx, rpc } = setup();
-  const winRoot = 'D:\\Dev\\checkout';
+  const winRoot = 'C:\\Dev\\checkout';
   const project = { id: 'win-p', path: winRoot, hostId: 'a', name: 'Win', createdAt: 1, lastActiveAt: 1, sources: [{ id: 'win-p', hostId: 'a', path: winRoot }] };
   (ctx as any).toProjects = () => [project];
-  rpc.mockResolvedValueOnce({ kind: 'file', content: 'python code', contentEncoding: 'utf8', sizeBytes: 11, sha256: 'abc' });
-  const result = await readPluginProjectFile(ctx, {
+  rpc.mockResolvedValue({ kind: 'file', content: 'python code', contentEncoding: 'utf8', sizeBytes: 11, sha256: 'abc' });
+
+  // Relative path with forward slashes
+  const relResult = await readPluginProjectFile(ctx, {
     path: 'scripts/build-review-report.py',
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   });
-  expect(result.content).toBe('python code');
-  expect(rpc).toHaveBeenCalledWith({
+  expect(relResult.content).toBe('python code');
+  expect(rpc).toHaveBeenLastCalledWith({
     hostId: 'a',
     command: {
       type: 'host.read_path',
       rootPath: winRoot,
-      path: 'D:\\Dev\\checkout\\scripts\\build-review-report.py'
+      path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py'
     }
   });
+
+  // Relative path with backslashes
+  await readPluginProjectFile(ctx, {
+    path: 'scripts\\build-review-report.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  });
+  expect(rpc).toHaveBeenLastCalledWith({
+    hostId: 'a',
+    command: {
+      type: 'host.read_path',
+      rootPath: winRoot,
+      path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py'
+    }
+  });
+
+  // Absolute path inside the Windows root
+  await readPluginProjectFile(ctx, {
+    path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  });
+  expect(rpc).toHaveBeenLastCalledWith({
+    hostId: 'a',
+    command: {
+      type: 'host.read_path',
+      rootPath: winRoot,
+      path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py'
+    }
+  });
+
+  // Absolute path with forward slashes inside the Windows root
+  await readPluginProjectFile(ctx, {
+    path: 'C:/Dev/checkout/scripts/build-review-report.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  });
+  expect(rpc).toHaveBeenLastCalledWith({
+    hostId: 'a',
+    command: {
+      type: 'host.read_path',
+      rootPath: winRoot,
+      path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py'
+    }
+  });
+
+  // Rejects different drive
+  await expect(readPluginProjectFile(ctx, {
+    path: 'D:\\Dev\\checkout\\scripts\\build-review-report.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  })).rejects.toThrow('File path is not inside the selected checkout');
+
+  // Rejects parent traversal escape
+  await expect(readPluginProjectFile(ctx, {
+    path: '..\\other\\file.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  })).rejects.toThrow('File path is not inside the selected checkout');
+
+  // Rejects nested escape
+  await expect(readPluginProjectFile(ctx, {
+    path: 'scripts\\..\\..\\outside.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  })).rejects.toThrow('File path is not inside the selected checkout');
+});
+
+it('resolves POSIX paths and rejects Windows paths or escapes against POSIX roots', async () => {
+  const { ctx, rpc } = setup();
+  const posixRoot = '/home/agent/checkout';
+  const project = { id: 'posix-p', path: posixRoot, hostId: 'a', name: 'Posix', createdAt: 1, lastActiveAt: 1, sources: [{ id: 'posix-p', hostId: 'a', path: posixRoot }] };
+  (ctx as any).toProjects = () => [project];
+  rpc.mockResolvedValue({ kind: 'file', content: 'typescript', contentEncoding: 'utf8', sizeBytes: 10, sha256: 'abc' });
+
+  // Relative path against POSIX root
+  const res = await readPluginProjectFile(ctx, {
+    path: 'src/main.ts',
+    source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
+  });
+  expect(res.content).toBe('typescript');
+  expect(rpc).toHaveBeenLastCalledWith({
+    hostId: 'a',
+    command: {
+      type: 'host.read_path',
+      rootPath: posixRoot,
+      path: '/home/agent/checkout/src/main.ts'
+    }
+  });
+
+  // Absolute path inside POSIX root
+  await readPluginProjectFile(ctx, {
+    path: '/home/agent/checkout/src/main.ts',
+    source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
+  });
+  expect(rpc).toHaveBeenLastCalledWith({
+    hostId: 'a',
+    command: {
+      type: 'host.read_path',
+      rootPath: posixRoot,
+      path: '/home/agent/checkout/src/main.ts'
+    }
+  });
+
+  // Rejects Windows drive syntax on POSIX root
+  await expect(readPluginProjectFile(ctx, {
+    path: 'C:\\outside\\file.ts',
+    source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
+  })).rejects.toThrow('File path is not inside the selected checkout');
+
+  // Rejects traversal escape on POSIX root
+  await expect(readPluginProjectFile(ctx, {
+    path: '../../etc/shadow',
+    source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
+  })).rejects.toThrow('File path is not inside the selected checkout');
 });
