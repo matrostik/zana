@@ -98,7 +98,7 @@ it('rejects oversized inputs at validation and over-long relative paths at confi
   expect(rpc).not.toHaveBeenCalled();
 });
 
-it('resolves Windows drive paths and confines candidates safely', async () => {
+it('resolves Windows drive and UNC paths and confines candidates safely', async () => {
   const { ctx, rpc } = setup();
   const winRoot = 'C:\\Users\\dev\\checkout';
   const project = { id: 'win-p', path: winRoot, hostId: 'a', name: 'Win', createdAt: 1, lastActiveAt: 1, sources: [{ id: 'win-p', hostId: 'a', path: winRoot }] };
@@ -170,9 +170,15 @@ it('resolves Windows drive paths and confines candidates safely', async () => {
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   })).rejects.toThrow('File path is not inside the selected checkout');
 
-  // Rejects drive-relative syntax (e.g. C:x.py)
+  // Rejects drive-relative syntax without root separator (e.g. C:x.py)
   await expect(readPluginProjectFile(ctx, {
     path: 'C:build-review-report.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  })).rejects.toThrow('File path is not inside the selected checkout');
+
+  // Rejects UNC path pointing to external share
+  await expect(readPluginProjectFile(ctx, {
+    path: '\\\\server\\share\\file.py',
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   })).rejects.toThrow('File path is not inside the selected checkout');
 
@@ -261,10 +267,10 @@ it('resolves POSIX paths and rejects Windows paths or escapes against POSIX root
     }
   });
 
-  // Rejects Windows drive syntax on POSIX root (both backslash and forward slash)
-  for (const winDriveCandidate of ['C:\\outside\\file.ts', 'C:/outside/file.ts', 'D:\\data.json', 'D:/data.json']) {
+  // Rejects Windows drive and UNC syntax on POSIX root (both backslash and forward slash)
+  for (const winCandidate of ['C:\\outside\\file.ts', 'C:/outside/file.ts', '\\\\server\\share\\x', 'D:\\data.json']) {
     await expect(readPluginProjectFile(ctx, {
-      path: winDriveCandidate,
+      path: winCandidate,
       source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
     })).rejects.toThrow('File path is not inside the selected checkout');
   }
