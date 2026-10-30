@@ -32,10 +32,9 @@ function resolveTarget(ctx: ProductHttpContext, input: z.infer<typeof file>) {
   if (!hostId) throw unsupported('This project has no execution machine');
   if (thread && thread.hostId !== hostId) throw new Error('File machine does not belong to the thread');
   const target = projectFileRoot(ctx, { projectId: project.id, hostId, ...(environmentId ? { environmentId } : {}) });
-  const paths = threadPathApi(target.root);
   const relPath = confinePathToRoot(target.root, input.path);
   if (!relPath || !isSafeRelPath(relPath)) throw new Error('File path is not inside the selected checkout');
-  const path = paths.resolve(target.root, relPath);
+  const path = threadPathApi(target.root).resolve(target.root, relPath);
   return { hostId, path, rootPath: target.root };
 }
 

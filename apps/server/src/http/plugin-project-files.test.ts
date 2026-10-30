@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { openDatabase, upsertHost, createEnvironment, createConversationThread } from '@zana-ai/zcc-db';
 import { HostRpcCommandSchema } from '@zana-ai/zcc-contracts/host-rpc';
 import { createCommandRuntime, dispatchHostCommand } from '../../../host-daemon/src/command-dispatch.js';
@@ -100,12 +100,12 @@ it('rejects oversized inputs at validation and over-long relative paths at confi
 
 it('resolves Windows drive paths and confines candidates safely', async () => {
   const { ctx, rpc } = setup();
-  const winRoot = 'C:\\Dev\\checkout';
+  const winRoot = 'C:\\Users\\dev\\checkout';
   const project = { id: 'win-p', path: winRoot, hostId: 'a', name: 'Win', createdAt: 1, lastActiveAt: 1, sources: [{ id: 'win-p', hostId: 'a', path: winRoot }] };
   (ctx as any).toProjects = () => [project];
   rpc.mockResolvedValue({ kind: 'file', content: 'python code', contentEncoding: 'utf8', sizeBytes: 11, sha256: 'abc' });
 
-  // Relative path with forward slashes
+  // Relative path with forward slashes resolved using win32 path semantics
   const relResult = await readPluginProjectFile(ctx, {
     path: 'scripts/build-review-report.py',
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
@@ -116,13 +116,13 @@ it('resolves Windows drive paths and confines candidates safely', async () => {
     command: {
       type: 'host.read_path',
       rootPath: winRoot,
-      path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py'
+      path: win32.resolve(winRoot, 'scripts/build-review-report.py')
     }
   });
 
   // Relative path with backslashes
   await readPluginProjectFile(ctx, {
-    path: 'scripts\\build-review-report.py',
+    path: win32.join('scripts', 'build-review-report.py'),
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   });
   expect(rpc).toHaveBeenLastCalledWith({
@@ -130,13 +130,14 @@ it('resolves Windows drive paths and confines candidates safely', async () => {
     command: {
       type: 'host.read_path',
       rootPath: winRoot,
-      path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py'
+      path: win32.resolve(winRoot, 'scripts/build-review-report.py')
     }
   });
 
   // Absolute path inside the Windows root
+  const absWinPath = win32.join(winRoot, 'scripts', 'build-review-report.py');
   await readPluginProjectFile(ctx, {
-    path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py',
+    path: absWinPath,
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   });
   expect(rpc).toHaveBeenLastCalledWith({
@@ -144,13 +145,13 @@ it('resolves Windows drive paths and confines candidates safely', async () => {
     command: {
       type: 'host.read_path',
       rootPath: winRoot,
-      path: 'C:\\Dev\\checkout\\scripts\\build-review-report.py'
+      path: absWinPath
     }
   });
 
   // Absolute path with forward slashes inside the Windows root
   await readPluginProjectFile(ctx, {
-    path: 'C:/Dev/checkout/docs/readme.md',
+    path: 'C:/Users/dev/checkout/docs/readme.md',
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   });
   expect(rpc).toHaveBeenLastCalledWith({
@@ -158,31 +159,32 @@ it('resolves Windows drive paths and confines candidates safely', async () => {
     command: {
       type: 'host.read_path',
       rootPath: winRoot,
-      path: 'C:\\Dev\\checkout\\docs\\readme.md'
+      path: win32.resolve(winRoot, 'docs/readme.md')
     }
   });
 
-  // Rejects different drive letter
+  // Rejects different drive letter (D: vs C:)
+  const diffDrivePath = win32.join('D:\\OtherDrive\\checkout', 'scripts', 'build-review-report.py');
   await expect(readPluginProjectFile(ctx, {
-    path: 'D:\\Dev\\checkout\\scripts\\build-review-report.py',
+    path: diffDrivePath,
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   })).rejects.toThrow('File path is not inside the selected checkout');
 
   // Rejects drive-relative syntax (e.g. C:x.py)
   await expect(readPluginProjectFile(ctx, {
-    path: 'C:scripts/build-review-report.py',
+    path: 'C:build-review-report.py',
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   })).rejects.toThrow('File path is not inside the selected checkout');
 
   // Rejects parent traversal escape
   await expect(readPluginProjectFile(ctx, {
-    path: '..\\other\\file.py',
+    path: win32.join('..', 'other', 'file.py'),
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   })).rejects.toThrow('File path is not inside the selected checkout');
 
   // Rejects nested escape
   await expect(readPluginProjectFile(ctx, {
-    path: 'scripts\\..\\..\\outside.py',
+    path: win32.join('scripts', '..', '..', 'outside.py'),
     source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
   })).rejects.toThrow('File path is not inside the selected checkout');
 
@@ -200,7 +202,7 @@ it('resolves Windows drive paths and confines candidates safely', async () => {
     command: {
       type: 'host.write_file',
       rootPath: winRoot,
-      path: 'C:\\Dev\\checkout\\scripts\\new-report.py',
+      path: win32.resolve(winRoot, 'scripts/new-report.py'),
       content: 'print(1)',
       contentEncoding: 'utf8',
       expectedSha256: null,
@@ -259,16 +261,13 @@ it('resolves POSIX paths and rejects Windows paths or escapes against POSIX root
     }
   });
 
-  // Rejects Windows drive syntax on POSIX root (backslash and forward slash)
-  await expect(readPluginProjectFile(ctx, {
-    path: 'C:\\outside\\file.ts',
-    source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
-  })).rejects.toThrow('File path is not inside the selected checkout');
-
-  await expect(readPluginProjectFile(ctx, {
-    path: 'C:/outside/file.ts',
-    source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
-  })).rejects.toThrow('File path is not inside the selected checkout');
+  // Rejects Windows drive syntax on POSIX root (both backslash and forward slash)
+  for (const winDriveCandidate of ['C:\\outside\\file.ts', 'C:/outside/file.ts', 'D:\\data.json', 'D:/data.json']) {
+    await expect(readPluginProjectFile(ctx, {
+      path: winDriveCandidate,
+      source: { kind: 'workspace', projectId: 'posix-p', environmentId: null, threadId: null, hostId: 'a' }
+    })).rejects.toThrow('File path is not inside the selected checkout');
+  }
 
   // Rejects traversal escape on POSIX root
   await expect(readPluginProjectFile(ctx, {
