@@ -77,3 +77,31 @@ it('rejects missing owners, oversized writes, invalid revisions and paths before
   ctx.db.sqlite.prepare('UPDATE hosts SET is_primary = 0').run();
   await expect(readPluginProjectFile(ctx, { path: 'file.ts', source })).rejects.toThrow('no execution machine');
 });
+it('rejects over-long paths at validation instead of as a confinement failure', async () => {
+  const { ctx, source, rpc } = setup();
+  const tooLong = `${'d/'.repeat(512)}file.ts`;
+  expect(tooLong.length).toBeGreaterThan(1024);
+  await expect(readPluginProjectFile(ctx, { path: tooLong, source })).rejects.toThrow('<=1024 characters');
+  await expect(writePluginProjectFile(ctx, { path: tooLong, source, content: 'x', expectedSha256: null })).rejects.toThrow('<=1024 characters');
+  expect(rpc).not.toHaveBeenCalled();
+});
+it('resolves Windows drive paths without prepending process cwd', async () => {
+  const { ctx, rpc } = setup();
+  const winRoot = 'D:\\Dev\\checkout';
+  const project = { id: 'win-p', path: winRoot, hostId: 'a', name: 'Win', createdAt: 1, lastActiveAt: 1, sources: [{ id: 'win-p', hostId: 'a', path: winRoot }] };
+  (ctx as any).toProjects = () => [project];
+  rpc.mockResolvedValueOnce({ kind: 'file', content: 'python code', contentEncoding: 'utf8', sizeBytes: 11, sha256: 'abc' });
+  const result = await readPluginProjectFile(ctx, {
+    path: 'scripts/build-review-report.py',
+    source: { kind: 'workspace', projectId: 'win-p', environmentId: null, threadId: null, hostId: 'a' }
+  });
+  expect(result.content).toBe('python code');
+  expect(rpc).toHaveBeenCalledWith({
+    hostId: 'a',
+    command: {
+      type: 'host.read_path',
+      rootPath: winRoot,
+      path: 'D:\\Dev\\checkout\\scripts\\build-review-report.py'
+    }
+  });
+});

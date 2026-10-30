@@ -1,15 +1,16 @@
-import { posix } from 'node:path';
 import { z } from 'zod';
 import { getConversationThread, getEnvironment, getPrimaryHost } from '@zana-ai/zcc-db';
 import type { HostReadPathResult, HostWriteFileResult } from '@zana-ai/zcc-contracts/host-rpc';
 import type { ProductHttpContext } from './product-context.js';
 import { projectFileRoot } from './project-fs-via-host.js';
 import { isSafeRelPath } from './library-via-host.js';
+import { confinePathToRoot, threadPathApi } from '../services/threads/thread-path-confine.js';
 
 // BB monaco-editor resolveTarget, with Zana's authoritative project/source gate.
 const id = z.string().min(1).max(256);
 const file = z.object({
-  path: z.string().min(1).max(4096).refine(path => !/[\x00-\x1f]/.test(path)),
+  // Mirrors confinePathToRoot's MAX_REL_PATH so over-long paths fail validation, not confinement.
+  path: z.string().min(1).max(1024).refine(path => !/[\x00-\x1f]/.test(path)),
   source: z.object({ kind: z.enum(['workspace', 'host', 'thread-storage']), projectId: id.nullable(),
     environmentId: id.nullable(), threadId: id.nullable(), hostId: id.optional() }).strict()
 }).strict();
@@ -31,9 +32,10 @@ function resolveTarget(ctx: ProductHttpContext, input: z.infer<typeof file>) {
   if (!hostId) throw unsupported('This project has no execution machine');
   if (thread && thread.hostId !== hostId) throw new Error('File machine does not belong to the thread');
   const target = projectFileRoot(ctx, { projectId: project.id, hostId, ...(environmentId ? { environmentId } : {}) });
-  const path = posix.resolve(target.root, input.path);
-  const relPath = posix.relative(target.root, path);
-  if (!isSafeRelPath(relPath)) throw new Error('File path is not inside the selected checkout');
+  const paths = threadPathApi(target.root);
+  const relPath = confinePathToRoot(target.root, input.path);
+  if (!relPath || !isSafeRelPath(relPath)) throw new Error('File path is not inside the selected checkout');
+  const path = paths.resolve(target.root, relPath);
   return { hostId, path, rootPath: target.root };
 }
 
