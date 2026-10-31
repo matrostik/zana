@@ -97,18 +97,43 @@ export function ComposerTypeaheadMenu({
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<ReturnType<typeof placeTypeaheadMenu> | null>(null);
+  const lastPosition = useRef(position);
+  const positioned = position !== null;
   useLayoutEffect(() => {
     const anchor = anchorRef?.current;
     if (!anchor) return;
-    const update = () => setPosition(placeTypeaheadMenu(
-      anchor.getBoundingClientRect(),
-      { width: window.innerWidth, height: window.innerHeight },
-      Boolean(anchor.closest('.launch-modal, .thread-detail-view'))
-    ));
+    const viewport = window.visualViewport;
+    const update = () => {
+      const bounds = anchor.getBoundingClientRect();
+      const expanded = anchor.closest('[data-mobile-expanded="true"]');
+      // A fullscreen editor has no room outside its field. Let suggestions
+      // overlay its editing area, as the former expanded mobile CSS did.
+      const next = placeTypeaheadMenu(
+        expanded ? { left: bounds.left, width: bounds.width, top: bounds.top, bottom: bounds.top } : bounds,
+        {
+          width: viewport?.width ?? window.innerWidth,
+          height: viewport?.height ?? window.innerHeight,
+          offsetLeft: viewport?.offsetLeft,
+          offsetTop: viewport?.offsetTop,
+          layoutHeight: window.innerHeight
+        },
+        Boolean(anchor.closest('.launch-modal, .thread-detail-view, [data-mobile-expanded="true"]')) ||
+          Boolean(document.querySelector('.app-shell[data-mobile="true"]') && anchor.closest('.home-agent-composer'))
+      );
+      const previous = lastPosition.current;
+      if (previous &&
+        previous.left === next.left && previous.width === next.width &&
+        previous.top === next.top && previous.bottom === next.bottom &&
+        previous.maxHeight === next.maxHeight) return;
+      lastPosition.current = next;
+      setPosition(next);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(anchor);
     window.addEventListener('resize', update);
+    viewport?.addEventListener('resize', update);
+    viewport?.addEventListener('scroll', update);
     const onScroll = (event: Event) => {
       // Manual menu scrolling must not snap back to the keyboard selection.
       if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
@@ -120,6 +145,8 @@ export function ComposerTypeaheadMenu({
       observer.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', onScroll, true);
+      viewport?.removeEventListener('resize', update);
+      viewport?.removeEventListener('scroll', update);
     };
   }, [anchorRef]);
 
@@ -133,7 +160,7 @@ export function ComposerTypeaheadMenu({
     const top = bounds.top + (heading?.getBoundingClientRect().height ?? 0);
     if (row.bottom > bounds.bottom) menu.scrollTop += row.bottom - bounds.bottom;
     else if (row.top < top) menu.scrollTop += row.top - top;
-  }, [selectedIndex, suggestions, position]);
+  }, [selectedIndex, suggestions, positioned]);
 
   const sections = useMemo(() => {
     const grouped = new Map<SectionKind, TypeaheadSuggestion[]>();

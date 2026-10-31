@@ -21,4 +21,11 @@ describe('placeTypeaheadMenu', () => {
   it('never returns negative dimensions with an offscreen anchor or tiny viewport', () => {
     expect(placeTypeaheadMenu({ left: -100, top: -100, bottom: 700, width: 900 }, { width: 10, height: 10 }, false)).toEqual({ left: 8, width: 0, top: 8, maxHeight: 0 });
   });
+  it('confines both placements to a panned visual viewport within the layout viewport', () => {
+    const visible = { width: 390, height: 300, offsetLeft: 20, offsetTop: 180, layoutHeight: 800 };
+    expect(placeTypeaheadMenu({ left: 0, top: 400, bottom: 440, width: 500 }, visible, true))
+      .toEqual({ left: 28, width: 374, bottom: 408, maxHeight: 126 });
+    expect(placeTypeaheadMenu({ left: 0, top: 220, bottom: 260, width: 350 }, visible, true))
+      .toEqual({ left: 28, width: 350, top: 268, maxHeight: 126 });
+  });
 });
