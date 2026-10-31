@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { chromium, webkit, type Locator, type Page } from '@playwright/test';
+import type { Editor } from '@tiptap/core';
 import { test, expect } from './fixtures/app.js';
 import { startMobileGateway } from '../apps/server/src/mobile/gateway.js';
 
@@ -205,10 +206,9 @@ async function checkCompactComposer(page: Page, composer: Locator) {
   await editor.tap();
   await expect(editor).toBeFocused();
   await expect(editor).toHaveText(/First line\s*Second line\s*Third line/);
-  // Mobile WebKit does not reliably map desktop select-all modifiers. Select
-  // the editing contents explicitly, then exercise a real deletion event.
-  await editor.evaluate(node => window.getSelection()?.selectAllChildren(node));
-  await editor.press('Backspace');
+  // Reset fixture state through the editor transaction; mobile WebKit does not
+  // reliably translate desktop selection shortcuts into ProseMirror selections.
+  await editor.evaluate(node => (node as HTMLElement & { editor: Editor }).editor.commands.clearContent());
   await expect(editor).toHaveText('');
   await editor.evaluate((node) => node.blur());
 }
