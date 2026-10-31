@@ -205,7 +205,9 @@ async function checkCompactComposer(page: Page, composer: Locator) {
   await editor.tap();
   await expect(editor).toBeFocused();
   await expect(editor).toHaveText(/First line\s*Second line\s*Third line/);
-  await editor.press('ControlOrMeta+A');
+  // Mobile WebKit does not reliably map desktop select-all modifiers. Select
+  // the editing contents explicitly, then exercise a real deletion event.
+  await editor.evaluate(node => window.getSelection()?.selectAllChildren(node));
   await editor.press('Backspace');
   await expect(editor).toHaveText('');
   await editor.evaluate((node) => node.blur());
