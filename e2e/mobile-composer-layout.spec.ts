@@ -321,6 +321,11 @@ for (const engine of [chromium, webkit]) {
         for (const width of [320, 390]) {
           await page.setViewportSize({ width, height: 844 });
           await checkCompactComposer(page, composer);
+          if (route === `/threads/${threadId}`) {
+            // Width changes rewrap the transcript even if its pane height stays fixed.
+            await expect.poll(() => page.getByTestId('thread-timeline').evaluate(node =>
+              node.scrollHeight - node.clientHeight - node.scrollTop)).toBeLessThanOrEqual(1);
+          }
           await page.screenshot({ path: testInfo.outputPath(`compact-${route === '/' ? 'home' : route.includes('new') ? 'new' : 'reply'}-${width}.png`) });
         }
         await editor.fill('Draft stays visible above the keyboard');
