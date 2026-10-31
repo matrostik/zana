@@ -1,3 +1,4 @@
+import { registerThreadContextControls, notifyThreadSubmitted } from '../plugins/thread-context-target.js';
 import { z } from 'zod';
 import { promptInputSchema, type PromptInput } from '@zana-ai/zcc-domain/thread-runtime';
 import type { ContextReference } from '@zana-ai/zcc-plugin-sdk/app';
@@ -653,6 +654,7 @@ function ThreadComposerContent({
           }
         }
         field.clearIfRevision(revision);
+      if (threadId) notifyThreadSubmitted(threadId);
       } catch (error) {
         // The capture retains audio and the frozen submission for Retry.
         // Inserting text here would send the transcript twice on retry.
@@ -675,6 +677,7 @@ function ThreadComposerContent({
       try {
         await submitComposerTerminalCommand({ text: serialized.text, imageCount: field.images.length, runTerminal: onRunTerminal });
         field.clearIfRevision(revision);
+      if (threadId) notifyThreadSubmitted(threadId);
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Could not open terminal');
       } finally {
@@ -761,6 +764,7 @@ function ThreadComposerContent({
             acpMode: selectedComposerMode?.usesSlashPlan ? undefined : selectedComposerMode?.nativeValue
           });
           field.clearIfRevision(revision);
+          notifyThreadSubmitted(threadId);
           dispatchThreadMessageSent(threadId);
         } catch (error) {
           dispatchOptimisticUserMessage(threadId, null);
@@ -912,6 +916,7 @@ function ThreadComposerContent({
     </ComposerRunSettings>
   ) : undefined;
 
+  useEffect(() => threadId ? registerThreadContextControls(threadId, {update:field.updateContextReference,focus:field.focus}) : undefined, [threadId,field.updateContextReference,field.focus]);
   return (
     <>
     <PluginComposerChrome
