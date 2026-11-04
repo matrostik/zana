@@ -48,6 +48,84 @@ async function expectReplyUncovered(timeline: Locator) {
   })).toBe(true);
 }
 
+// Hit-test where the pinned prompt overlaps its reply: the opaque prompt must be on top.
+async function expectPromptOverReply(timeline: Locator) {
+  await expect.poll(() => timeline.evaluate((pane) => {
+    const prompt = pane.querySelector<HTMLElement>('.thread-timeline-current-turn:last-child > .thread-timeline-item.is-user');
+    const replies = pane.querySelectorAll<HTMLElement>('[data-testid="thread-assistant-text"]');
+    const reply = replies[replies.length - 1];
+    if (!prompt || !reply) return 'missing';
+    const p = prompt.getBoundingClientRect();
+    const r = reply.getBoundingClientRect();
+    const y = p.top + p.height / 2;
+    if (r.top >= y) return 'reply not under prompt';
+    const hit = document.elementFromPoint(r.left + 30, y);
+    return prompt.contains(hit) ? 'prompt' : reply.contains(hit) ? 'reply' : `other:${hit?.className}`;
+  })).toBe('prompt');
+}
+
+// Hover a visible part of the reply below the pinned prompt.
+async function hoverReplyBelowPrompt(app: AppHandle, timeline: Locator) {
+  const point = await timeline.evaluate((pane) => {
+    const prompt = pane.querySelector<HTMLElement>('.thread-timeline-current-turn:last-child > .thread-timeline-item.is-user')!;
+    const replies = pane.querySelectorAll<HTMLElement>('[data-testid="thread-assistant-text"]');
+    const reply = replies[replies.length - 1]!.getBoundingClientRect();
+    return { x: reply.left + 30, y: prompt.getBoundingClientRect().bottom + 24 };
+  });
+  await app.window.mouse.move(point.x, point.y);
+}
+
+test('expanding the composer keeps the pinned prompt above its reply (#669)', async ({ app }, testInfo) => {
+  const { window } = app;
+  await window.setViewportSize({ width: 1100, height: 1400 });
+  const { detail, threadId } = await openThread(app);
+  const timeline = detail.getByTestId('thread-timeline');
+  const prompt = Array.from({ length: 40 }, (_, i) => `- Missing record ${i + 1}: drupal-${1000 + i} / sf-${2000 + i}`).join('\n');
+  await detail.getByTestId('thread-command-input').fill(prompt);
+  await detail.getByTestId('thread-command-send').click();
+  await expect(timeline.getByTestId('thread-assistant-text').last()).toContainText('Missing record 40');
+  await waitForCompletion(app, threadId);
+  const userItem = timeline.getByTestId('thread-user-text').last().locator('..');
+  await expect(userItem.getByRole('button', { name: 'Show more', exact: true })).toBeVisible();
+  await expect(userItem).toHaveCSS('position', 'sticky');
+
+  const expand = detail.getByTestId('thread-command-expand');
+  for (const expanded of ['true', 'false'] as const) {
+    const before = await timeline.evaluate((pane) => pane.clientHeight);
+    await expand.click();
+    await expect(expand).toHaveAttribute('aria-expanded', expanded);
+    await expect.poll(() => timeline.evaluate((pane) => pane.clientHeight))[expanded === 'true' ? 'toBeLessThan' : 'toBeGreaterThan'](before);
+    await timeline.evaluate((pane) => { pane.scrollTop = pane.scrollHeight; });
+    await expect(userItem).toHaveCSS('position', 'sticky');
+    await expectPromptOverReply(timeline);
+    await hoverReplyBelowPrompt(app, timeline);
+    await expectPromptOverReply(timeline);
+    if (expanded === 'true') {
+      await captureElectronScreenshot(app.electron, app.window, testInfo.outputPath('expanded-composer-prompt.png'), detail);
+    }
+    await expectReplyUncovered(timeline);
+  }
+});
+
+test('hovered reply actions stay above the next turn prompt', async ({ app }) => {
+  const { detail, threadId } = await openThread(app);
+  const timeline = detail.getByTestId('thread-timeline');
+  await detail.getByTestId('thread-command-input').fill('Second turn');
+  await detail.getByTestId('thread-command-send').click();
+  await expect(timeline.getByTestId('thread-assistant-text').last()).toContainText('Response to: Second turn');
+  await waitForCompletion(app, threadId);
+  await timeline.evaluate((pane) => { pane.scrollTop = 0; });
+  const firstReply = timeline.getByTestId('thread-assistant-text').first();
+  await firstReply.hover();
+  const actions = firstReply.locator('xpath=ancestor::*[contains(@class,"thread-timeline-item")][1]').locator('.thread-message-actions');
+  await expect(actions).toHaveCSS('opacity', '1');
+  await expect.poll(() => actions.evaluate((bar) => {
+    const button = bar.querySelector('button') ?? bar;
+    const rect = button.getBoundingClientRect();
+    return bar.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+  })).toBe(true);
+});
+
 test('sticky prompt backing blends into the thread sheet in both themes', async ({ app }) => {
   const { detail } = await openThread(app);
   const promptItem = detail.getByTestId('thread-user-text').first().locator('..');

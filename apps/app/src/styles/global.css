@@ -36108,10 +36108,11 @@ body.split-frame-guard webview {
   width: 100%;
 }
 
-/* Message actions extend below their row and must stay above the next sticky prompt. */
+/* A hovered row clears its siblings for its message actions, but stays below
+   its own turn's pinned prompt (z-index 4) so the reply never paints through it. */
 .thread-timeline-item:hover,
 .thread-timeline-item:focus-within {
-  z-index: 5;
+  z-index: 3;
 }
 
 .thread-timeline-item.is-user,
@@ -36119,9 +36120,19 @@ body.split-frame-guard webview {
   align-items: flex-start;
 }
 
+/* Each turn is its own stacking context, so row z-indexes compete only inside
+   the turn. Sticky still pins to the pane scroller. */
 .thread-timeline-current-turn {
+  position: relative;
+  z-index: 0;
   display: block;
   width: 100%;
+}
+
+/* Message actions extend below their turn and must stay above the next turn's prompt. */
+.thread-timeline-current-turn:hover,
+.thread-timeline-current-turn:focus-within {
+  z-index: 1;
 }
 
 .thread-timeline-current-turn > * + * {
